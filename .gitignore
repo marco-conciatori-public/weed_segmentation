@@ -1,1 +1,19 @@
+# IDE
 .idea
+
+# Environment
+.venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+
+# Data and training outputs (large, not versioned)
+data/
+runs/
+outputs/
+checkpoints/
+*.pt
+*.pth
+*.onnx
