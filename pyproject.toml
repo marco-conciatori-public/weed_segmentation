@@ -1,5 +1,57 @@
 [project]
 name = "weed-segmentation"
 version = "0.1.0"
-requires-python = ">=3.14"
-dependencies = []
+description = "Weed detection and species recognition for robotic precision weeding"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # Deep learning
+    "torch",
+    "torchvision",
+    # Images, annotations and augmentation
+    "numpy",
+    "pillow",
+    "opencv-python-headless",
+    "pycocotools",
+    "albumentations",
+    "shapely",
+    # Data handling and utilities
+    "pandas",
+    "pyyaml",
+    "tqdm",
+    "requests",
+    "huggingface-hub",
+    # Visualisation and metrics
+    "matplotlib",
+    "scikit-learn",
+    "tensorboard",
+]
+
+[project.optional-dependencies]
+# AGPL-3.0: fine for R&D baselines, needs a commercial licence for a shipped product.
+yolo = ["ultralytics"]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+    "jupyterlab",
+    "ipywidgets",
+]
+
+[tool.uv]
+default-groups = ["dev"]
+
+# PyTorch CUDA builds on Windows/Linux. Change the index (e.g. cu126, cu129, cpu)
+# to match the training machine's driver once its specs are known.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu128", marker = "sys_platform == 'win32' or sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cu128", marker = "sys_platform == 'win32' or sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
