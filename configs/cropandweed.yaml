@@ -1,0 +1,44 @@
+# CropAndWeed dataset (Steininger et al., WACV 2023): download and conversion to COCO.
+# Used by scripts/download_cropandweed.py and scripts/convert_cropandweed.py.
+# Relative paths are resolved against the project root. See docs/datasets/cropandweed.md.
+
+# Where the original archives are extracted (images/, bboxes/, labelIds/, params/).
+raw_dir: data/raw/cropandweed
+
+download:
+  url_prefix: https://vitro-testing.com/wp-content/uploads/2022/12/
+  # cropandweed_annotations is ~110 MB; each images part is ~3 GB (~12 GB in total).
+  parts:
+    - cropandweed_annotations
+    - cropandweed_images1of4
+    - cropandweed_images2of4
+    - cropandweed_images3of4
+    - cropandweed_images4of4
+  # Skip a part when its marker file from a previous successful download exists.
+  skip_existing: true
+
+convert:
+  output_dir: data/processed/cropandweed
+  label_map: configs/label_maps/cropandweed.csv
+  # Label-map column that defines the COCO categories: species (EPPO codes), fine24,
+  # crops_or_weed9 or crop_or_weed2. Instances whose label has no value in this column
+  # (and the dataset's own "Vegetation" fallback) become ignore regions.
+  taxonomy: species
+  # Derive per-instance masks from the semantic masks. False writes boxes only.
+  instance_masks: true
+  # Some masks contain plants without a box. Regions of at least this many pixels become
+  # ignore regions (iscrowd), so they are not learned as background. null disables this.
+  # 256 = 16x16 px, the dataset's own minimum size for an annotated plant.
+  unboxed_min_area: 256
+  # Images with an empty box file show no plants (negative samples); keep them as images
+  # without annotations.
+  keep_negative_images: true
+  # Only convert images whose file exists (useful when only some image parts are downloaded).
+  require_image_file: true
+  # Split by recording session (file-name prefix such as "vwg-0328"), never by image.
+  split:
+    seed: 0
+    fractions: {train: 0.70, val: 0.15, test: 0.15}
+  # Not given by the dataset. Estimate from the paper: full-frame sensor (36 mm wide),
+  # 50 mm lens, ~1.1 m height -> ~792 mm footprint over 1920 px = ~0.41 mm/px.
+  mm_per_px_estimate: 0.41
