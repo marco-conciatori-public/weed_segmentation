@@ -10,10 +10,10 @@ __pycache__/
 .ruff_cache/
 
 # Data and training outputs (large, not versioned)
-data/
-runs/
-outputs/
-checkpoints/
+/data/
+/runs/
+/outputs/
+/checkpoints/
 *.pt
 *.pth
 *.onnx
