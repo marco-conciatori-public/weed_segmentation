@@ -20,9 +20,11 @@ download:
 convert:
   output_dir: data/processed/cropandweed
   label_map: configs/label_maps/cropandweed.csv
-  # Label-map column that defines the COCO categories: species (EPPO codes), fine24,
-  # crops_or_weed9 or crop_or_weed2. Instances whose label has no value in this column
-  # (and the dataset's own "Vegetation" fallback) become ignore regions.
+  eppo_taxa: configs/eppo_taxa.csv
+  # What defines the COCO categories: a label-map column (species = EPPO codes, fine24,
+  # crops_or_weed9, crop_or_weed2) or an EPPO rank taken from eppo_taxa (genus, family,
+  # order). Instances whose label has no value (and the dataset's own "Vegetation"
+  # fallback) become ignore regions.
   taxonomy: species
   # Derive per-instance masks from the semantic masks. False writes boxes only.
   instance_masks: true

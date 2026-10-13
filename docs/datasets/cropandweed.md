@@ -130,6 +130,19 @@ but **the public download contains only the four `params` values**.
   - `fine24`: the authors' 8 crop + 16 weed groups. Some species are left out (e.g.
     courgette, cowslip, purslane, cleavers, wild pansy) and become ignore regions.
   - `crops_or_weed9`, `crop_or_weed2`: coarser variants from the paper.
+  - `genus`, `family`, `order`: weeds grouped by EPPO taxonomy, crops kept as species
+    (see [../data-format.md](../data-format.md)).
+
+  | Taxonomy | Categories with data | of which under 100 instances |
+  |---|---|---|
+  | species | 73 | 20 |
+  | genus | 63 | 17 |
+  | family | 32 | 8 |
+  | order | 26 | 7 |
+
+  Counts are over the whole dataset (not per split), Vegetation excluded. Grouping by
+  family more than halves the classes and removes most of the rare ones. The remaining
+  rare classes are mostly crops, which are never grouped.
 
 Quirks inherited from the upstream mappings (kept as they are, for comparability):
 - Crop **poppy** (*Papaver*, label 22) is put in the `fine24` group `poppy` together with the
@@ -140,8 +153,8 @@ Quirks inherited from the upstream mappings (kept as they are, for comparability
 ## Open questions
 
 1. **Which crops and weed species matter to NeutraWeed?** This decides the taxonomy for the
-   prototype: the full species list, `fine24`, or a custom grouping made by adding a column
-   to the label map. Are the crops in CropAndWeed (maize, sugar beet, soy, sunflower, beans,
+   prototype: species, genus or family (EPPO-based), `fine24`, or a custom grouping made by
+   adding a column to the label map. Are the crops in CropAndWeed (maize, sugar beet, soy, sunflower, beans,
    pea, potato, pumpkin) relevant to our fields?
 2. **Target resolution.** What mm/px will the robot's camera deliver? CropAndWeed is ~0.41
    mm/px. Bringing it to ~1 mm/px shrinks the image ~2.4x, and the smallest annotated

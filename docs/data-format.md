@@ -44,13 +44,23 @@ Standard COCO fields, plus these extras:
 ## Categories and taxonomies
 
 - Each dataset has a label-map CSV with one row per source label. It has the columns
-  `source_label`, `role` (crop/weed), `eppo`, `scientific_name`, ... and one column per
-  **taxonomy** (a class grouping). The conversion config picks the taxonomy column.
+  `source_label`, `role` (crop/weed), `eppo`, `eppo_note`, `scientific_name`, ... and
+  optionally one column per dataset-specific **taxonomy** (a class grouping). The
+  conversion config picks the taxonomy.
 - The `species` taxonomy uses **EPPO codes** as category names (e.g. `CHEAL` =
-  *Chenopodium album*). That gives every dataset the same key for the same species. Genus-level
-  labels use EPPO genus codes (e.g. `1GERG` = *Geranium*).
-- Coarser taxonomies (e.g. CropAndWeed's `fine24`) merge species into groups. Choosing a
-  coarser grouping only takes a re-conversion, never relabelling.
+  *Chenopodium album*). That gives every dataset the same key for the same species.
+  Genus-level labels use EPPO genus codes (e.g. `1GERG` = *Geranium*).
+- The taxonomies **`genus`, `family` and `order`** work for every dataset without extra
+  columns. They group weeds by their EPPO taxonomy ([reference-data.md](reference-data.md)),
+  which handles rare species and datasets labelled at different levels (*Poa* vs *Poa
+  annua*).
+  - **Crops are never grouped.** They keep their own code, since a crop must never share
+    a class with a weed (by family, maize would join the grass weeds and sugar beet the
+    goosefoots).
+  - A weed whose group is also a crop's code keeps its own code too (e.g. crop poppy
+    labelled *Papaver* vs the weed *Papaver rhoeas*).
+- Dataset-specific groupings (e.g. CropAndWeed's `fine24`) are label-map columns.
+  Choosing a coarser grouping only takes a re-conversion, never relabelling.
 
 ## Ignore regions
 

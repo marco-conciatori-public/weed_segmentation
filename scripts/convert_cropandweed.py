@@ -7,6 +7,7 @@ from tqdm import tqdm
 from weedseg.config import load_config
 from weedseg.data import cropandweed
 from weedseg.data.coco import LabelMap, split_by_group, to_coco, write_json
+from weedseg.eppo import load_taxa
 from weedseg.paths import resolve
 
 CONFIG = "configs/cropandweed.yaml"
@@ -17,7 +18,8 @@ def main() -> None:
     raw_dir = resolve(config["raw_dir"])
     settings = config["convert"]
     output_dir = resolve(settings["output_dir"]) / settings["taxonomy"]
-    label_map = LabelMap(resolve(settings["label_map"]), settings["taxonomy"])
+    label_map = LabelMap(resolve(settings["label_map"]), settings["taxonomy"],
+                         load_taxa(resolve(settings["eppo_taxa"])))
 
     names = cropandweed.image_names(raw_dir, settings["keep_negative_images"],
                                     settings["require_image_file"])

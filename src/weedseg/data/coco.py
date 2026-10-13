@@ -16,6 +16,8 @@ from typing import Any
 import numpy as np
 from pycocotools import mask as mask_utils
 
+from weedseg.eppo import PARENT_RANKS
+
 IGNORE_CATEGORY = "ignore"
 
 
@@ -47,13 +49,29 @@ class LabelMap:
     Required columns: `source_label`, `role` (crop/weed) and one column per taxonomy whose
     values are category names. An empty taxonomy value marks labels to be ignored. Any other
     columns (common name, scientific name, ...) are kept for the category metadata.
+
+    The taxonomies `genus`, `family` and `order` need no column: they come from the `eppo`
+    column and the EPPO taxa table (`taxa`, see weedseg.eppo.load_taxa). They group weeds
+    only; crops keep their own EPPO code, since a crop must never share a class with a
+    weed (by family, maize would join the grass weeds).
     """
 
-    def __init__(self, path: Path, taxonomy: str):
+    def __init__(self, path: Path, taxonomy: str,
+                 taxa: dict[str, dict[str, str]] | None = None):
         with open(path, newline="", encoding="utf-8") as f:
             self.rows = {row["source_label"]: row for row in csv.DictReader(f)}
         first = next(iter(self.rows.values()))
-        if taxonomy not in first:
+        if taxonomy not in first and taxonomy in PARENT_RANKS:
+            if taxa is None:
+                raise ValueError(f"Taxonomy {taxonomy!r} needs the EPPO taxa table")
+            crops = {row["eppo"] for row in self.rows.values() if row["role"] == "crop"}
+            for row in self.rows.values():
+                group = taxa[row["eppo"]][taxonomy] if row["eppo"] else ""
+                # A weed whose group is also a crop's code (crop labelled at genus level,
+                # e.g. poppy) keeps its own code.
+                keep = not row["eppo"] or row["role"] == "crop" or group in crops
+                row[taxonomy] = row["eppo"] if keep else group
+        elif taxonomy not in first:
             raise KeyError(f"Taxonomy column {taxonomy!r} not in {path}")
         self.taxonomy = taxonomy
 
