@@ -2434,7 +2434,7 @@ wheels = [
 [[package]]
 name = "weed-segmentation"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "albumentations" },
     { name = "huggingface-hub" },

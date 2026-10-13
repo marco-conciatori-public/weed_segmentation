@@ -26,6 +26,15 @@ dependencies = [
     "tensorboard",
 ]
 
+# Building the package makes `uv sync` install `src/weedseg` in editable mode, so scripts can
+# `import weedseg` whatever the working directory.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/weedseg"]
+
 [project.optional-dependencies]
 # AGPL-3.0: fine for R&D baselines, needs a commercial licence for a shipped product.
 yolo = ["ultralytics"]
