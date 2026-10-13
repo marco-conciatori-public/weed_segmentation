@@ -32,9 +32,11 @@ def download_and_extract_tar(url: str, dest: Path, marker: Path | None = None) -
         response.raise_for_status()
         total = int(response.headers.get("Content-Length", 0)) or None
         response.raw.decode_content = True
-        with tqdm(total=total, unit="B", unit_scale=True, desc=url.rsplit("/", 1)[-1]) as bar:
-            with tarfile.open(fileobj=_ProgressReader(response.raw, bar), mode="r|") as archive:
-                archive.extractall(dest, filter="data")
+        with (
+            tqdm(total=total, unit="B", unit_scale=True, desc=url.rsplit("/", 1)[-1]) as bar,
+            tarfile.open(fileobj=_ProgressReader(response.raw, bar), mode="r|") as archive,
+        ):
+            archive.extractall(dest, filter="data")
     if marker is not None:
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.touch()

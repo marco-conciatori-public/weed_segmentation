@@ -11,14 +11,12 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any
 
 import numpy as np
 from pycocotools import mask as mask_utils
 
 IGNORE_CATEGORY = "ignore"
-
-T = TypeVar("T")
 
 
 @dataclass
@@ -92,8 +90,8 @@ def _role(rows: list[dict[str, str]]) -> str:
     return roles.pop() if len(roles) == 1 else "mixed"
 
 
-def split_by_group(items: list[T], group_of: Callable[[T], str], fractions: dict[str, float],
-                   seed: int) -> dict[str, list[T]]:
+def split_by_group[T](items: list[T], group_of: Callable[[T], str],
+                      fractions: dict[str, float], seed: int) -> dict[str, list[T]]:
     """Assign whole groups to splits so each split gets about its fraction of the items."""
     by_group: dict[str, list[T]] = defaultdict(list)
     for item in items:

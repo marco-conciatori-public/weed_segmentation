@@ -91,7 +91,13 @@ names from the supplement. Our copy, with EPPO codes and class groupings, is
 - `name_source = inferred`: the label is defined in the code but has no annotations and no
   scientific name in the paper; we inferred the name from the common name. All these labels
   have **zero instances** in the data, so mistakes there don't matter now.
-- All EPPO codes were looked up in the EPPO Global Database on 2026-10-13.
+- EPPO codes are checked automatically against the EPPO taxa table
+  ([../reference-data.md](../reference-data.md)). All 88 codes are active. Where the
+  paper's name differs from EPPO's, it is either an EPPO synonym (e.g. *Cyanus segetum*
+  for `CENCY`, accepted name *Centaurea cyanus*), or explained in `eppo_note`:
+  - sugar beet: `BEAVA` is the sugar-beet variety; the paper names the subspecies,
+  - "*Polygonum aviculare* agg.": the aggregate; we use the species code,
+  - "*Taraxacum* sect. Ruderalia": a section, which has no EPPO code; we use the genus.
 
 The paper mentions time stamps, GPS coordinates and camera parameters as meta-annotations,
 but **the public download contains only the four `params` values**.

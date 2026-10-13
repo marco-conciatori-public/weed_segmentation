@@ -1,101 +1,101 @@
-source_label,common_name,scientific_name,name_source,eppo,role,species,fine24,crops_or_weed9,crop_or_weed2
-1,Maize,Zea mays,paper_supplement,ZEAMX,crop,ZEAMX,maize,maize,crop
-2,Maize two-leaf stage,Zea mays,paper_supplement,ZEAMX,crop,ZEAMX,maize,maize,crop
-3,Maize four-leaf stage,Zea mays,paper_supplement,ZEAMX,crop,ZEAMX,maize,maize,crop
-4,Maize six-leaf stage,Zea mays,paper_supplement,ZEAMX,crop,ZEAMX,maize,maize,crop
-5,Maize eight-leaf stage,Zea mays,paper_supplement,ZEAMX,crop,ZEAMX,maize,maize,crop
-6,Maize max,Zea mays,paper_supplement,ZEAMX,crop,ZEAMX,maize,maize,crop
-7,Sugar beet,Beta vulgaris subsp. vulgaris,paper_supplement,BEAVA,crop,BEAVA,sugar_beet,sugar_beet,crop
-8,Sugar beet two-leaf stage,Beta vulgaris subsp. vulgaris,paper_supplement,BEAVA,crop,BEAVA,sugar_beet,sugar_beet,crop
-9,Sugar beet four-leaf stage,Beta vulgaris subsp. vulgaris,paper_supplement,BEAVA,crop,BEAVA,sugar_beet,sugar_beet,crop
-10,Sugar beet six-leaf stage,Beta vulgaris subsp. vulgaris,paper_supplement,BEAVA,crop,BEAVA,sugar_beet,sugar_beet,crop
-11,Sugar beet eight-leaf stage,Beta vulgaris subsp. vulgaris,paper_supplement,BEAVA,crop,BEAVA,sugar_beet,sugar_beet,crop
-12,Sugar beet Max,Beta vulgaris subsp. vulgaris,paper_supplement,BEAVA,crop,BEAVA,sugar_beet,sugar_beet,crop
-13,Pea,Pisum sativum,paper_supplement,PIBSX,crop,PIBSX,pea,pea,crop
-14,Courgette,Cucurbita pepo,paper_supplement,CUUPE,crop,CUUPE,,,
-15,Pumpkins,Cucurbita,paper_supplement,1CUUG,crop,1CUUG,pumpkin,pumpkin,crop
-16,Radish,Raphanus sativus,inferred,RAPSR,crop,RAPSR,,,
-17,Asparagus,Asparagus officinalis,inferred,ASPOF,crop,ASPOF,,,
-18,Potato,Solanum tuberosum,paper_supplement,SOLTU,crop,SOLTU,potato,potato,crop
-19,Flat leaf parsley,Petroselinum crispum,paper_supplement,PARCR,crop,PARCR,,,
-20,Curly leaf parsley,Petroselinum crispum,paper_supplement,PARCR,crop,PARCR,,,
-21,Cowslip,Primula veris,paper_supplement,PRIVE,crop,PRIVE,,,
-22,Poppy,Papaver,paper_supplement,1PAPG,crop,1PAPG,poppy,weed,weed
-23,Hemp,Cannabis sativa,inferred,CNISA,crop,CNISA,,,
-24,Sunflower,Helianthus annuus,paper_supplement,HELAN,crop,HELAN,sunflower,sunflower,crop
-25,Sage,Salvia,paper_supplement,1SALG,crop,1SALG,,,
-26,Common bean,Phaseolus vulgaris,paper_supplement,PHSVX,crop,PHSVX,bean,bean,crop
-27,Faba bean,Vicia faba,paper_supplement,VICFX,crop,VICFX,bean,bean,crop
-28,Clover,Trifolium,inferred,1TRFG,crop,1TRFG,,,
-29,Hybrid goosefoot,Chenopodiastrum hybridum,paper_supplement,CHEHY,weed,CHEHY,goosefoot,weed,weed
-30,Black-bindweed,Fallopia convolvulus,paper_supplement,POLCO,weed,POLCO,knotweed,weed,weed
-31,Cockspur grass,Echinochloa crus-galli,paper_supplement,ECHCG,weed,ECHCG,grasses,weed,weed
-32,Red-root amaranth,Amaranthus retroflexus,paper_supplement,AMARE,weed,AMARE,amaranth,weed,weed
-33,White goosefoot,Chenopodium album,paper_supplement,CHEAL,weed,CHEAL,goosefoot,weed,weed
-34,Thorn apple,Datura stramonium,paper_supplement,DATST,weed,DATST,solanales,weed,weed
-35,Potato weed,Galinsoga parviflora,paper_supplement,GASPA,weed,GASPA,potato_weed,weed,weed
-36,German chamomile,Matricaria chamomilla,paper_supplement,MATCH,weed,MATCH,chamomile,weed,weed
-37,Saltbush,Atriplex,inferred,1ATXG,weed,1ATXG,goosefoot,weed,weed
-38,Creeping thistle,Cirsium arvense,paper_supplement,CIRAR,weed,CIRAR,thistle,weed,weed
-39,Field milk thistle,Sonchus arvensis,paper_supplement,SONAR,weed,SONAR,thistle,weed,weed
-40,Purslane,Portulaca oleracea,paper_supplement,POROL,weed,POROL,,,
-41,Black nightshade,Solanum nigrum,paper_supplement,SOLNI,weed,SOLNI,solanales,weed,weed
-42,Mercuries,Mercurialis,paper_supplement,1MERG,weed,1MERG,mercuries,weed,weed
-43,Spurge,Euphorbia,inferred,1EPHG,weed,1EPHG,,,
-44,Pale persicaria,Persicaria lapathifolia,inferred,POLLA,weed,POLLA,knotweed,weed,weed
-45,Geraniums,Geranium,paper_supplement,1GERG,weed,1GERG,geranium,weed,weed
-46,Cleavers,Galium aparine,paper_supplement,GALAP,weed,GALAP,,,
-47,Whitetop,Lepidium draba,inferred,CADDR,weed,CADDR,crucifer,weed,weed
-48,Meadow-grass,Poa,paper_supplement,1POAG,weed,1POAG,grasses,weed,weed
-49,Frosted orach,Atriplex laciniata,paper_supplement,ATXLA,weed,ATXLA,goosefoot,weed,weed
-50,Black horehound,Ballota nigra,paper_supplement,BLLNI,weed,BLLNI,labiate,weed,weed
-51,Shepherds purse,Capsella bursa-pastoris,paper_supplement,CAPBP,weed,CAPBP,crucifer,weed,weed
-52,Field bindweed,Convolvulus arvensis,paper_supplement,CONAR,weed,CONAR,solanales,weed,weed
-53,Common mugwort,Artemisia vulgaris,paper_supplement,ARTVU,weed,ARTVU,,,
-54,Hedge mustard,Sisymbrium,paper_supplement,1SSYG,weed,1SSYG,crucifer,weed,weed
-55,Groundsel,Senecio vulgaris,inferred,SENVU,weed,SENVU,,,
-56,Speedwell,Veronica,paper_supplement,1VERG,weed,1VERG,plantago,weed,weed
-57,Broadleaf plantain,Plantago major,paper_supplement,PLAMA,weed,PLAMA,plantago,weed,weed
-58,White ball-mustard,Calepina irregularis,paper_supplement,CPAIR,weed,CPAIR,crucifer,weed,weed
-59,Peppermint,Mentha x piperita,paper_supplement,MENPI,weed,MENPI,labiate,weed,weed
-60,Field pennycress,Thlaspi arvense,paper_supplement,THLAR,weed,THLAR,crucifer,weed,weed
-61,Corn spurry,Spergula arvensis,paper_supplement,SPRAR,weed,SPRAR,corn_spurry,weed,weed
-62,Purple crabgrass,Digitaria sanguinalis,paper_supplement,DIGSA,weed,DIGSA,grasses,weed,weed
-63,Common fumitory,Fumaria officinalis,paper_supplement,FUMOF,weed,FUMOF,poppy,weed,weed
-64,Ivy-leaved speedwell,Veronica hederifolia,paper_supplement,VERHE,weed,VERHE,plantago,weed,weed
-65,Annual meadow grass,Poa annua,paper_supplement,POAAN,weed,POAAN,grasses,weed,weed
-66,Redshank,Persicaria maculosa,paper_supplement,POLPE,weed,POLPE,knotweed,weed,weed
-67,Common hemp-nettle,Galeopsis tetrahit,inferred,GAETE,weed,GAETE,labiate,weed,weed
-68,Rough meadow-grass,Poa trivialis,paper_supplement,POATR,weed,POATR,grasses,weed,weed
-69,Green bristlegrass,Setaria viridis,paper_supplement,SETVI,weed,SETVI,grasses,weed,weed
-70,Small geranium,Geranium pusillum,paper_supplement,GERPU,weed,GERPU,geranium,weed,weed
-71,Cornflower,Cyanus segetum,paper_supplement,CENCY,weed,CENCY,thistle,weed,weed
-72,Common corn-cockle,Agrostemma githago,paper_supplement,AGOGI,weed,AGOGI,thistle,weed,weed
-73,Creeping crowfoot,Ranunculus repens,inferred,RANRE,weed,RANRE,,,
-74,Wall barley,Hordeum murinum,paper_supplement,HORMU,weed,HORMU,grasses,weed,weed
-75,Annual fescue,Festuca myuros,paper_supplement,VLPMY,weed,VLPMY,grasses,weed,weed
-76,Purple dead-nettle,Lamium purpureum,paper_supplement,LAMPU,weed,LAMPU,labiate,weed,weed
-77,Ribwort plantain,Plantago lanceolata,paper_supplement,PLALA,weed,PLALA,plantago,weed,weed
-78,Pineappleweed,Matricaria discoidea,paper_supplement,MATMT,weed,MATMT,chamomile,weed,weed
-79,Common chickweed,Stellaria media,paper_supplement,STEME,weed,STEME,chickweed,weed,weed
-80,Hedge mustard,Sisymbrium officinale,paper_supplement,SSYOF,weed,SSYOF,crucifer,weed,weed
-81,Soft brome,Bromus hordeaceus,paper_supplement,BROMO,weed,BROMO,grasses,weed,weed
-82,Wild pansy,Viola tricolor,paper_supplement,VIOTR,weed,VIOTR,,,
-83,Yellow rocket,Barbarea vulgaris,paper_supplement,BARVU,weed,BARVU,crucifer,weed,weed
-84,Common wild oat,Avena fatua,paper_supplement,AVEFA,weed,AVEFA,grasses,weed,weed
-85,Red poppy,Papaver rhoeas,paper_supplement,PAPRH,weed,PAPRH,poppy,weed,weed
-86,Rye brome,Bromus secalinus,paper_supplement,BROSE,weed,BROSE,grasses,weed,weed
-87,Knotgrass,Polygonum aviculare agg.,paper_supplement,POLAV,weed,POLAV,knotweed,weed,weed
-88,Prickly lettuce,Lactuca serriola,paper_supplement,LACSE,weed,LACSE,thistle,weed,weed
-89,Copse-bindweed,Fallopia dumetorum,paper_supplement,BIKDU,weed,BIKDU,knotweed,weed,weed
-90,Manyseeds,Polycarpon tetraphyllum,inferred,POYTE,weed,POYTE,,,
-91,Common buckwheat,Fagopyrum esculentum,paper_supplement,FAGES,weed,FAGES,knotweed,weed,weed
-92,Chives,Allium schoenoprasum,inferred,ALLSC,crop,ALLSC,,,
-93,Garlic,Allium sativum,paper_supplement,ALLSA,crop,ALLSA,,,
-94,Soybean,Glycine max,paper_supplement,GLXMA,crop,GLXMA,soy,soy,crop
-95,Wild carrot,Daucus carota subsp. carota,paper_supplement,DAUCA,weed,DAUCA,,,
-96,Field mustard,Sinapis arvensis,paper_supplement,SINAR,weed,SINAR,crucifer,weed,weed
-97,Giant fennel,Ferula communis,inferred,FERCO,weed,FERCO,,,
-98,Common horsetail,Equisetum arvense,inferred,EQUAR,weed,EQUAR,,,
-99,Common dandelion,Taraxacum sect. Ruderalia,paper_supplement,1TARG,weed,1TARG,,,
-255,Vegetation,,,,unknown,,,,
+source_label,common_name,scientific_name,name_source,eppo,eppo_note,role,species,fine24,crops_or_weed9,crop_or_weed2
+1,Maize,Zea mays,paper_supplement,ZEAMX,,crop,ZEAMX,maize,maize,crop
+2,Maize two-leaf stage,Zea mays,paper_supplement,ZEAMX,,crop,ZEAMX,maize,maize,crop
+3,Maize four-leaf stage,Zea mays,paper_supplement,ZEAMX,,crop,ZEAMX,maize,maize,crop
+4,Maize six-leaf stage,Zea mays,paper_supplement,ZEAMX,,crop,ZEAMX,maize,maize,crop
+5,Maize eight-leaf stage,Zea mays,paper_supplement,ZEAMX,,crop,ZEAMX,maize,maize,crop
+6,Maize max,Zea mays,paper_supplement,ZEAMX,,crop,ZEAMX,maize,maize,crop
+7,Sugar beet,Beta vulgaris subsp. vulgaris,paper_supplement,BEAVA,BEAVA is the sugar-beet variety (var. altissima); the paper names the subspecies,crop,BEAVA,sugar_beet,sugar_beet,crop
+8,Sugar beet two-leaf stage,Beta vulgaris subsp. vulgaris,paper_supplement,BEAVA,BEAVA is the sugar-beet variety (var. altissima); the paper names the subspecies,crop,BEAVA,sugar_beet,sugar_beet,crop
+9,Sugar beet four-leaf stage,Beta vulgaris subsp. vulgaris,paper_supplement,BEAVA,BEAVA is the sugar-beet variety (var. altissima); the paper names the subspecies,crop,BEAVA,sugar_beet,sugar_beet,crop
+10,Sugar beet six-leaf stage,Beta vulgaris subsp. vulgaris,paper_supplement,BEAVA,BEAVA is the sugar-beet variety (var. altissima); the paper names the subspecies,crop,BEAVA,sugar_beet,sugar_beet,crop
+11,Sugar beet eight-leaf stage,Beta vulgaris subsp. vulgaris,paper_supplement,BEAVA,BEAVA is the sugar-beet variety (var. altissima); the paper names the subspecies,crop,BEAVA,sugar_beet,sugar_beet,crop
+12,Sugar beet Max,Beta vulgaris subsp. vulgaris,paper_supplement,BEAVA,BEAVA is the sugar-beet variety (var. altissima); the paper names the subspecies,crop,BEAVA,sugar_beet,sugar_beet,crop
+13,Pea,Pisum sativum,paper_supplement,PIBSX,,crop,PIBSX,pea,pea,crop
+14,Courgette,Cucurbita pepo,paper_supplement,CUUPE,,crop,CUUPE,,,
+15,Pumpkins,Cucurbita,paper_supplement,1CUUG,,crop,1CUUG,pumpkin,pumpkin,crop
+16,Radish,Raphanus sativus,inferred,RAPSR,,crop,RAPSR,,,
+17,Asparagus,Asparagus officinalis,inferred,ASPOF,,crop,ASPOF,,,
+18,Potato,Solanum tuberosum,paper_supplement,SOLTU,,crop,SOLTU,potato,potato,crop
+19,Flat leaf parsley,Petroselinum crispum,paper_supplement,PARCR,,crop,PARCR,,,
+20,Curly leaf parsley,Petroselinum crispum,paper_supplement,PARCR,,crop,PARCR,,,
+21,Cowslip,Primula veris,paper_supplement,PRIVE,,crop,PRIVE,,,
+22,Poppy,Papaver,paper_supplement,1PAPG,,crop,1PAPG,poppy,weed,weed
+23,Hemp,Cannabis sativa,inferred,CNISA,,crop,CNISA,,,
+24,Sunflower,Helianthus annuus,paper_supplement,HELAN,,crop,HELAN,sunflower,sunflower,crop
+25,Sage,Salvia,paper_supplement,1SALG,,crop,1SALG,,,
+26,Common bean,Phaseolus vulgaris,paper_supplement,PHSVX,,crop,PHSVX,bean,bean,crop
+27,Faba bean,Vicia faba,paper_supplement,VICFX,,crop,VICFX,bean,bean,crop
+28,Clover,Trifolium,inferred,1TRFG,,crop,1TRFG,,,
+29,Hybrid goosefoot,Chenopodiastrum hybridum,paper_supplement,CHEHY,,weed,CHEHY,goosefoot,weed,weed
+30,Black-bindweed,Fallopia convolvulus,paper_supplement,POLCO,,weed,POLCO,knotweed,weed,weed
+31,Cockspur grass,Echinochloa crus-galli,paper_supplement,ECHCG,,weed,ECHCG,grasses,weed,weed
+32,Red-root amaranth,Amaranthus retroflexus,paper_supplement,AMARE,,weed,AMARE,amaranth,weed,weed
+33,White goosefoot,Chenopodium album,paper_supplement,CHEAL,,weed,CHEAL,goosefoot,weed,weed
+34,Thorn apple,Datura stramonium,paper_supplement,DATST,,weed,DATST,solanales,weed,weed
+35,Potato weed,Galinsoga parviflora,paper_supplement,GASPA,,weed,GASPA,potato_weed,weed,weed
+36,German chamomile,Matricaria chamomilla,paper_supplement,MATCH,,weed,MATCH,chamomile,weed,weed
+37,Saltbush,Atriplex,inferred,1ATXG,,weed,1ATXG,goosefoot,weed,weed
+38,Creeping thistle,Cirsium arvense,paper_supplement,CIRAR,,weed,CIRAR,thistle,weed,weed
+39,Field milk thistle,Sonchus arvensis,paper_supplement,SONAR,,weed,SONAR,thistle,weed,weed
+40,Purslane,Portulaca oleracea,paper_supplement,POROL,,weed,POROL,,,
+41,Black nightshade,Solanum nigrum,paper_supplement,SOLNI,,weed,SOLNI,solanales,weed,weed
+42,Mercuries,Mercurialis,paper_supplement,1MERG,,weed,1MERG,mercuries,weed,weed
+43,Spurge,Euphorbia,inferred,1EPHG,,weed,1EPHG,,,
+44,Pale persicaria,Persicaria lapathifolia,inferred,POLLA,,weed,POLLA,knotweed,weed,weed
+45,Geraniums,Geranium,paper_supplement,1GERG,,weed,1GERG,geranium,weed,weed
+46,Cleavers,Galium aparine,paper_supplement,GALAP,,weed,GALAP,,,
+47,Whitetop,Lepidium draba,inferred,CADDR,,weed,CADDR,crucifer,weed,weed
+48,Meadow-grass,Poa,paper_supplement,1POAG,,weed,1POAG,grasses,weed,weed
+49,Frosted orach,Atriplex laciniata,paper_supplement,ATXLA,,weed,ATXLA,goosefoot,weed,weed
+50,Black horehound,Ballota nigra,paper_supplement,BLLNI,,weed,BLLNI,labiate,weed,weed
+51,Shepherds purse,Capsella bursa-pastoris,paper_supplement,CAPBP,,weed,CAPBP,crucifer,weed,weed
+52,Field bindweed,Convolvulus arvensis,paper_supplement,CONAR,,weed,CONAR,solanales,weed,weed
+53,Common mugwort,Artemisia vulgaris,paper_supplement,ARTVU,,weed,ARTVU,,,
+54,Hedge mustard,Sisymbrium,paper_supplement,1SSYG,,weed,1SSYG,crucifer,weed,weed
+55,Groundsel,Senecio vulgaris,inferred,SENVU,,weed,SENVU,,,
+56,Speedwell,Veronica,paper_supplement,1VERG,,weed,1VERG,plantago,weed,weed
+57,Broadleaf plantain,Plantago major,paper_supplement,PLAMA,,weed,PLAMA,plantago,weed,weed
+58,White ball-mustard,Calepina irregularis,paper_supplement,CPAIR,,weed,CPAIR,crucifer,weed,weed
+59,Peppermint,Mentha x piperita,paper_supplement,MENPI,,weed,MENPI,labiate,weed,weed
+60,Field pennycress,Thlaspi arvense,paper_supplement,THLAR,,weed,THLAR,crucifer,weed,weed
+61,Corn spurry,Spergula arvensis,paper_supplement,SPRAR,,weed,SPRAR,corn_spurry,weed,weed
+62,Purple crabgrass,Digitaria sanguinalis,paper_supplement,DIGSA,,weed,DIGSA,grasses,weed,weed
+63,Common fumitory,Fumaria officinalis,paper_supplement,FUMOF,,weed,FUMOF,poppy,weed,weed
+64,Ivy-leaved speedwell,Veronica hederifolia,paper_supplement,VERHE,,weed,VERHE,plantago,weed,weed
+65,Annual meadow grass,Poa annua,paper_supplement,POAAN,,weed,POAAN,grasses,weed,weed
+66,Redshank,Persicaria maculosa,paper_supplement,POLPE,,weed,POLPE,knotweed,weed,weed
+67,Common hemp-nettle,Galeopsis tetrahit,inferred,GAETE,,weed,GAETE,labiate,weed,weed
+68,Rough meadow-grass,Poa trivialis,paper_supplement,POATR,,weed,POATR,grasses,weed,weed
+69,Green bristlegrass,Setaria viridis,paper_supplement,SETVI,,weed,SETVI,grasses,weed,weed
+70,Small geranium,Geranium pusillum,paper_supplement,GERPU,,weed,GERPU,geranium,weed,weed
+71,Cornflower,Cyanus segetum,paper_supplement,CENCY,,weed,CENCY,thistle,weed,weed
+72,Common corn-cockle,Agrostemma githago,paper_supplement,AGOGI,,weed,AGOGI,thistle,weed,weed
+73,Creeping crowfoot,Ranunculus repens,inferred,RANRE,,weed,RANRE,,,
+74,Wall barley,Hordeum murinum,paper_supplement,HORMU,,weed,HORMU,grasses,weed,weed
+75,Annual fescue,Festuca myuros,paper_supplement,VLPMY,,weed,VLPMY,grasses,weed,weed
+76,Purple dead-nettle,Lamium purpureum,paper_supplement,LAMPU,,weed,LAMPU,labiate,weed,weed
+77,Ribwort plantain,Plantago lanceolata,paper_supplement,PLALA,,weed,PLALA,plantago,weed,weed
+78,Pineappleweed,Matricaria discoidea,paper_supplement,MATMT,,weed,MATMT,chamomile,weed,weed
+79,Common chickweed,Stellaria media,paper_supplement,STEME,,weed,STEME,chickweed,weed,weed
+80,Hedge mustard,Sisymbrium officinale,paper_supplement,SSYOF,,weed,SSYOF,crucifer,weed,weed
+81,Soft brome,Bromus hordeaceus,paper_supplement,BROMO,,weed,BROMO,grasses,weed,weed
+82,Wild pansy,Viola tricolor,paper_supplement,VIOTR,,weed,VIOTR,,,
+83,Yellow rocket,Barbarea vulgaris,paper_supplement,BARVU,,weed,BARVU,crucifer,weed,weed
+84,Common wild oat,Avena fatua,paper_supplement,AVEFA,,weed,AVEFA,grasses,weed,weed
+85,Red poppy,Papaver rhoeas,paper_supplement,PAPRH,,weed,PAPRH,poppy,weed,weed
+86,Rye brome,Bromus secalinus,paper_supplement,BROSE,,weed,BROSE,grasses,weed,weed
+87,Knotgrass,Polygonum aviculare agg.,paper_supplement,POLAV,paper names the aggregate; EPPO code of the species,weed,POLAV,knotweed,weed,weed
+88,Prickly lettuce,Lactuca serriola,paper_supplement,LACSE,,weed,LACSE,thistle,weed,weed
+89,Copse-bindweed,Fallopia dumetorum,paper_supplement,BIKDU,,weed,BIKDU,knotweed,weed,weed
+90,Manyseeds,Polycarpon tetraphyllum,inferred,POYTE,,weed,POYTE,,,
+91,Common buckwheat,Fagopyrum esculentum,paper_supplement,FAGES,,weed,FAGES,knotweed,weed,weed
+92,Chives,Allium schoenoprasum,inferred,ALLSC,,crop,ALLSC,,,
+93,Garlic,Allium sativum,paper_supplement,ALLSA,,crop,ALLSA,,,
+94,Soybean,Glycine max,paper_supplement,GLXMA,,crop,GLXMA,soy,soy,crop
+95,Wild carrot,Daucus carota subsp. carota,paper_supplement,DAUCA,,weed,DAUCA,,,
+96,Field mustard,Sinapis arvensis,paper_supplement,SINAR,,weed,SINAR,crucifer,weed,weed
+97,Giant fennel,Ferula communis,inferred,FERCO,,weed,FERCO,,,
+98,Common horsetail,Equisetum arvense,inferred,EQUAR,,weed,EQUAR,,,
+99,Common dandelion,Taraxacum sect. Ruderalia,paper_supplement,1TARG,no EPPO code for the section; genus code used,weed,1TARG,,,
+255,Vegetation,,,,,unknown,,,,

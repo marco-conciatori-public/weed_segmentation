@@ -1,0 +1,13 @@
+# EPPO taxa table: built by scripts/build_eppo_taxa.py from the EPPO SQLite export.
+# Relative paths are resolved against the project root. See docs/reference-data.md.
+
+# Full EPPO export from https://data.eppo.int (gitignored, ~50 MB).
+sqlite: data/ref/sources/eppocodes_all.sqlite
+# Every CSV in this folder contributes the codes in its `eppo` column.
+label_maps: configs/label_maps
+# Codes to include even if no label map uses them yet (e.g. our team's species list).
+extra_codes: []
+# Languages of the common names to keep (EPPO language codes).
+languages: [en, it]
+# The table, versioned in git.
+output: configs/eppo_taxa.csv
