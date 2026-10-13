@@ -16,6 +16,15 @@ download:
     - cropandweed_images4of4
   # Skip a part when its marker file from a previous successful download exists.
   skip_existing: true
+  # Each part is downloaded to <raw_dir>/.archives/ first (resumable), then extracted.
+  # Seconds without data before a connection counts as failed and is resumed.
+  timeout_s: 60
+  # Consecutive failed attempts (with no data received) before giving up. Waits grow
+  # 2, 4, 8 ... up to 60 s between attempts; with the timeout, 20 retries ride out
+  # roughly half an hour without connection.
+  max_retries: 20
+  # Keep the .tar archives after extraction (~12 GB in total).
+  keep_archives: false
 
 convert:
   output_dir: data/processed/cropandweed
