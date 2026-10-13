@@ -1,0 +1,75 @@
+# Internal data format
+
+Every dataset, public or our own, is converted to the same COCO-based format. Training and
+evaluation code then reads only this format. Per-dataset notes live in [datasets/](datasets/).
+
+Status: proposed and in use by the CropAndWeed converter. It has not yet been agreed with
+the team that prepares our own dataset.
+
+## Why COCO with instance masks
+
+- The label format (boxes or instance masks) is not decided yet. Boxes can be computed from
+  masks, but masks can't be recovered from boxes, so masks keep both options open.
+- Masks also help to locate the plant's growing point for the weeding tool.
+- Most annotation tools (CVAT, Label Studio) and training frameworks read and write COCO.
+
+## Layout
+
+```
+data/raw/<dataset>/              original download, untouched
+data/processed/<dataset>/<taxonomy>/{train,val,test}.json
+configs/<dataset>.yaml           download and conversion settings
+configs/label_maps/<dataset>.csv source label -> categories
+```
+
+Images are not copied. `info.image_dir` in each JSON gives their folder, relative to the
+project root.
+
+## COCO fields
+
+Standard COCO fields, plus these extras:
+
+| Where | Field | Meaning |
+|---|---|---|
+| image | `group` | Split unit, e.g. a recording session. All images of a group are in the same split. |
+| image | `session`, `subset`, ... | Dataset-specific metadata, e.g. soil, moisture, lighting. |
+| image | `mm_per_px`, `mm_per_px_estimated` | Ground resolution, and whether it is only an estimate. |
+| annotation | `segmentation` | Instance mask as compressed RLE. |
+| annotation | `stem` | `[x, y]` of the plant's stem / growing point, when known. |
+| annotation | `source_label` | The label as written in the source dataset. |
+| annotation | `iscrowd` | 1 = **ignore region**, see below. |
+| category | `supercategory` | `crop`, `weed`, `mixed` or `ignore`. |
+| category | `source_labels`, `common_names`, `scientific_names` | What the category was built from. |
+
+## Categories and taxonomies
+
+- Each dataset has a label-map CSV with one row per source label. It has the columns
+  `source_label`, `role` (crop/weed), `eppo`, `scientific_name`, ... and one column per
+  **taxonomy** (a class grouping). The conversion config picks the taxonomy column.
+- The `species` taxonomy uses **EPPO codes** as category names (e.g. `CHEAL` =
+  *Chenopodium album*). That gives every dataset the same key for the same species. Genus-level
+  labels use EPPO genus codes (e.g. `1GERG` = *Geranium*).
+- Coarser taxonomies (e.g. CropAndWeed's `fine24`) merge species into groups. Choosing a
+  coarser grouping only takes a re-conversion, never relabelling.
+
+## Ignore regions
+
+An annotation has `iscrowd = 1` when it should neither be learned as an object nor be
+treated as background:
+
+- plants the source dataset could not identify (e.g. CropAndWeed "Vegetation"),
+- labels left unmapped by the chosen taxonomy,
+- annotated plants whose mask could not be derived,
+- vegetation present in a mask but without any box.
+
+An ignore region keeps the category of its label when that label has one, and uses the
+`ignore` category otherwise. Training code must drop ignore regions from the targets and should not
+penalise predictions on them. **Evaluation:** COCO's standard evaluation ignores crowd
+regions only for predictions of the same category, so ignore regions have to be matched
+against predictions of any class. This must be handled when the evaluation code is written.
+
+## Splits
+
+Splits are made by `group` (recording session, field, date), never per image. Neighbouring
+frames of one session are near-duplicates and would leak into the test set. The split
+fractions and the seed are in the dataset config.
