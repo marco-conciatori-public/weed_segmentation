@@ -1,0 +1,19 @@
+# Annotation preview: draws masks, boxes, labels and stems of a COCO file over its images.
+# Used by scripts/preview_annotations.py. Relative paths are resolved against the project root.
+
+# Any COCO file in our internal format (its info.image_dir says where the images are).
+coco_json: data/processed/cropandweed/species/train.json
+# Images go to <output_dir>/<dataset>/<taxonomy>/<split>/, named after the COCO file's
+# last two folders and its name (here cropandweed/species/train).
+output_dir: outputs/preview
+num_images: 20
+seed: 0
+# Sample only images with at least one annotation (negatives show nothing to check).
+only_annotated: true
+# Also save the original image next to each preview, to compare by flipping between them.
+save_original: false
+draw:
+  mask_alpha: 0.45
+  boxes: true
+  labels: true
+  stems: true
