@@ -1,7 +1,7 @@
 import numpy as np
 
-from weedseg.data.coco import encode_mask
-from weedseg.visualize import annotation_mask, draw_annotations
+from weedseg.data.coco import decode_mask, encode_mask
+from weedseg.visualize import draw_annotations
 
 CATEGORIES = [{"id": 1, "name": "ZEAMX"}, {"id": 2, "name": "ignore"}]
 
@@ -12,12 +12,12 @@ def square_mask(x0, y0, x1, y1, shape=(100, 120)):
     return mask
 
 
-def test_annotation_mask_decodes_rle_and_polygons():
+def test_decode_mask_reads_rle_and_polygons():
     mask = square_mask(10, 20, 30, 40)
-    assert (annotation_mask({"segmentation": encode_mask(mask)}, 100, 120) == mask).all()
+    assert (decode_mask({"segmentation": encode_mask(mask)}, 100, 120) == mask).all()
     polygon = {"segmentation": [[10, 20, 30, 20, 30, 40, 10, 40]]}
-    assert annotation_mask(polygon, 100, 120)[30, 20]
-    assert annotation_mask({"bbox": [0, 0, 1, 1]}, 100, 120) is None
+    assert decode_mask(polygon, 100, 120)[30, 20]
+    assert decode_mask({"bbox": [0, 0, 1, 1]}, 100, 120) is None
 
 
 def test_draw_colours_instances_and_greys_ignore_regions():

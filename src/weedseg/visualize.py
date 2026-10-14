@@ -4,9 +4,8 @@ from typing import Any
 
 import cv2
 import numpy as np
-from pycocotools import mask as mask_utils
 
-from weedseg.data.coco import IGNORE_CATEGORY
+from weedseg.data.coco import IGNORE_CATEGORY, decode_mask
 
 IGNORE_COLOR = (160, 160, 160)  # BGR
 
@@ -24,26 +23,13 @@ def category_colors(categories: list[dict[str, Any]]) -> dict[int, tuple[int, in
     return colors
 
 
-def annotation_mask(annotation: dict[str, Any], height: int, width: int) -> np.ndarray | None:
-    """Bool mask of an annotation's segmentation (RLE or polygons), or None without one."""
-    segmentation = annotation.get("segmentation")
-    if not segmentation:
-        return None
-    if isinstance(segmentation, list):  # polygons
-        rle = mask_utils.merge(mask_utils.frPyObjects(segmentation, height, width))
-    elif isinstance(segmentation["counts"], list):  # uncompressed RLE
-        rle = mask_utils.frPyObjects(segmentation, height, width)
-    else:
-        rle = segmentation
-    return mask_utils.decode(rle).astype(bool)
-
-
 def draw_annotations(image: np.ndarray, annotations: list[dict[str, Any]],
                      categories: list[dict[str, Any]], mask_alpha: float = 0.45,
                      draw_boxes: bool = True, draw_labels: bool = True,
                      draw_stems: bool = True) -> np.ndarray:
     """Return a copy of a BGR image with masks, boxes, labels and stem points drawn on.
 
+    Works for ground truth and for predictions (COCO results, whose `score` joins the label).
     Ignore regions (iscrowd) are grey and hatched, with a dashed-looking thin box, so they
     are easy to tell apart from real instances.
     """
@@ -62,7 +48,7 @@ def draw_annotations(image: np.ndarray, annotations: list[dict[str, Any]],
     for annotation in annotations:
         color = colors.get(annotation["category_id"], IGNORE_COLOR)
         crowd = bool(annotation.get("iscrowd"))
-        mask = annotation_mask(annotation, height, width)
+        mask = decode_mask(annotation, height, width)
         if mask is not None:
             if crowd:
                 overlay[mask] = IGNORE_COLOR
@@ -90,9 +76,50 @@ def draw_annotations(image: np.ndarray, annotations: list[dict[str, Any]],
             cv2.drawMarker(result, (sx, sy), color, cv2.MARKER_CROSS,
                            max(8, round(14 * scale)), thickness)
         if draw_labels and not crowd:
-            put_label(result, names.get(annotation["category_id"], "?"), (x, y), color,
-                      font_scale, thickness)
+            text = names.get(annotation["category_id"], "?")
+            if "score" in annotation:  # a prediction
+                text += f" {annotation['score']:.2f}"
+            put_label(result, text, (x, y), color, font_scale, thickness)
     return result
+
+
+def plot_confusion_matrix(matrix: np.ndarray, names: list[str], path, title: str) -> None:
+    """Save a confusion matrix as PNG: colour = share of the row (ground-truth class),
+    text = count. Rows are ground truth, columns predictions."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LinearSegmentedColormap
+
+    # One-hue sequential ramp, from the surface colour to dark blue.
+    cmap = LinearSegmentedColormap.from_list(
+        "blues", ["#fcfcfb", "#cde2fb", "#86b6ef", "#3987e5", "#1c5cab", "#0d366b"])
+    shares = matrix / np.maximum(matrix.sum(axis=1, keepdims=True), 1)
+    size = max(4.0, 0.42 * len(names) + 2)
+    fig, ax = plt.subplots(figsize=(size + 1.2, size), facecolor="#fcfcfb")
+    image = ax.imshow(shares, cmap=cmap, vmin=0, vmax=1)
+    ax.set_xticks(range(len(names)), names, rotation=90 if len(names) > 6 else 0,
+                  color="#52514e", fontsize=9)
+    ax.set_yticks(range(len(names)), names, color="#52514e", fontsize=9)
+    ax.set_xlabel("Predicted", color="#0b0b0b")
+    ax.set_ylabel("Ground truth", color="#0b0b0b")
+    ax.set_title(title, color="#0b0b0b", loc="left", fontsize=11)
+    ax.tick_params(length=0)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    if len(names) <= 30:
+        for row in range(len(names)):
+            for col in range(len(names)):
+                if matrix[row, col]:
+                    ax.text(col, row, str(matrix[row, col]), ha="center", va="center",
+                            fontsize=8 if len(names) > 10 else 10,
+                            color="#f0efec" if shares[row, col] > 0.55 else "#0b0b0b")
+    bar = fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
+    bar.set_label("Share of ground-truth row", color="#52514e")
+    bar.outline.set_visible(False)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150, facecolor=fig.get_facecolor())
+    plt.close(fig)
 
 
 def put_label(image: np.ndarray, text: str, corner: tuple[int, int],

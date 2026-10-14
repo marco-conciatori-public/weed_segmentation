@@ -134,6 +134,20 @@ def encode_mask(mask: np.ndarray) -> dict[str, Any]:
     return rle
 
 
+def decode_mask(annotation: dict[str, Any], height: int, width: int) -> np.ndarray | None:
+    """Bool mask of an annotation's segmentation (RLE or polygons), or None without one."""
+    segmentation = annotation.get("segmentation")
+    if not segmentation:
+        return None
+    if isinstance(segmentation, list):  # polygons
+        rle = mask_utils.merge(mask_utils.frPyObjects(segmentation, height, width))
+    elif isinstance(segmentation["counts"], list):  # uncompressed RLE
+        rle = mask_utils.frPyObjects(segmentation, height, width)
+    else:
+        rle = segmentation
+    return mask_utils.decode(rle).astype(bool)
+
+
 def to_coco(records: Iterable[ImageRecord], label_map: LabelMap,
             info: dict[str, Any]) -> dict[str, Any]:
     """Build a COCO dict. Ignored instances, and those mapped to the ignore category, get

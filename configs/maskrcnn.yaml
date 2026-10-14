@@ -1,0 +1,78 @@
+# Mask R-CNN baseline (torchvision ResNet-50 FPN v2, Apache-2.0).
+# Used by scripts/train_maskrcnn.py and scripts/evaluate_maskrcnn.py.
+# Relative paths are resolved against the project root. See docs/maskrcnn.md.
+
+# Outputs (checkpoints, TensorBoard logs, metrics, evaluations) go to <output_dir>/<run_name>/.
+run_name: cropandweed_crop_or_weed2
+output_dir: runs/maskrcnn
+seed: 0
+# auto = CUDA when available, else CPU (CPU is only good for a smoke test).
+device: auto
+
+data:
+  # COCO files in our internal format; the categories come from the train file.
+  train: data/processed/cropandweed/crop_or_weed2/train.json
+  val: data/processed/cropandweed/crop_or_weed2/val.json
+  test: data/processed/cropandweed/crop_or_weed2/test.json
+  # Data-loading processes. 0 loads in the main process (slow, but simplest to debug).
+  num_workers: 6
+  # Use a random subset of N images (null = all). For a quick smoke test, e.g. 16 and 8.
+  max_train_images: null
+  max_val_images: null
+
+augment:
+  horizontal_flip: 0.5  # probability
+  vertical_flip: 0.5
+  color_jitter: {brightness: 0.2, contrast: 0.2, saturation: 0.2, hue: 0.02}
+
+model:
+  # Start from torchvision's COCO weights (downloaded once, ~180 MB). false = random init.
+  pretrained: true
+  # Images are resized so the short side is min_size (one value picked at random per batch in
+  # training when several are given; the last one at evaluation), long side at most max_size.
+  # 1088/1920 keeps CropAndWeed at its native resolution: 10% of its plants are under 22 px.
+  min_size: [1088]
+  max_size: 1920
+  # Anchor size per FPN level (5 levels). torchvision's default is 32-512; one level smaller
+  # suits the small plants (median box ~50 px, 1% over 512 px).
+  anchor_sizes: [16, 32, 64, 128, 256]
+  # CropAndWeed has up to ~300 annotated regions per image.
+  detections_per_image: 300
+  # Detections below this score are dropped (low, so mAP sees the whole precision curve).
+  score_threshold: 0.05
+  mask_threshold: 0.5
+
+train:
+  epochs: 24
+  batch_size: 4
+  # SGD; 0.005 is torchvision's reference 0.02 for 16 images, scaled to 4.
+  lr: 0.005
+  momentum: 0.9
+  weight_decay: 0.0001
+  warmup_steps: 500
+  # Max gradient norm (null = no clipping).
+  grad_clip: 10.0
+  # Mixed precision (CUDA only): faster and about half the memory.
+  amp: true
+  # Evaluate on val every N epochs (and after the last one); the best segm AP is kept.
+  eval_every: 2
+  eval_batch_size: 2
+  # Continue from <run>/last.pt when it exists. To start over, change run_name.
+  resume: true
+  # Log the training losses to TensorBoard every N steps.
+  log_every: 20
+
+evaluate:
+  # Checkpoint of this run: best, last, or a path to a .pt file.
+  checkpoint: best
+  # Which data entry to evaluate: val or test. Keep test for the final numbers.
+  split: val
+  # Evaluate a random subset of N images (null = all). For a quick smoke test.
+  max_images: null
+  batch_size: 2
+  # Confusion matrix: detections with at least this score, matched at this mask IoU.
+  score_threshold: 0.5
+  iou_threshold: 0.5
+  # Images with ground truth and predictions side by side (0 = none).
+  num_previews: 20
+  preview_score_threshold: 0.5
