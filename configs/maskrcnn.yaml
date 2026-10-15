@@ -26,8 +26,12 @@ augment:
   color_jitter: {brightness: 0.2, contrast: 0.2, saturation: 0.2, hue: 0.02}
 
 model:
-  # Start from torchvision's COCO weights (downloaded once, ~180 MB). false = random init.
+  # Start from torchvision's COCO weights (~180 MB). false = random init.
   pretrained: true
+  # File with those weights, for machines without internet access. Download it from
+  # https://download.pytorch.org/models/maskrcnn_resnet50_fpn_v2_coco-73cbd019.pth
+  # null = torchvision downloads it once to the torch cache (~/.cache/torch/hub/checkpoints).
+  pretrained_path: weights/maskrcnn_resnet50_fpn_v2_coco-73cbd019.pth
   # Images are resized so the short side is min_size (one value picked at random per batch in
   # training when several are given; the last one at evaluation), long side at most max_size.
   # 1088/1920 keeps CropAndWeed at its native resolution: 10% of its plants are under 22 px.

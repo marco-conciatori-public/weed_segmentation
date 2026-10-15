@@ -87,3 +87,20 @@ def test_warmup_cosine_schedule():
     assert factor(10) == pytest.approx(1.0)
     assert factor(55) == pytest.approx(0.5)
     assert factor(100) == pytest.approx(0.0)
+
+
+def test_pretrained_weights_load_from_file(tmp_path):
+    torch.manual_seed(0)
+    path = tmp_path / "coco.pth"
+    coco_model = build_model(91, MODEL_CONFIG)
+    torch.save(coco_model.state_dict(), path)
+    torch.manual_seed(1)
+    model = build_model(3, {**MODEL_CONFIG, "pretrained": True, "pretrained_path": str(path)})
+    assert torch.equal(model.backbone.body.conv1.weight, coco_model.backbone.body.conv1.weight)
+    assert model.roi_heads.box_predictor.cls_score.out_features == 3
+
+
+def test_missing_pretrained_file_fails_clearly(tmp_path):
+    config = {**MODEL_CONFIG, "pretrained": True, "pretrained_path": str(tmp_path / "none.pth")}
+    with pytest.raises(FileNotFoundError, match="pretrained_path"):
+        build_model(3, config)

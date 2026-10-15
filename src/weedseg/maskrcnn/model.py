@@ -14,6 +14,8 @@ from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 from torchvision.models.detection.rpn import RegionProposalNetwork
 from torchvision.ops import box_iou
 
+from weedseg.paths import resolve
+
 
 class IgnoreAwareRPN(RegionProposalNetwork):
     """RPN that neither rewards nor penalises anchors matched to ignore regions.
@@ -40,11 +42,21 @@ def build_model(num_classes: int, config: dict[str, Any]) -> MaskRCNN:
     """Mask R-CNN with `num_classes` including background (= categories + 1).
 
     With `pretrained`, all weights except the class-specific heads start from torchvision's
-    COCO model (downloaded once to the torch cache).
+    COCO model: read from `pretrained_path` when set, else downloaded once to the torch cache.
     """
     if len(config["anchor_sizes"]) != 5:
         raise ValueError("anchor_sizes needs one size per FPN level (5)")
-    weights = MaskRCNN_ResNet50_FPN_V2_Weights.DEFAULT if config["pretrained"] else None
+    weights, weights_path = None, None
+    if config["pretrained"]:
+        if config["pretrained_path"]:
+            weights_path = resolve(config["pretrained_path"])
+            if not weights_path.is_file():
+                raise FileNotFoundError(
+                    f"Pretrained weights not found: {weights_path}. Download "
+                    f"{MaskRCNN_ResNet50_FPN_V2_Weights.DEFAULT.url} there, or set "
+                    "model.pretrained_path to null to download them to the torch cache")
+        else:
+            weights = MaskRCNN_ResNet50_FPN_V2_Weights.DEFAULT
     model = maskrcnn_resnet50_fpn_v2(
         weights=weights,
         weights_backbone=None,
@@ -53,6 +65,8 @@ def build_model(num_classes: int, config: dict[str, Any]) -> MaskRCNN:
         box_detections_per_img=config["detections_per_image"],
         box_score_thresh=config["score_threshold"],
     )
+    if weights_path is not None:
+        model.load_state_dict(torch.load(weights_path, map_location="cpu", weights_only=True))
     # One size per FPN level and three aspect ratios, as in the default generator, so the
     # pretrained RPN head still fits.
     model.rpn.anchor_generator = AnchorGenerator(

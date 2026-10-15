@@ -18,9 +18,12 @@ All settings live in `configs/maskrcnn.yaml`; both scripts run without arguments
 2. Optional smoke test, on any machine: set `max_train_images: 16`, `max_val_images: 8`,
    `epochs: 2`, `evaluate.max_images: 4` and a throwaway `run_name`, run both scripts, then
    undo those changes. On a CPU this takes a few minutes.
-3. Run `scripts/train_maskrcnn.py`. The first run downloads the COCO weights (~180 MB) to the
-   torch cache. Follow it with `uv run tensorboard --logdir runs/maskrcnn`.
-4. Run `scripts/evaluate_maskrcnn.py` (`evaluate.split: val`). Use `test` only for the final
+3. Put torchvision's COCO weights (~180 MB) at `model.pretrained_path`
+   (`weights/maskrcnn_resnet50_fpn_v2_coco-73cbd019.pth`, gitignored); the URL is in the
+   config. This way the training machine needs no internet access. With `pretrained_path: null`
+   the first run downloads them to the torch cache instead.
+4. Run `scripts/train_maskrcnn.py`. Follow it with `uv run tensorboard --logdir runs/maskrcnn`.
+5. Run `scripts/evaluate_maskrcnn.py` (`evaluate.split: val`). Use `test` only for the final
    numbers, so model choices aren't tuned on it.
 
 An interrupted training resumes from the last finished epoch when re-run. A new experiment

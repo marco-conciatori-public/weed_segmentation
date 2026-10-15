@@ -34,7 +34,7 @@ convert:
   # crops_or_weed9, crop_or_weed2) or an EPPO rank taken from eppo_taxa (genus, family,
   # order). Instances whose label has no value (and the dataset's own "Vegetation"
   # fallback) become ignore regions.
-  taxonomy: crop_or_weed2
+  taxonomy: fine24
   # Derive per-instance masks from the semantic masks. False writes boxes only.
   instance_masks: true
   # Some masks contain plants without a box. Regions of at least this many pixels become
