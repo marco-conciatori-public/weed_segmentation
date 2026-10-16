@@ -62,6 +62,13 @@ Standard COCO fields, plus these extras:
 - Dataset-specific groupings (e.g. CropAndWeed's `fine24`) are label-map columns.
   Choosing a coarser grouping only takes a re-conversion, never relabelling.
 
+## The other_plant category
+
+With per-species classes, species too rare to learn and labels coarser than species (e.g.
+genus only) share one `other_plant` category (supercategory `other`). It is a normal class:
+the model learns to find these plants, and at inference they go to a generic model. It is
+not for unidentified plants: those may belong to any class and stay ignore regions.
+
 ## Ignore regions
 
 An annotation has `iscrowd = 1` when it should neither be learned as an object nor be

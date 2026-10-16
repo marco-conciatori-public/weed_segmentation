@@ -1,8 +1,10 @@
 import numpy as np
+import pytest
 from pycocotools import mask as mask_utils
 
 from weedseg.data.coco import (
     IGNORE_CATEGORY,
+    OTHER_CATEGORY,
     ImageRecord,
     Instance,
     LabelMap,
@@ -93,3 +95,43 @@ def test_ignore_small_plants_uses_mm_and_ignore_category():
     assert large == coco["annotations"][1]
     assert coco["annotations"][0]["category_id"] == 1  # input untouched
     assert ignore_small_plants(coco, None) is coco
+
+
+def test_keep_common_species_applies_the_four_rules(tmp_path):
+    (tmp_path / "map.csv").write_text(
+        "source_label,role,eppo,species\n"
+        "1,crop,ZEAMX,ZEAMX\n"  # common species: class
+        "2,weed,POAAN,POAAN\n"  # common species: class
+        "3,weed,POATR,POATR\n"  # rare species: other_plant
+        "4,weed,1POAG,1POAG\n"  # genus with a class (POAAN): ignore
+        "5,weed,1MERG,1MERG\n"  # genus without a class: other_plant
+        "255,unknown,,\n",  # unidentified: ignore
+        encoding="utf-8",
+    )
+
+    def taxon(code, rank, genus, family):
+        return {"eppo": code, "rank": rank, "name": code, "genus": genus, "family": family,
+                "order": "1ORDO"}
+
+    taxa = {t["eppo"]: t for t in [
+        taxon("ZEAMX", "species", "1ZEAG", "1GRAF"), taxon("POAAN", "species", "1POAG", "1GRAF"),
+        taxon("POATR", "species", "1POAG", "1GRAF"), taxon("1POAG", "genus", "1POAG", "1GRAF"),
+        taxon("1MERG", "genus", "1MERG", "1EUPF")]}
+    label_map = LabelMap(tmp_path / "map.csv", "species", taxa)
+    images = [{"1", "2", "4"}, {"1", "2", "3"}, {"5", "255"}]
+    report = label_map.keep_common_species(images, min_images=2)
+
+    assert label_map.taxonomy == "species_min2"
+    assert {label: label_map.category(label) for label in ("1", "2", "3", "4", "5", "255")} == {
+        "1": "ZEAMX", "2": "POAAN", "3": OTHER_CATEGORY, "4": IGNORE_CATEGORY,
+        "5": OTHER_CATEGORY, "255": IGNORE_CATEGORY}
+    categories = label_map.categories()
+    assert [c["name"] for c in categories] == ["ZEAMX", "POAAN", OTHER_CATEGORY, IGNORE_CATEGORY]
+    assert categories[2]["supercategory"] == "other"
+    assert report[0].startswith("2 classes")
+
+
+def test_keep_common_species_needs_the_species_taxonomy(tmp_path):
+    label_map = LabelMap(write_label_map(tmp_path / "map.csv"), "group")
+    with pytest.raises(ValueError, match="species"):
+        label_map.keep_common_species([], 1)

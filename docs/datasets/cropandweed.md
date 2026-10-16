@@ -127,6 +127,13 @@ but **the public download contains only the four `params` values**.
   - `species`: EPPO codes, 73 species/genera with instances (the paper's 74 classes, but
     flat-leaf and curly-leaf parsley share one EPPO code). Very long-tailed; see the
     statistics below.
+  - `species` with `min_train_images: N` (output folder `species_min<N>`): the project's
+    target setup. Species with at least N training images are classes; rarer species and
+    genus-only labels form one `other_plant` class, meant to be handed to a generic model at
+    inference. A genus-only label whose genus also has a species class becomes an ignore
+    region instead (e.g. *Geranium* next to *Geranium pusillum*), since the plant may well
+    be of that species. The decisions are printed and saved to `classes.txt`. With N = 50:
+    34 species classes; *Poa*, *Mercurialis* and pumpkins (*Cucurbita*) go to `other_plant`.
   - `fine24`: the authors' 8 crop + 16 weed groups. Some species are left out (e.g.
     courgette, cowslip, purslane, cleavers, wild pansy) and become ignore regions.
   - `crops_or_weed9`, `crop_or_weed2`: coarser variants from the paper.

@@ -7,7 +7,7 @@ labels to categories through a label-map CSV, splits images by group and writes 
 import csv
 import json
 import random
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,6 +19,9 @@ from pycocotools import mask as mask_utils
 from weedseg.eppo import PARENT_RANKS
 
 IGNORE_CATEGORY = "ignore"
+# Plants of a known species too rare to be a class of their own (see
+# LabelMap.keep_common_species); at inference they are handed to a generic model.
+OTHER_CATEGORY = "other_plant"
 
 
 @dataclass
@@ -74,6 +77,65 @@ class LabelMap:
         elif taxonomy not in first:
             raise KeyError(f"Taxonomy column {taxonomy!r} not in {path}")
         self.taxonomy = taxonomy
+        self.taxa = taxa
+
+    def keep_common_species(self, train_image_labels: Iterable[set[str]],
+                            min_images: int) -> list[str]:
+        """Switch the `species` taxonomy to species with at least `min_images` training images.
+
+        1. A species code with at least `min_images` training images is a class.
+        2. A rarer species goes to OTHER_CATEGORY.
+        3. A coarser code (e.g. a genus-only label) goes to OTHER_CATEGORY, unless a class
+           belongs to it: then it becomes an ignore region, since such a plant may well be
+           of that class.
+        4. Labels without an EPPO code (unidentified plants) stay ignore regions.
+
+        `train_image_labels` holds the source labels of each training image. Returns report
+        lines: every class, every species sent to OTHER_CATEGORY and every rule-3 decision.
+        """
+        if self.taxonomy != "species":
+            raise ValueError(f"min_train_images needs taxonomy 'species', not {self.taxonomy!r}")
+        if self.taxa is None:
+            raise ValueError("min_train_images needs the EPPO taxa table")
+        codes = {row["eppo"] for row in self.rows.values() if row["eppo"]}
+        missing = sorted(code for code in codes if not self.taxa.get(code, {}).get("rank"))
+        if missing:
+            raise ValueError(f"EPPO codes missing from the taxa table: {', '.join(missing)}")
+
+        images = Counter()  # training images per EPPO code
+        for labels in train_image_labels:
+            images.update({self.rows[label]["eppo"] for label in labels} - {""})
+        classes = {code for code in codes
+                   if self.taxa[code]["rank"] == "species" and images[code] >= min_images}
+        ancestors = {self.taxa[code][rank] for code in classes for rank in PARENT_RANKS}
+
+        decisions = {}
+        for code in codes:
+            if code in classes:
+                decisions[code] = code
+            elif self.taxa[code]["rank"] == "species" or code not in ancestors:
+                decisions[code] = OTHER_CATEGORY
+            else:
+                decisions[code] = ""
+        name = f"species_min{min_images}"
+        for row in self.rows.values():
+            row[name] = decisions[row["eppo"]] if row["eppo"] else ""
+        self.taxonomy = name
+
+        def line(code: str) -> str:
+            return f"  {code:6} {self.taxa[code]['name'][:30]:30} {images[code]:5} images"
+
+        coarse = sorted(code for code in codes if self.taxa[code]["rank"] != "species")
+        return [
+            f"{len(classes)} classes (species with >= {min_images} training images):",
+            *(line(code) for code in sorted(classes, key=lambda c: -images[c])),
+            f"{OTHER_CATEGORY} (rarer species):",
+            *(line(code) for code in sorted(codes - classes, key=lambda c: -images[c])
+              if self.taxa[code]["rank"] == "species"),
+            "Labels coarser than species:",
+            *(f"{line(code)} -> {decisions[code] or 'ignore (one of its species is a class)'}"
+              for code in coarse),
+        ]
 
     def category(self, source_label: str) -> str:
         """Return the category name, or IGNORE_CATEGORY for unmapped labels."""
@@ -93,7 +155,7 @@ class LabelMap:
             categories.append({
                 "id": len(categories) + 1,
                 "name": name,
-                "supercategory": _role(rows),
+                "supercategory": "other" if name == OTHER_CATEGORY else _role(rows),
                 "source_labels": [row["source_label"] for row in rows],
                 "common_names": sorted({row.get("common_name", "") for row in rows} - {""}),
                 "scientific_names": sorted({row.get("scientific_name", "") for row in rows} - {""}),
