@@ -14,7 +14,7 @@ All settings live in `configs/maskrcnn.yaml`; both scripts run without arguments
 ## Running it
 
 1. Convert the data for the chosen taxonomy (`scripts/convert_cropandweed.py`) and point
-   `data.train/val/test` at its files. The default is `crop_or_weed2`.
+   `data.dir` at its folder, which holds `train.json`, `val.json` and `test.json`.
 2. Optional smoke test, on any machine: set `max_train_images: 16`, `max_val_images: 8`,
    `epochs: 2`, `evaluate.max_images: 4` and a throwaway `run_name`, run both scripts, then
    undo those changes. On a CPU this takes a few minutes.
@@ -27,7 +27,11 @@ All settings live in `configs/maskrcnn.yaml`; both scripts run without arguments
    numbers, so model choices aren't tuned on it.
 
 An interrupted training resumes from the last finished epoch when re-run. A new experiment
-needs a new `run_name`; resuming refuses to continue a run whose `model` settings changed.
+needs a new run name. `run_name` is a template: `{dataset}` and `{taxonomy}` come from the
+last two folders of `data.dir`, `{min_size}` from `min_plant_size_mm` (e.g. `min20mm`, or
+`all`). The default `{dataset}_{taxonomy}_{min_size}` thus changes by itself with the data;
+for runs that change anything else, add your own text (e.g. `_lr0.01`). Resuming refuses a run
+whose `model` settings, `data.dir` or `min_plant_size_mm` differ, but not other settings.
 
 ## Outputs
 

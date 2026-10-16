@@ -31,6 +31,7 @@ from weedseg.maskrcnn.engine import (
     warmup_cosine,
 )
 from weedseg.maskrcnn.model import build_model
+from weedseg.maskrcnn.run import resolve_run_dir, split_file
 from weedseg.paths import resolve
 
 CONFIG = "configs/maskrcnn.yaml"
@@ -39,14 +40,14 @@ CONFIG = "configs/maskrcnn.yaml"
 def main() -> None:
     config = load_config(CONFIG)
     data, train, model_config = config["data"], config["train"], config["model"]
-    run_dir = resolve(config["output_dir"]) / config["run_name"]
+    run_dir = resolve_run_dir(config)
     run_dir.mkdir(parents=True, exist_ok=True)
     seed_everything(config["seed"])
     device = select_device(config["device"])
     amp = train["amp"] and device.type == "cuda"
     print(f"Run {run_dir}, device {device}{' (mixed precision)' if amp else ''}")
 
-    train_coco, val_coco = (ignore_small_plants(load_coco(resolve(data[split])),
+    train_coco, val_coco = (ignore_small_plants(load_coco(split_file(config, split)),
                                                 data["min_plant_size_mm"])
                             for split in ("train", "val"))
     categories = model_categories(train_coco)
@@ -80,8 +81,12 @@ def main() -> None:
         if checkpoint["config"]["model"] != model_config:
             raise SystemExit(f"The model settings differ from those of {last_path}; "
                              "change run_name to train a new model")
-        if checkpoint["config"]["data"].get("min_plant_size_mm") != data["min_plant_size_mm"]:
+        trained_data = checkpoint["config"]["data"]
+        if trained_data.get("min_plant_size_mm") != data["min_plant_size_mm"]:
             raise SystemExit(f"min_plant_size_mm differs from that of {last_path}; "
+                             "change run_name to train a new model")
+        if "dir" not in trained_data or resolve(trained_data["dir"]) != resolve(data["dir"]):
+            raise SystemExit(f"data.dir differs from that of {last_path}; "
                              "change run_name to train a new model")
         model.load_state_dict(checkpoint["model"])
         optimizer.load_state_dict(checkpoint["optimizer"])

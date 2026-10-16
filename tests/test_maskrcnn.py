@@ -7,6 +7,8 @@ from weedseg.data.coco import encode_mask
 from weedseg.maskrcnn.data import IGNORE_LABEL, CocoInstanceDataset, build_augmentation, collate
 from weedseg.maskrcnn.engine import predict, warmup_cosine
 from weedseg.maskrcnn.model import build_model
+from weedseg.maskrcnn.run import resolve_run_dir, run_name, split_file
+from weedseg.paths import project_root
 
 H, W = 96, 128
 MODEL_CONFIG = {"pretrained": False, "min_size": [96], "max_size": 128,
@@ -104,3 +106,23 @@ def test_missing_pretrained_file_fails_clearly(tmp_path):
     config = {**MODEL_CONFIG, "pretrained": True, "pretrained_path": str(tmp_path / "none.pth")}
     with pytest.raises(FileNotFoundError, match="pretrained_path"):
         build_model(3, config)
+
+
+def run_config(name, min_size_mm):
+    return {"run_name": name, "output_dir": "runs/maskrcnn",
+            "data": {"dir": "data/processed/cropandweed/fine24", "min_plant_size_mm": min_size_mm}}
+
+
+def test_run_name_placeholders_follow_the_data_settings():
+    assert run_name(run_config("{dataset}_{taxonomy}_{min_size}", 20)) == "cropandweed_fine24_min20mm"
+    assert run_name(run_config("{taxonomy}_{min_size}_lr0.01", 12.5)) == "fine24_min12.5mm_lr0.01"
+    assert run_name(run_config("{taxonomy}_{min_size}", None)) == "fine24_all"
+    assert run_name(run_config("plain_name", 20)) == "plain_name"
+    with pytest.raises(ValueError, match="species"):
+        run_name(run_config("{species}", 20))
+
+
+def test_run_dir_and_split_files_are_project_root_anchored():
+    config = run_config("{taxonomy}", None)
+    assert resolve_run_dir(config) == project_root() / "runs/maskrcnn/fine24"
+    assert split_file(config, "val") == project_root() / "data/processed/cropandweed/fine24/val.json"

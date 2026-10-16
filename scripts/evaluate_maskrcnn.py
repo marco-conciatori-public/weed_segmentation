@@ -1,5 +1,5 @@
 """Evaluate a trained Mask R-CNN on a split. Settings: configs/maskrcnn.yaml (`evaluate`,
-plus `data`, `run_name` and `output_dir` to find the run).
+plus `data`, `run_name` and `output_dir` to find the run and the data).
 
 Writes to <run>/eval/<split>_<checkpoint>[_min<N>mm]/ (suffix when data.min_plant_size_mm
 is set): metrics.json (COCO bbox and segm), per_class.csv, confusion_matrix.csv/.png,
@@ -22,6 +22,7 @@ from weedseg.evaluation import confusion_matrix, evaluate_coco
 from weedseg.maskrcnn.data import CocoInstanceDataset, collate, load_coco, model_categories
 from weedseg.maskrcnn.engine import predict, select_device
 from weedseg.maskrcnn.model import load_checkpoint_model
+from weedseg.maskrcnn.run import resolve_run_dir, run_name, split_file
 from weedseg.paths import resolve
 from weedseg.visualize import draw_annotations, plot_confusion_matrix, put_label
 
@@ -31,7 +32,7 @@ CONFIG = "configs/maskrcnn.yaml"
 def main() -> None:
     config = load_config(CONFIG)
     settings = config["evaluate"]
-    run_dir = resolve(config["output_dir"]) / config["run_name"]
+    run_dir = resolve_run_dir(config)
     checkpoint_path = (run_dir / f"{settings['checkpoint']}.pt"
                        if settings["checkpoint"] in ("best", "last")
                        else resolve(settings["checkpoint"]))
@@ -43,7 +44,7 @@ def main() -> None:
 
     split = settings["split"]
     min_size_mm = config["data"]["min_plant_size_mm"]
-    coco = ignore_small_plants(load_coco(resolve(config["data"][split])), min_size_mm)
+    coco = ignore_small_plants(load_coco(split_file(config, split)), min_size_mm)
     # The model's labels follow the training categories; look them up by name in this file.
     by_name = {c["name"]: c for c in model_categories(coco)}
     missing = [c["name"] for c in checkpoint["categories"] if c["name"] not in by_name]
@@ -79,7 +80,7 @@ def main() -> None:
         writer.writerow(["ground_truth \\ predicted", *names])
         writer.writerows([name, *row] for name, row in zip(names, matrix.tolist()))
     plot_confusion_matrix(matrix, names, out_dir / "confusion_matrix.png",
-                          f"{config['run_name']}, {split} (score >= {settings['score_threshold']}, "
+                          f"{run_name(config)}, {split} (score >= {settings['score_threshold']}, "
                           f"IoU >= {settings['iou_threshold']})")
 
     if settings["num_previews"]:

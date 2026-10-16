@@ -3,17 +3,19 @@
 # Relative paths are resolved against the project root. See docs/maskrcnn.md.
 
 # Outputs (checkpoints, TensorBoard logs, metrics, evaluations) go to <output_dir>/<run_name>/.
-run_name: cropandweed_crop_or_weed2
+# Placeholders: {dataset} and {taxonomy} = the last two folders of data.dir, {min_size} =
+# e.g. min20mm (all when min_plant_size_mm is null). Add your own text to tell apart runs that
+# change other settings, e.g. "{dataset}_{taxonomy}_{min_size}_lr0.01". A plain name works too.
+run_name: "{dataset}_{taxonomy}_{min_size}"
 output_dir: runs/maskrcnn
 seed: 0
 # auto = CUDA when available, else CPU (CPU is only good for a smoke test).
 device: auto
 
 data:
-  # COCO files in our internal format; the categories come from the train file.
-  train: data/processed/cropandweed/crop_or_weed2/train.json
-  val: data/processed/cropandweed/crop_or_weed2/val.json
-  test: data/processed/cropandweed/crop_or_weed2/test.json
+  # Folder with train.json, val.json and test.json in our internal COCO format, as written by
+  # the converter (<output_dir>/<taxonomy>). The categories come from the train file.
+  dir: data/processed/cropandweed/fine24
   # Data-loading processes. 0 loads in the main process (slow, but simplest to debug).
   num_workers: 6
   # Use a random subset of N images (null = all). For a quick smoke test, e.g. 16 and 8.
@@ -65,7 +67,8 @@ train:
   # Evaluate on val every N epochs (and after the last one); the best segm AP is kept.
   eval_every: 2
   eval_batch_size: 2
-  # Continue from <run>/last.pt when it exists. To start over, change run_name.
+  # Continue from <run>/last.pt when it exists. To start over, change run_name. Resuming refuses
+  # a run whose model settings, data.dir or min_plant_size_mm differ.
   resume: true
   # Log the training losses to TensorBoard every N steps.
   log_every: 20
