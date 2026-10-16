@@ -138,8 +138,9 @@ but **the public download contains only the four `params` values**.
     genus-only labels form one `other_plant` class, meant to be handed to a generic model at
     inference. A genus-only label whose genus also has a species class becomes an ignore
     region instead (e.g. *Geranium* next to *Geranium pusillum*), since the plant may well
-    be of that species. The decisions are printed and saved to `classes.txt`. With N = 50:
-    34 species classes; *Poa*, *Mercurialis* and pumpkins (*Cucurbita*) go to `other_plant`.
+    be of that species. Images are counted after the size filter. The decisions are printed
+    and saved to `classes.txt`. With N = 50 and 20 mm: 29 species classes, each present in
+    train, val and test; *Poa*, *Mercurialis* and pumpkins (*Cucurbita*) go to `other_plant`.
   - `fine24`: the authors' 8 crop + 16 weed groups. Some species are left out (e.g.
     courgette, cowslip, purslane, cleavers, wild pansy) and become ignore regions.
   - `crops_or_weed9`, `crop_or_weed2`: coarser variants from the paper.
