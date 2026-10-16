@@ -37,7 +37,7 @@ Everything goes to `runs/maskrcnn/<run_name>/` (gitignored):
 - `best.pt`: the model with the best val mask AP, plus its categories and config.
 - `metrics.jsonl`: one line per epoch with the mean losses and, when evaluated, val AP/AP50.
 - `config.yaml`: the config of the latest start or resume. `tensorboard/`: the logs.
-- `eval/<split>_<checkpoint>/`: `metrics.json`, `per_class.csv`, `confusion_matrix.csv/.png`,
+- `eval/<split>_<checkpoint>/` (`_min<N>mm` appended when `min_plant_size_mm` is set): `metrics.json`, `per_class.csv`, `confusion_matrix.csv/.png`,
   `predictions.json` (COCO results) and `previews/` (ground truth left, predictions right).
 
 ## Choices
@@ -46,8 +46,13 @@ Everything goes to `runs/maskrcnn/<run_name>/` (gitignored):
   heads of torchvision already skip proposals matched to such a box. The RPN is replaced by
   `IgnoreAwareRPN`, which does the same for anchors. A plant hidden in an ignore region is
   thus neither learned as a plant nor as background.
+- **Minimum plant size** (`data.min_plant_size_mm`): plants whose box is shorter than this
+  on its longer side, in mm from the image's `mm_per_px`, become ignore regions of the
+  `ignore` category, in training and evaluation alike. The project targets plants past the
+  seedling stage; a size in mm keeps the threshold valid across datasets of different
+  resolution. Resuming refuses a run trained with another value.
 - **Evaluation** uses pycocotools, but the ignore regions count for every category
-  (`IgnoreAwareCOCOeval`). Plain COCOeval would only apply them to the `ignore` category and
+  (`IgnoreAwareCOCOeval`). Plain COCOeval would only apply each to its own category and
   count a correct "weed" on unlabelled vegetation as a false positive. AP is the COCO mean
   over IoU 0.5-0.95, at up to `detections_per_image` detections per image.
 - **Resolution:** CropAndWeed is kept at its native 1920×1088, since 10% of its plants are

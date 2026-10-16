@@ -76,7 +76,7 @@ An ignore region keeps the category of its label when that label has one, and us
 `ignore` category otherwise. Training code must drop ignore regions from the targets and should not
 penalise predictions on them. **Evaluation:** COCO's standard evaluation ignores crowd
 regions only for predictions of the same category, so ignore regions have to be matched
-against predictions of any class. This must be handled when the evaluation code is written.
+against predictions of any class, whatever category the region kept (`weedseg.evaluation`).
 
 ## Splits
 

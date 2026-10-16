@@ -6,6 +6,7 @@ from weedseg.data.coco import (
     ImageRecord,
     Instance,
     LabelMap,
+    ignore_small_plants,
     split_by_group,
     to_coco,
 )
@@ -75,3 +76,20 @@ def test_to_coco_writes_masks_stems_and_crowd_flags(tmp_path):
     assert vegetation["iscrowd"] == 1 and "segmentation" not in vegetation
     assert ignored["iscrowd"] == 1
     assert coco["images"][0]["session"] == "g1"
+
+
+def test_ignore_small_plants_uses_mm_and_ignore_category():
+    coco = {
+        "images": [{"id": 1, "file_name": "a.jpg", "mm_per_px": 0.5}],
+        "categories": [{"id": 1, "name": "crop"}, {"id": 2, "name": IGNORE_CATEGORY}],
+        "annotations": [
+            {"id": 1, "image_id": 1, "category_id": 1, "bbox": [0, 0, 30, 10], "iscrowd": 0},
+            {"id": 2, "image_id": 1, "category_id": 1, "bbox": [0, 0, 50, 10], "iscrowd": 0},
+        ],
+    }
+    result = ignore_small_plants(coco, 20)  # 15 mm and 25 mm
+    small, large = result["annotations"]
+    assert (small["category_id"], small["iscrowd"], small["ignored_category_id"]) == (2, 1, 1)
+    assert large == coco["annotations"][1]
+    assert coco["annotations"][0]["category_id"] == 1  # input untouched
+    assert ignore_small_plants(coco, None) is coco

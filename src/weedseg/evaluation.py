@@ -3,10 +3,10 @@
 Model independent: predictions are COCO results (`image_id`, `category_id`, `bbox` as
 x, y, w, h, `score` and optionally an RLE `segmentation`).
 
-Our ignore regions (iscrowd) belong to the `ignore` category. Plain COCOeval matches crowd
-regions per category, so it would count a detection of a real category on an ignore region
-as a false positive. `IgnoreAwareCOCOeval` copies the ignore regions into every evaluated
-category instead.
+Our ignore regions (iscrowd) belong to the `ignore` category, or keep the category of their
+label when it has one. Plain COCOeval matches crowd regions per category, so it would count a
+detection of another category on an ignore region as a false positive. `IgnoreAwareCOCOeval`
+copies every ignore region into every evaluated category instead.
 """
 
 import contextlib
@@ -32,7 +32,7 @@ def ignore_category_ids(gt: dict[str, Any]) -> set[int]:
 
 
 class IgnoreAwareCOCOeval(COCOeval):
-    """COCOeval whose ignore-category regions act as crowd regions for every category."""
+    """COCOeval whose ignore regions act as crowd regions for every category."""
 
     def __init__(self, coco_gt: COCO, coco_dt: COCO, iou_type: str, max_detections: int = 100):
         super().__init__(coco_gt, coco_dt, iou_type)
@@ -42,12 +42,15 @@ class IgnoreAwareCOCOeval(COCOeval):
 
     def _prepare(self) -> None:
         super()._prepare()
-        regions = self.cocoGt.loadAnns(self.cocoGt.getAnnIds(imgIds=self.params.imgIds,
-                                                             catIds=list(self.ignore_ids)))
+        annotations = self.cocoGt.loadAnns(self.cocoGt.getAnnIds(imgIds=self.params.imgIds))
+        regions = [a for a in annotations
+                   if a.get("iscrowd") or a["category_id"] in self.ignore_ids]
         for region in regions:
             if self.params.iouType == "segm":
                 region = {**region, "segmentation": self.cocoGt.annToRLE(region)}
             for category_id in self.params.catIds:
+                if category_id == region["category_id"]:  # COCOeval already has it there
+                    continue
                 self._gts[region["image_id"], category_id].append(
                     {**region, "category_id": category_id, "iscrowd": 1, "ignore": 1})
 

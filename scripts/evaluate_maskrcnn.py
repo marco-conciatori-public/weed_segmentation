@@ -1,9 +1,9 @@
 """Evaluate a trained Mask R-CNN on a split. Settings: configs/maskrcnn.yaml (`evaluate`,
 plus `data`, `run_name` and `output_dir` to find the run).
 
-Writes to <run>/eval/<split>_<checkpoint>/: metrics.json (COCO bbox and segm), per_class.csv,
-confusion_matrix.csv/.png, predictions.json (COCO results) and previews/ (ground truth left,
-predictions right).
+Writes to <run>/eval/<split>_<checkpoint>[_min<N>mm]/ (suffix when data.min_plant_size_mm
+is set): metrics.json (COCO bbox and segm), per_class.csv, confusion_matrix.csv/.png,
+predictions.json (COCO results) and previews/ (ground truth left, predictions right).
 """
 
 import csv
@@ -17,6 +17,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 
 from weedseg.config import load_config
+from weedseg.data.coco import ignore_small_plants
 from weedseg.evaluation import confusion_matrix, evaluate_coco
 from weedseg.maskrcnn.data import CocoInstanceDataset, collate, load_coco, model_categories
 from weedseg.maskrcnn.engine import predict, select_device
@@ -41,7 +42,8 @@ def main() -> None:
     print(f"{checkpoint_path} (epoch {checkpoint['epoch']}), device {device}")
 
     split = settings["split"]
-    coco = load_coco(resolve(config["data"][split]))
+    min_size_mm = config["data"]["min_plant_size_mm"]
+    coco = ignore_small_plants(load_coco(resolve(config["data"][split])), min_size_mm)
     # The model's labels follow the training categories; look them up by name in this file.
     by_name = {c["name"]: c for c in model_categories(coco)}
     missing = [c["name"] for c in checkpoint["categories"] if c["name"] not in by_name]
@@ -59,7 +61,8 @@ def main() -> None:
                         num_workers=config["data"]["num_workers"])
     results = predict(model, loader, categories, device, amp, model_config["mask_threshold"])
 
-    out_dir = run_dir / "eval" / f"{split}_{checkpoint_path.stem}"
+    size_suffix = "" if min_size_mm is None else f"_min{min_size_mm:g}mm"
+    out_dir = run_dir / "eval" / f"{split}_{checkpoint_path.stem}{size_suffix}"
     out_dir.mkdir(parents=True, exist_ok=True)
     with open(out_dir / "predictions.json", "w", encoding="utf-8") as f:
         json.dump(results, f)

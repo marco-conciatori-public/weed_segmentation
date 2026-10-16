@@ -73,3 +73,15 @@ def test_confusion_matrix_counts_swaps_misses_and_background():
     np.testing.assert_array_equal(matrix, [[0, 1, 0],
                                            [0, 0, 1],
                                            [1, 0, 0]])
+
+
+@pytest.mark.parametrize("iou_type", ["bbox", "segm"])
+def test_crowd_region_with_a_real_category_is_ignored_for_every_category(iou_type):
+    # An ignore region that kept its label (here weed) must also cover crop detections.
+    gt = {**GT, "annotations": [ann(1, 1, 10, 10, 30, 30), ann(2, 2, 60, 10, 30, 30),
+                                ann(3, 2, 120, 40, 50, 50, crowd=1)]}
+    results = [det(1, 10, 10, 30, 30, 0.9), det(2, 60, 10, 30, 30, 0.8),
+               det(1, 125, 45, 40, 40, 0.95)]  # crop on the weed's ignore region
+    metrics = evaluate_coco(gt, results, iou_types=(iou_type,))[iou_type]
+    crop = next(c for c in metrics["per_class"] if c["category"] == "crop")
+    assert crop["AP50"] == pytest.approx(1.0)

@@ -181,6 +181,28 @@ def to_coco(records: Iterable[ImageRecord], label_map: LabelMap,
     return {"info": info, "images": images, "annotations": annotations, "categories": categories}
 
 
+def ignore_small_plants(coco: dict[str, Any], min_size_mm: float | None) -> dict[str, Any]:
+    """Copy of `coco` where plants whose box has its longer side under `min_size_mm` become
+    ignore regions (the `ignore` category, `iscrowd = 1`): neither learned nor scored, for any
+    class. The size in mm uses each image's `mm_per_px`. None returns `coco` unchanged."""
+    if min_size_mm is None:
+        return coco
+    ignore_id = next(c["id"] for c in coco["categories"] if c["name"] == IGNORE_CATEGORY)
+    mm_per_px = {i["id"]: i.get("mm_per_px") for i in coco["images"]}
+    missing = [i["file_name"] for i in coco["images"] if i.get("mm_per_px") is None]
+    if missing:
+        raise ValueError(f"{len(missing)} images have no mm_per_px (e.g. {missing[0]}), "
+                         "so plant sizes in mm are unknown")
+    annotations = []
+    for annotation in coco["annotations"]:
+        size_mm = max(annotation["bbox"][2:]) * mm_per_px[annotation["image_id"]]
+        if not annotation.get("iscrowd") and size_mm < min_size_mm:
+            annotation = {**annotation, "category_id": ignore_id, "iscrowd": 1,
+                          "ignored_category_id": annotation["category_id"]}
+        annotations.append(annotation)
+    return {**coco, "annotations": annotations}
+
+
 def write_json(data: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:

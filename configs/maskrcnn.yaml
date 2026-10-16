@@ -19,6 +19,10 @@ data:
   # Use a random subset of N images (null = all). For a quick smoke test, e.g. 16 and 8.
   max_train_images: null
   max_val_images: null
+  # Plants whose box is shorter than this on its longer side (mm, from each image's mm_per_px)
+  # become ignore regions in training and evaluation: neither learned nor scored. The target
+  # is plants past the seedling stage. null = keep every plant.
+  min_plant_size_mm: 20
 
 augment:
   horizontal_flip: 0.5  # probability
