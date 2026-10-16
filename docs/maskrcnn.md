@@ -28,10 +28,10 @@ All settings live in `configs/maskrcnn.yaml`; both scripts run without arguments
 
 An interrupted training resumes from the last finished epoch when re-run. A new experiment
 needs a new run name. `run_name` is a template: `{dataset}` and `{taxonomy}` come from the
-last two folders of `data.dir`, `{min_size}` from `min_plant_size_mm` (e.g. `min20mm`, or
-`all`). The default `{dataset}_{taxonomy}_{min_size}` thus changes by itself with the data;
-for runs that change anything else, add your own text (e.g. `_lr0.01`). Resuming refuses a run
-whose `model` settings, `data.dir` or `min_plant_size_mm` differ, but not other settings.
+last two folders of `data.dir`; the converter names the latter after its settings (e.g.
+`species_min50img_min20mm`). The default `{dataset}_{taxonomy}` thus changes by itself with
+the data; for runs that change anything else, add your own text (e.g. `_lr0.01`). Resuming
+refuses a run whose `model` settings or `data.dir` differ, but not other settings.
 
 ## Outputs
 
@@ -41,7 +41,7 @@ Everything goes to `runs/maskrcnn/<run_name>/` (gitignored):
 - `best.pt`: the model with the best val mask AP, plus its categories and config.
 - `metrics.jsonl`: one line per epoch with the mean losses and, when evaluated, val AP/AP50.
 - `config.yaml`: the config of the latest start or resume. `tensorboard/`: the logs.
-- `eval/<split>_<checkpoint>/` (`_min<N>mm` appended when `min_plant_size_mm` is set): `metrics.json`, `per_class.csv`, `confusion_matrix.csv/.png`,
+- `eval/<split>_<checkpoint>/`: `metrics.json`, `per_class.csv`, `confusion_matrix.csv/.png`,
   `predictions.json` (COCO results) and `previews/` (ground truth left, predictions right).
 
 ## Choices
@@ -50,11 +50,11 @@ Everything goes to `runs/maskrcnn/<run_name>/` (gitignored):
   heads of torchvision already skip proposals matched to such a box. The RPN is replaced by
   `IgnoreAwareRPN`, which does the same for anchors. A plant hidden in an ignore region is
   thus neither learned as a plant nor as background.
-- **Minimum plant size** (`data.min_plant_size_mm`): plants whose box is shorter than this
-  on its longer side, in mm from the image's `mm_per_px`, become ignore regions of the
-  `ignore` category, in training and evaluation alike. The project targets plants past the
-  seedling stage; a size in mm keeps the threshold valid across datasets of different
-  resolution. Resuming refuses a run trained with another value.
+- **Minimum plant size** is set at conversion (`min_plant_size_mm` in the dataset config):
+  plants whose box is shorter than this on its longer side, in mm, are written as ignore
+  regions of the `ignore` category, so training and evaluation see the same data. The
+  project targets plants past the seedling stage; a size in mm keeps the threshold valid
+  across datasets of different resolution.
 - **Evaluation** uses pycocotools, but the ignore regions count for every category
   (`IgnoreAwareCOCOeval`). Plain COCOeval would only apply each to its own category and
   count a correct "weed" on unlabelled vegetation as a false positive. AP is the COCO mean

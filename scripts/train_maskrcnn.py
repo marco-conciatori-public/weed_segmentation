@@ -13,7 +13,6 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from weedseg.config import load_config
-from weedseg.data.coco import ignore_small_plants
 from weedseg.evaluation import evaluate_coco
 from weedseg.maskrcnn.data import (
     CocoInstanceDataset,
@@ -47,9 +46,8 @@ def main() -> None:
     amp = train["amp"] and device.type == "cuda"
     print(f"Run {run_dir}, device {device}{' (mixed precision)' if amp else ''}")
 
-    train_coco, val_coco = (ignore_small_plants(load_coco(split_file(config, split)),
-                                                data["min_plant_size_mm"])
-                            for split in ("train", "val"))
+    train_coco = load_coco(split_file(config, "train"))
+    val_coco = load_coco(split_file(config, "val"))
     categories = model_categories(train_coco)
     if [c["name"] for c in model_categories(val_coco)] != [c["name"] for c in categories]:
         raise SystemExit("Train and val files have different categories")
@@ -82,10 +80,8 @@ def main() -> None:
             raise SystemExit(f"The model settings differ from those of {last_path}; "
                              "change run_name to train a new model")
         trained_data = checkpoint["config"]["data"]
-        if trained_data.get("min_plant_size_mm") != data["min_plant_size_mm"]:
-            raise SystemExit(f"min_plant_size_mm differs from that of {last_path}; "
-                             "change run_name to train a new model")
-        if "dir" not in trained_data or resolve(trained_data["dir"]) != resolve(data["dir"]):
+        if ("dir" not in trained_data
+                or resolve(trained_data["dir"]) != resolve(data["dir"])):
             raise SystemExit(f"data.dir differs from that of {last_path}; "
                              "change run_name to train a new model")
         model.load_state_dict(checkpoint["model"])

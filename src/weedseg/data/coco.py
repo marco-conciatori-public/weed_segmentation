@@ -117,7 +117,7 @@ class LabelMap:
                 decisions[code] = OTHER_CATEGORY
             else:
                 decisions[code] = ""
-        name = f"species_min{min_images}"
+        name = f"species_min{min_images}img"
         for row in self.rows.values():
             row[name] = decisions[row["eppo"]] if row["eppo"] else ""
         self.taxonomy = name
@@ -171,21 +171,50 @@ def _role(rows: list[dict[str, str]]) -> str:
 
 
 def split_by_group[T](items: list[T], group_of: Callable[[T], str],
-                      fractions: dict[str, float], seed: int) -> dict[str, list[T]]:
-    """Assign whole groups to splits so each split gets about its fraction of the items."""
+                      fractions: dict[str, float], seed: int,
+                      labels_of: Callable[[T], Iterable[str]] | None = None) -> dict[str, list[T]]:
+    """Assign whole groups to splits so each split gets about its fraction of the items and,
+    with `labels_of`, of the items of each label.
+
+    Balancing follows iterative stratification: groups holding the rarest labels are placed
+    first, each in the split least filled (relative to its share) with the group's rarest
+    label plus with items. A label found in fewer groups than there are splits can't reach
+    every split.
+    """
     by_group: dict[str, list[T]] = defaultdict(list)
     for item in items:
         by_group[group_of(item)].append(item)
+    group_labels = {group: Counter(label for item in members
+                                   for label in (labels_of(item) if labels_of else ()))
+                    for group, members in by_group.items()}
+    label_totals = sum(group_labels.values(), Counter())
+
     groups = sorted(by_group)
     random.Random(seed).shuffle(groups)
+    # Rarest labels first; the stable sort keeps the shuffled order among equals.
+    groups.sort(key=lambda g: min((label_totals[label] for label in group_labels[g]),
+                                  default=len(items) + 1))
 
     total = sum(fractions.values())
-    targets = {name: fraction / total * len(items) for name, fraction in fractions.items()}
+    shares = {name: fraction / total for name, fraction in fractions.items()}
     splits: dict[str, list[T]] = {name: [] for name in fractions}
+    label_counts = {name: Counter() for name in fractions}
     for group in groups:
-        # Give the group to the split furthest below its target share.
-        name = max(splits, key=lambda n: targets[n] - len(splits[n]))
+        labels = group_labels[group]
+        rarest = min(labels, key=lambda label: (label_totals[label], label)) if labels else None
+
+        def fill(name: str) -> float:
+            # How full a split is relative to its target, for the rarest label plus for all
+            # items: a split still without the label usually wins, however small its share,
+            # while the item totals stay close to the fractions.
+            items_fill = len(splits[name]) / (shares[name] * len(items))
+            if rarest is None:
+                return items_fill
+            return label_counts[name][rarest] / (shares[name] * label_totals[rarest]) + items_fill
+
+        name = min(splits, key=fill)
         splits[name].extend(by_group[group])
+        label_counts[name].update(labels)
     return splits
 
 
@@ -243,10 +272,16 @@ def to_coco(records: Iterable[ImageRecord], label_map: LabelMap,
     return {"info": info, "images": images, "annotations": annotations, "categories": categories}
 
 
+def is_small(box_width: float, box_height: float, mm_per_px: float,
+             min_size_mm: float | None) -> bool:
+    """Whether a plant is under the minimum size: its box's longer side, in mm."""
+    return min_size_mm is not None and max(box_width, box_height) * mm_per_px < min_size_mm
+
+
 def ignore_small_plants(coco: dict[str, Any], min_size_mm: float | None) -> dict[str, Any]:
-    """Copy of `coco` where plants whose box has its longer side under `min_size_mm` become
-    ignore regions (the `ignore` category, `iscrowd = 1`): neither learned nor scored, for any
-    class. The size in mm uses each image's `mm_per_px`. None returns `coco` unchanged."""
+    """Copy of `coco` where plants under `min_size_mm` (see `is_small`) become ignore regions
+    (the `ignore` category, `iscrowd = 1`): neither learned nor scored, for any class. The
+    size in mm uses each image's `mm_per_px`. None returns `coco` unchanged."""
     if min_size_mm is None:
         return coco
     ignore_id = next(c["id"] for c in coco["categories"] if c["name"] == IGNORE_CATEGORY)
@@ -257,8 +292,9 @@ def ignore_small_plants(coco: dict[str, Any], min_size_mm: float | None) -> dict
                          "so plant sizes in mm are unknown")
     annotations = []
     for annotation in coco["annotations"]:
-        size_mm = max(annotation["bbox"][2:]) * mm_per_px[annotation["image_id"]]
-        if not annotation.get("iscrowd") and size_mm < min_size_mm:
+        width, height = annotation["bbox"][2:]
+        if (not annotation.get("iscrowd")
+                and is_small(width, height, mm_per_px[annotation["image_id"]], min_size_mm)):
             annotation = {**annotation, "category_id": ignore_id, "iscrowd": 1,
                           "ignored_category_id": annotation["category_id"]}
         annotations.append(annotation)

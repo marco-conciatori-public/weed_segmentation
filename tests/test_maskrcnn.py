@@ -108,21 +108,22 @@ def test_missing_pretrained_file_fails_clearly(tmp_path):
         build_model(3, config)
 
 
-def run_config(name, min_size_mm):
+def run_config(name):
     return {"run_name": name, "output_dir": "runs/maskrcnn",
-            "data": {"dir": "data/processed/cropandweed/fine24", "min_plant_size_mm": min_size_mm}}
+            "data": {"dir": "data/processed/cropandweed/species_min50img_min20mm"}}
 
 
-def test_run_name_placeholders_follow_the_data_settings():
-    assert run_name(run_config("{dataset}_{taxonomy}_{min_size}", 20)) == "cropandweed_fine24_min20mm"
-    assert run_name(run_config("{taxonomy}_{min_size}_lr0.01", 12.5)) == "fine24_min12.5mm_lr0.01"
-    assert run_name(run_config("{taxonomy}_{min_size}", None)) == "fine24_all"
-    assert run_name(run_config("plain_name", 20)) == "plain_name"
+def test_run_name_placeholders_follow_the_data_folder():
+    assert (run_name(run_config("{dataset}_{taxonomy}"))
+            == "cropandweed_species_min50img_min20mm")
+    assert run_name(run_config("{taxonomy}_lr0.01")) == "species_min50img_min20mm_lr0.01"
+    assert run_name(run_config("plain_name")) == "plain_name"
     with pytest.raises(ValueError, match="species"):
-        run_name(run_config("{species}", 20))
+        run_name(run_config("{species}"))
 
 
 def test_run_dir_and_split_files_are_project_root_anchored():
-    config = run_config("{taxonomy}", None)
-    assert resolve_run_dir(config) == project_root() / "runs/maskrcnn/fine24"
-    assert split_file(config, "val") == project_root() / "data/processed/cropandweed/fine24/val.json"
+    config = run_config("{dataset}")
+    assert resolve_run_dir(config) == project_root() / "runs/maskrcnn/cropandweed"
+    assert split_file(config, "val") == (project_root() / "data/processed/cropandweed"
+                                         / "species_min50img_min20mm/val.json")

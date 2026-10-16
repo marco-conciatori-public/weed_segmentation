@@ -13,11 +13,9 @@ def split_file(config: dict[str, Any], split: str) -> Path:
 
 def run_name(config: dict[str, Any]) -> str:
     """`run_name` with its placeholders filled in: {dataset} and {taxonomy} are the last two
-    folders of `data.dir`, {min_size} is e.g. `min20mm` (`all` without a minimum)."""
+    folders of `data.dir`."""
     data_dir = Path(config["data"]["dir"])
-    min_size_mm = config["data"]["min_plant_size_mm"]
-    values = {"dataset": data_dir.parent.name, "taxonomy": data_dir.name,
-              "min_size": "all" if min_size_mm is None else f"min{min_size_mm:g}mm"}
+    values = {"dataset": data_dir.parent.name, "taxonomy": data_dir.name}
     try:
         return config["run_name"].format(**values)
     except KeyError as error:

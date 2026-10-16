@@ -118,10 +118,12 @@ def image_names(raw_dir: Path, keep_negative_images: bool = True,
     return names
 
 
-def image_labels(raw_dir: Path, names: list[str]) -> list[set[str]]:
-    """Source labels of the boxes of each image (reads only the box files, so it is fast)."""
-    return [{str(box[4]) for box in read_boxes(raw_dir / "bboxes" / f"{name}.csv")}
-            for name in names]
+def box_labels(raw_dir: Path, name: str) -> list[tuple[str, int, int]]:
+    """(source label, width, height) of each box of an image, in px. Reads only the box
+    file, so it is fast; the sizes match the boxes `iter_records` writes."""
+    boxes = read_boxes(raw_dir / "bboxes" / f"{name}.csv")
+    return [(str(label), right + 1 - left, bottom + 1 - top)
+            for left, top, right, bottom, label, _, _ in boxes]
 
 
 def iter_records(raw_dir: Path, names: list[str], with_masks: bool = True,

@@ -3,10 +3,11 @@
 # Relative paths are resolved against the project root. See docs/maskrcnn.md.
 
 # Outputs (checkpoints, TensorBoard logs, metrics, evaluations) go to <output_dir>/<run_name>/.
-# Placeholders: {dataset} and {taxonomy} = the last two folders of data.dir, {min_size} =
-# e.g. min20mm (all when min_plant_size_mm is null). Add your own text to tell apart runs that
-# change other settings, e.g. "{dataset}_{taxonomy}_{min_size}_lr0.01". A plain name works too.
-run_name: "{dataset}_{taxonomy}_{min_size}"
+# Placeholders: {dataset} and {taxonomy} = the last two folders of data.dir (the taxonomy
+# folder name also carries the converter's settings, e.g. species_min50img_min20mm). Add your
+# own text to tell apart runs that change other settings, e.g. "{dataset}_{taxonomy}_lr0.01".
+# A plain name works too.
+run_name: "{dataset}_{taxonomy}"
 output_dir: runs/maskrcnn
 seed: 0
 # auto = CUDA when available, else CPU (CPU is only good for a smoke test).
@@ -15,16 +16,12 @@ device: auto
 data:
   # Folder with train.json, val.json and test.json in our internal COCO format, as written by
   # the converter (<output_dir>/<taxonomy>). The categories come from the train file.
-  dir: data/processed/cropandweed/fine24
+  dir: data/processed/cropandweed/species_min50img_min20mm
   # Data-loading processes. 0 loads in the main process (slow, but simplest to debug).
   num_workers: 6
   # Use a random subset of N images (null = all). For a quick smoke test, e.g. 16 and 8.
   max_train_images: null
   max_val_images: null
-  # Plants whose box is shorter than this on its longer side (mm, from each image's mm_per_px)
-  # become ignore regions in training and evaluation: neither learned nor scored. The target
-  # is plants past the seedling stage. null = keep every plant.
-  min_plant_size_mm: 20
 
 augment:
   horizontal_flip: 0.5  # probability
@@ -68,7 +65,7 @@ train:
   eval_every: 2
   eval_batch_size: 2
   # Continue from <run>/last.pt when it exists. To start over, change run_name. Resuming refuses
-  # a run whose model settings, data.dir or min_plant_size_mm differ.
+  # a run whose model settings or data.dir differ.
   resume: true
   # Log the training losses to TensorBoard every N steps.
   log_every: 20

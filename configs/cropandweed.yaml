@@ -39,20 +39,27 @@ convert:
   # class. Rarer species become one "other_plant" class (handed to a generic model at
   # inference). Genus-only labels also go to other_plant, or become ignore regions when one
   # of their species is a class. The output folder is then species_min<N>, with the class
-  # decisions in classes.txt. null = every species is a class.
+  # decisions in classes.txt. Counts only plants that pass min_plant_size_mm.
+  # null = every species is a class.
   min_train_images: 50
+  # Plants whose box is shorter than this on its longer side (mm, via mm_per_px_estimate)
+  # become ignore regions: neither learned nor scored. The project targets plants past the
+  # seedling stage. The output folder gets a _min<N>mm suffix. null = keep every plant.
+  min_plant_size_mm: 20
   # Derive per-instance masks from the semantic masks. False writes boxes only.
   instance_masks: true
   # Some masks contain plants without a box. Regions of at least this many pixels become
   # ignore regions (iscrowd), so they are not learned as background. null disables this.
   # 256 = 16x16 px, the dataset's own minimum size for an annotated plant.
   unboxed_min_area: 256
-  # Images with an empty box file show no plants (negative samples); keep them as images
-  # without annotations.
+  # Images without plants (empty box file, or every plant under min_plant_size_mm) are
+  # negative samples: they teach the model what is not a plant. false drops them.
   keep_negative_images: true
   # Only convert images whose file exists (useful when only some image parts are downloaded).
   require_image_file: true
-  # Split by recording session (file-name prefix such as "vwg-0328"), never by image.
+  # Split by recording session (file-name prefix such as "vwg-0328"), never by image, and
+  # balanced so each species (of the plants passing min_plant_size_mm) gets about these
+  # fractions. A species seen in fewer sessions than there are splits can't reach them all.
   split:
     seed: 0
     fractions: {train: 0.70, val: 0.15, test: 0.15}

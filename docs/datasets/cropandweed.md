@@ -120,14 +120,20 @@ but **the public download contains only the four `params` values**.
   large cowslip patch). Connected regions of at least 256 px (16x16, the dataset's own
   minimum annotated size) become ignore regions (`unboxed: true`), so a model doesn't learn
   them as background. Smaller leftover fragments are dropped.
-- **Splits** are made by session, 70/15/15, seed 0. The paper also used 70/15/15 but split
+- **Size filter:** plants whose box is shorter than `min_plant_size_mm` (20 mm) on its
+  longer side become ignore regions, before anything is counted. Images left without
+  plants stay as negative samples (`keep_negative_images`).
+- **Splits** are made by session, 70/15/15, seed 0, balanced over species: sessions with the
+  rarest species are placed first, each in the split least filled with that species and
+  with images, relative to the split's share (iterative stratification). A species seen in only one or two sessions still
+  can't reach all three splits. The paper also used 70/15/15 but split
   randomly per image and did not publish the split, so **our scores can't be compared
   directly with the paper's**.
 - **Taxonomies** (column of the label map, chosen in the config):
   - `species`: EPPO codes, 73 species/genera with instances (the paper's 74 classes, but
     flat-leaf and curly-leaf parsley share one EPPO code). Very long-tailed; see the
     statistics below.
-  - `species` with `min_train_images: N` (output folder `species_min<N>`): the project's
+  - `species` with `min_train_images: N` (output folder `species_min<N>img_min<size>mm`): the project's
     target setup. Species with at least N training images are classes; rarer species and
     genus-only labels form one `other_plant` class, meant to be handed to a generic model at
     inference. A genus-only label whose genus also has a species class becomes an ignore

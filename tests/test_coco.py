@@ -121,7 +121,7 @@ def test_keep_common_species_applies_the_four_rules(tmp_path):
     images = [{"1", "2", "4"}, {"1", "2", "3"}, {"5", "255"}]
     report = label_map.keep_common_species(images, min_images=2)
 
-    assert label_map.taxonomy == "species_min2"
+    assert label_map.taxonomy == "species_min2img"
     assert {label: label_map.category(label) for label in ("1", "2", "3", "4", "5", "255")} == {
         "1": "ZEAMX", "2": "POAAN", "3": OTHER_CATEGORY, "4": IGNORE_CATEGORY,
         "5": OTHER_CATEGORY, "255": IGNORE_CATEGORY}
@@ -135,3 +135,18 @@ def test_keep_common_species_needs_the_species_taxonomy(tmp_path):
     label_map = LabelMap(write_label_map(tmp_path / "map.csv"), "group")
     with pytest.raises(ValueError, match="species"):
         label_map.keep_common_species([], 1)
+
+
+def test_balanced_split_spreads_a_rare_label_over_all_splits():
+    # 100 groups of 10 items; the label "rare" is in only 3 groups.
+    items = [f"s{g:03d}-{i}" for g in range(100) for i in range(10)]
+    rare_groups = {"s007", "s042", "s093"}
+
+    def labels_of(item):
+        return {"rare"} if item.split("-")[0] in rare_groups else {"common"}
+
+    splits = split_by_group(items, lambda name: name.split("-")[0],
+                            {"train": 0.7, "val": 0.15, "test": 0.15}, seed=0, labels_of=labels_of)
+    for split in splits.values():
+        assert any(item.split("-")[0] in rare_groups for item in split)
+    assert abs(len(splits["train"]) - 700) <= 20
