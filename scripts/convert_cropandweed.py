@@ -1,7 +1,7 @@
 """Convert CropAndWeed to COCO (one JSON per split). Settings: configs/cropandweed.yaml (convert).
 
-Order: size filter -> split by session, balanced over species -> classes from the training
-images (with min_train_images) -> COCO files, small plants as ignore regions.
+Order: size filter -> split by session, balanced over species -> COCO files, small plants as
+ignore regions. With taxonomy species, scripts/combine_datasets.py then chooses the classes.
 """
 
 from collections import Counter
@@ -52,16 +52,8 @@ def main() -> None:
     splits = split_by_group(names, cropandweed.session_of, split["fractions"], split["seed"],
                             labels_of=species_of)
 
-    report = []
-    if settings["min_train_images"] is not None:
-        report = label_map.keep_common_species([plant_labels[name] for name in splits["train"]],
-                                               settings["min_train_images"])
-        print("\n".join(report))
     folder = label_map.taxonomy + ("" if min_size_mm is None else f"_min{min_size_mm:g}mm")
     output_dir = resolve(settings["output_dir"]) / folder
-    if report:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / "classes.txt").write_text("\n".join(report) + "\n", encoding="utf-8")
 
     for split_name, split_names in splits.items():
         records = cropandweed.iter_records(raw_dir, split_names, settings["instance_masks"],

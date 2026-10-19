@@ -77,7 +77,6 @@ def main() -> None:
     rules = load_rules(resolve(settings["rules"]), taxa)
     names = {c["id"]: c["name"] for c in coco["categories"]}
     roles = {name: role_of(name, rules, taxa) for name in names.values() if name != "ignore"}
-    species_of_label = read_label_species(review["label_map"])
 
     matches = match_detections(coco, results, [i["id"] for i in images],
                                settings["score_threshold"], settings["iou_threshold"],
@@ -126,7 +125,7 @@ def main() -> None:
             plant = item.match.plant
             rows.append({
                 "rank": rank, "image": file_name, "source_image": info["file_name"],
-                "labelled_as": (full_name(item.true_name, taxa, plant, species_of_label)
+                "labelled_as": (full_name(item.true_name, taxa, plant)
                                 if plant else "(no plant labelled)"),
                 "predicted_as": (full_name(item.predicted_name, taxa)
                                  if item.predicted_name else "(not detected)"),
@@ -146,25 +145,16 @@ def main() -> None:
     print(f"-> {out_dir}")
 
 
-def read_label_species(path: str | None) -> dict[str, str]:
-    """Source label -> EPPO code, from a dataset's label map (to name other_plant plants)."""
-    if not path:
-        return {}
-    with open(resolve(path), newline="", encoding="utf-8") as f:
-        return {row["source_label"]: row["eppo"] for row in csv.DictReader(f)}
-
-
 def short_name(name: str, taxa: dict[str, dict[str, str]]) -> str:
     """Scientific name for the images (other_plant and unknown names stay as they are)."""
     return taxa[name]["name"] if name in taxa else name
 
 
-def full_name(name: str, taxa: dict[str, dict[str, str]], plant: dict | None = None,
-              species_of_label: dict[str, str] | None = None) -> str:
-    """E.g. "Zea mays (maize; EPPO ZEAMX)"; for an other_plant plant, also its real species
-    when the label map tells it."""
+def full_name(name: str, taxa: dict[str, dict[str, str]], plant: dict | None = None) -> str:
+    """E.g. "Zea mays (maize; EPPO ZEAMX)"; for an other_plant plant, also its own species
+    (the `eppo` field that scripts/combine_datasets.py writes)."""
     if name == OTHER_CATEGORY:
-        code = (species_of_label or {}).get(str((plant or {}).get("source_label")), "")
+        code = (plant or {}).get("eppo", "")
         return f"{OTHER_CATEGORY}: {full_name(code, taxa)}" if code in taxa else OTHER_CATEGORY
     row = taxa[name]
     common = row["common_names_en"].split(NAME_SEPARATOR)[0]

@@ -1,0 +1,19 @@
+# Combine converted datasets into one training set, and choose its classes.
+# Used by scripts/combine_datasets.py. Relative paths are resolved against the project root.
+# See docs/data-format.md (Combining datasets).
+
+# Converted dataset folders (train.json, val.json, test.json), each converted with taxonomy
+# species and the same min_plant_size_mm. The dataset name is the folder above, e.g.
+# cropandweed for data/processed/cropandweed/species_min20mm.
+datasets:
+  - data/processed/cropandweed/species_min20mm
+# A species needs at least this many training images, over all datasets, to be a class.
+# Rarer species become one "other_plant" class (handed to a generic model at inference).
+# Genus-only labels also go to other_plant, or become ignore regions when one of their
+# species is a class. Decisions are printed and saved to classes.txt.
+min_train_images: 50
+eppo_taxa: configs/eppo_taxa.csv
+# Output: <output_dir>/<dataset names joined by +>/species_min<N>img[_min<size>mm], e.g.
+# data/processed/cropandweed+we3ds/species_min50img_min20mm. Point data.dir in
+# configs/maskrcnn.yaml there.
+output_dir: data/processed

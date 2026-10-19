@@ -133,14 +133,11 @@ but **the public download contains only the four `params` values**.
   - `species`: EPPO codes, 73 species/genera with instances (the paper's 74 classes, but
     flat-leaf and curly-leaf parsley share one EPPO code). Very long-tailed; see the
     statistics below.
-  - `species` with `min_train_images: N` (output folder `species_min<N>img_min<size>mm`): the project's
-    target setup. Species with at least N training images are classes; rarer species and
-    genus-only labels form one `other_plant` class, meant to be handed to a generic model at
-    inference. A genus-only label whose genus also has a species class becomes an ignore
-    region instead (e.g. *Geranium* next to *Geranium pusillum*), since the plant may well
-    be of that species. Images are counted after the size filter. The decisions are printed
-    and saved to `classes.txt`. With N = 50 and 20 mm: 29 species classes, each present in
-    train, val and test; *Poa*, *Mercurialis* and pumpkins (*Cucurbita*) go to `other_plant`.
+    This is the project's setup: convert with `species` (folder `species_min20mm`), then
+    choose the classes with `scripts/combine_datasets.py` (see
+    [../data-format.md](../data-format.md)). With CropAndWeed alone, N = 50 and 20 mm: 29
+    species classes, each present in train, val and test; *Poa*, *Mercurialis* and
+    pumpkins (*Cucurbita*) go to `other_plant`.
   - `fine24`: the authors' 8 crop + 16 weed groups. Some species are left out (e.g.
     courgette, cowslip, purslane, cleavers, wild pansy) and become ignore regions.
   - `crops_or_weed9`, `crop_or_weed2`: coarser variants from the paper.

@@ -14,8 +14,10 @@ All settings live in `configs/maskrcnn.yaml`; both scripts run without arguments
 
 ## Running it
 
-1. Convert the data for the chosen taxonomy (`scripts/convert_cropandweed.py`) and point
-   `data.dir` at its folder, which holds `train.json`, `val.json` and `test.json`.
+1. Convert each dataset with taxonomy `species` (`scripts/convert_cropandweed.py`), combine
+   them and choose the classes (`scripts/combine_datasets.py`, see
+   [data-format.md](data-format.md)), and point `data.dir` at the combined folder, which
+   holds `train.json`, `val.json` and `test.json`. A single converted folder works too.
 2. Optional smoke test, on any machine: set `max_train_images: 16`, `max_val_images: 8`,
    `epochs: 2`, `evaluate.max_images: 4` and a throwaway `run_name`, run both scripts, then
    undo those changes. On a CPU this takes a few minutes.

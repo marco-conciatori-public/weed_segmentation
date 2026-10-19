@@ -33,15 +33,9 @@ convert:
   # What defines the COCO categories: a label-map column (species = EPPO codes, fine24,
   # crops_or_weed9, crop_or_weed2) or an EPPO rank taken from eppo_taxa (genus, family,
   # order). Instances whose label has no value (and the dataset's own "Vegetation"
-  # fallback) become ignore regions.
+  # fallback) become ignore regions. Use species to combine datasets and choose the classes
+  # with scripts/combine_datasets.py (configs/combine.yaml).
   taxonomy: species
-  # With taxonomy species only: a species needs at least this many training images to be a
-  # class. Rarer species become one "other_plant" class (handed to a generic model at
-  # inference). Genus-only labels also go to other_plant, or become ignore regions when one
-  # of their species is a class. The output folder is then species_min<N>, with the class
-  # decisions in classes.txt. Counts only plants that pass min_plant_size_mm.
-  # null = every species is a class.
-  min_train_images: 50
   # Plants whose box is shorter than this on its longer side (mm, via mm_per_px_estimate)
   # become ignore regions: neither learned nor scored. The project targets plants past the
   # seedling stage. The output folder gets a _min<N>mm suffix. null = keep every plant.

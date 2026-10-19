@@ -62,6 +62,26 @@ Standard COCO fields, plus these extras:
 - Dataset-specific groupings (e.g. CropAndWeed's `fine24`) are label-map columns.
   Choosing a coarser grouping only takes a re-conversion, never relabelling.
 
+## Combining datasets and choosing the classes
+
+Each dataset is converted on its own with taxonomy `species` (one category per EPPO code),
+the same `min_plant_size_mm`, and its own split. `scripts/combine_datasets.py`
+(`configs/combine.yaml`) then merges them and chooses the classes on the combined training
+images, so that every dataset counts (`weedseg.data.combine`):
+
+1. A species with at least `min_train_images` training images is a class.
+2. A rarer species goes to `other_plant`.
+3. A label coarser than species (e.g. genus only) goes to `other_plant`, unless one of its
+   species is a class: then it becomes an ignore region, since the plant may well be of
+   that species (e.g. *Geranium* next to *Geranium pusillum*).
+4. Ignore regions stay ignore regions.
+
+The decisions are printed and saved to `classes.txt`. The output goes to
+`data/processed/<datasets joined by +>/species_min<N>img_min<size>mm`. Each plant keeps its
+own EPPO code in an `eppo` field, whatever class it ends up in; image file names become
+paths from the project root (`info.image_dir` is "."), and `info.licences` lists the
+licences of all the datasets, since the most restrictive one applies to the combination.
+
 ## The other_plant category
 
 With per-species classes, species too rare to learn and labels coarser than species (e.g.

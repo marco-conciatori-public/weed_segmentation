@@ -102,5 +102,3 @@ review:
   per_type: 25
   # Smallest crop around a plant, in px of the original image (more context for small plants).
   min_crop_px: 400
-  # The dataset's label map, to name the real species of other_plant plants. null = skip.
-  label_map: configs/label_maps/cropandweed.csv
