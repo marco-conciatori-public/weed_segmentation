@@ -1,12 +1,14 @@
 eppo,datatype,rank,active,name,synonyms,genus,genus_name,family,family_name,order,order_name,common_names_en,common_names_it
 1ATXG,SPT,genus,yes,Atriplex,,1ATXG,Atriplex,1AMAF,Amaranthaceae,1CAFO,Caryophyllales,,
 1CUUG,SPT,genus,yes,Cucurbita,,1CUUG,Cucurbita,1CUCF,Cucurbitaceae,1CUCO,Cucurbitales,,
+1DIGG,SPT,genus,yes,Digitaria,Leptoloma; Leucopoa; Trichachne,1DIGG,Digitaria,1GRAF,Poaceae,1POAO,Poales,,
 1EPHG,SPT,genus,yes,Euphorbia,Monadenium; Poinsettia; Chamaesyce; Pedilanthus; Synadenium,1EPHG,Euphorbia,1EUPF,Euphorbiaceae,1MALO,Malpighiales,,
 1GERG,SPT,genus,yes,Geranium,,1GERG,Geranium,1GERF,Geraniaceae,1GERO,Geraniales,,
 1MERG,SPT,genus,yes,Mercurialis,,1MERG,Mercurialis,1EUPF,Euphorbiaceae,1MALO,Malpighiales,,
 1PAPG,SPT,genus,yes,Papaver,,1PAPG,Papaver,1PPAF,Papaveraceae,1RANO,Ranunculales,,
 1POAG,SPT,genus,yes,Poa,Bellardiochloa,1POAG,Poa,1GRAF,Poaceae,1POAO,Poales,,
 1SALG,SPT,genus,yes,Salvia,Rosmarinus; Perovskia,1SALG,Salvia,1LAMF,Lamiaceae,1LAMO,Lamiales,,
+1SETG,SPT,genus,yes,Setaria,,1SETG,Setaria,1GRAF,Poaceae,1POAO,Poales,,
 1SSYG,SPT,genus,yes,Sisymbrium,,1SSYG,Sisymbrium,1CRUF,Brassicaceae,1CAPO,Brassicales,,
 1TARG,SPT,genus,yes,Taraxacum,,1TARG,Taraxacum,1COMF,Asteraceae,1ASTO,Asterales,,
 1TRFG,SPT,genus,yes,Trifolium,,1TRFG,Trifolium,1LEGF,Fabaceae,1FABO,Fabales,,
@@ -52,6 +54,7 @@ HELAN,PFL,species,yes,Helianthus annuus,,1HELG,Helianthus,1COMF,Asteraceae,1ASTO
 HORMU,PFL,species,yes,Hordeum murinum,Hordeum murinum subsp. murinum,1HORG,Hordeum,1GRAF,Poaceae,1POAO,Poales,mouse barley; wall barley,orzo selvatico; forasacco; erba spiga; erba codola
 LACSE,PFL,species,yes,Lactuca serriola,Lactuca scariola; Lactuca dubia,1LACG,Lactuca,1COMF,Asteraceae,1ASTO,Asterales,compass plant; prickly lettuce; wild lettuce,lattuga selvatica; lattuga scariola; erba bussola; lattona; scarola
 LAMPU,PFL,species,yes,Lamium purpureum,,1LAMG,Lamium,1LAMF,Lamiaceae,1LAMO,Lamiales,red dead-nettle; purple deadnettle; red henbit; purple archangel,lamio purpureo; ortica purpurea; falsa ortica; falsa-ortica purpurea
+LOLPE,PFL,species,yes,Lolium perenne,,1LOLG,Lolium,1GRAF,Poaceae,1POAO,Poales,perennial ryegrass; English ryegrass,loglio inglese; loietto inglese; loglierella; loglio comune; loiessa
 MATCH,PFL,species,yes,Matricaria chamomilla,Chamomilla recutita; Chamomilla vulgaris; Matricaria recutita,1MATG,Matricaria,1COMF,Asteraceae,1ASTO,Asterales,wild chamomile; scented mayweed,camomilla commune; capomilla; camomilla comune
 MATMT,PFL,species,yes,Matricaria discoidea,Matricaria matricarioides; Chamomilla suaveolens; Chrysanthemum suaveolens; Matricaria suaveolens; Lepidotheca suaveolens,1MATG,Matricaria,1COMF,Asteraceae,1ASTO,Asterales,rayless mayweed; rounded chamomile; pineapple weed,falsa camomilla; camomilla falsa
 MENPI,PFL,species,yes,Mentha x piperita,Mentha aquatica x M. spicata; Mentha piperita,1MENG,Mentha,1LAMF,Lamiaceae,1LAMO,Lamiales,peppermint,menta piperina

@@ -1,0 +1,28 @@
+# ACRE Crop-Weed Dataset (INRAE Montoldre, France, June 2022): conversion to COCO.
+# Used by scripts/convert_acre.py. Relative paths are resolved against the project root.
+# See docs/datasets/acre.md.
+
+# Where the Zenodo download (record 8102217) is extracted: data/, scripts/, ACRE_datasheet.md.
+raw_dir: data/raw/The_ACRE_Crop-Weed_Dataset
+
+convert:
+  output_dir: data/processed/acre
+  label_map: configs/label_maps/acre.csv
+  eppo_taxa: configs/eppo_taxa.csv
+  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  taxonomy: species
+  # Plants whose box is shorter than this on its longer side (mm, via mm_per_px_estimate)
+  # become ignore regions. Must match the other datasets to combine them.
+  min_plant_size_mm: 20
+  # Images without plants (or with only plants under min_plant_size_mm) are negative
+  # samples. false drops them.
+  keep_negative_images: true
+  # Split by recording batch (10 batches of 100 consecutive images, one plot each), never by
+  # image, balanced over species. The dataset's own split_dictionary.json is not used.
+  split:
+    seed: 0
+    fractions: {train: 0.70, val: 0.15, test: 0.15}
+  # Not given by the dataset (camera height and lens unknown). Estimated from plant sizes:
+  # maize 10-15 cm tall spans a median 490 px, beans 8-10 cm about 260 px. Ask the curator
+  # (see docs/datasets/acre.md) for the real value.
+  mm_per_px_estimate: 0.5

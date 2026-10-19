@@ -16,7 +16,7 @@ device: auto
 data:
   # Folder with train.json, val.json and test.json in our internal COCO format, as written by
   # the converter (<output_dir>/<taxonomy>). The categories come from the train file.
-  dir: data/processed/cropandweed/species_min50img_min20mm
+  dir: data/processed/cropandweed+acre/species_min50img_min20mm
   # Data-loading processes. 0 loads in the main process (slow, but simplest to debug).
   num_workers: 6
   # Use a random subset of N images (null = all). For a quick smoke test, e.g. 16 and 8.

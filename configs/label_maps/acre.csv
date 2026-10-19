@@ -1,0 +1,15 @@
+source_label,common_name,scientific_name,name_source,eppo,eppo_note,role,species
+chenopode,Lamb's quarter,Chenopodium album,datasheet,CHEAL,,weed,CHEAL
+haricot,Common bean,Phaseolus vulgaris,datasheet,PHSVX,,crop,PHSVX
+mais,Maize,Zea mays,datasheet,ZEAMX,,crop,ZEAMX
+ray-grass,Perennial ryegrass,Lolium perenne,datasheet,LOLPE,,weed,LOLPE
+matricaire,Matricaria,Matricaria chamomilla,datasheet,MATCH,,weed,MATCH
+moutarde,Mustard,Sinapis arvensis,datasheet,SINAR,,weed,SINAR
+feverole,Faba bean,Vicia faba,inferred,VICFX,French féverole,crop,VICFX
+pois,Pea,Pisum sativum,inferred,PIBSX,French pois,crop,PIBSX
+pourpier,Purslane,Portulaca oleracea,inferred,POROL,French pourpier; a natural weed named by the annotators,weed,POROL
+digitaire,Crabgrass,Digitaria,inferred,1DIGG,French digitaire; genus only,weed,1DIGG
+setaire,Bristlegrass,Setaria,inferred,1SETG,French sétaire; genus only,weed,1SETG
+inconnu,Unknown,,,,,unknown,
+unnamed,No name given,,,,,unknown,
+unknow,Marked unknown by the annotators,,,,,unknown,

@@ -7,6 +7,7 @@
 # cropandweed for data/processed/cropandweed/species_min20mm.
 datasets:
   - data/processed/cropandweed/species_min20mm
+  - data/processed/acre/species_min20mm
 # A species needs at least this many training images, over all datasets, to be a class.
 # Rarer species become one "other_plant" class (handed to a generic model at inference).
 # Genus-only labels also go to other_plant, or become ignore regions when one of their
