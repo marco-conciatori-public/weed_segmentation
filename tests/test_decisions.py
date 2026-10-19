@@ -7,6 +7,7 @@ from weedseg.decisions import (
     TRUE_ROWS,
     decision_matrix,
     decision_summary,
+    defer_uncertain,
     load_rules,
     role_of,
 )
@@ -69,3 +70,17 @@ def test_decision_matrix_groups_classes_by_role_and_action():
     assert summary["harmful_left"] == pytest.approx(0.4)
     assert summary["neutral_removed"] is None
     assert summary["removals_on_no_plant"] == 4
+
+
+def test_uncertain_detections_are_deferred(tmp_path):
+    rules = load_rules(write_rules(tmp_path / "r.yaml", "default: neutral\ndefer_below: 0.8\n"),
+                       TAXA)
+    categories = [{"id": 1, "name": "SETVI"}, {"id": 2, "name": OTHER_CATEGORY}]
+    results = [{"category_id": 1, "score": 0.9}, {"category_id": 1, "score": 0.6}]
+    deferred = defer_uncertain(results, categories, rules.defer_below)
+    assert [r["category_id"] for r in deferred] == [1, 2]
+    assert results[1]["category_id"] == 1  # input untouched
+    assert defer_uncertain(results, categories, None) is results
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        load_rules(write_rules(tmp_path / "bad.yaml", "default: neutral\ndefer_below: 80\n"),
+                   TAXA)

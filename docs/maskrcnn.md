@@ -83,8 +83,9 @@ The model recognises species; what the robot does with them is set by a rule fil
 (`evaluate.rules`, e.g. `configs/rules/example.yaml`), so the same model serves any field.
 Each class gets a role from the most specific matching EPPO code (species, genus, family or
 order) or the file's `default`: crop and neutral plants are kept, harmful ones removed, and
-`other_plant` is deferred to a generic model. Crop status comes from the rules only: a species
-marked as crop is always kept.
+`other_plant` is deferred to a generic model, as is any detection less confident than the
+file's `defer_below`. Crop status comes from the rules only: a species marked as crop is
+always kept.
 
 The evaluation groups the confusion matrix by role: rows are the true role of each labelled
 plant (from its ground-truth class), plus "no plant" for detections on no labelled plant;

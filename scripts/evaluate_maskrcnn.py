@@ -23,6 +23,7 @@ from weedseg.decisions import (
     TRUE_ROWS,
     decision_matrix,
     decision_summary,
+    defer_uncertain,
     load_rules,
     role_of,
 )
@@ -91,8 +92,7 @@ def main() -> None:
                           f"IoU >= {settings['iou_threshold']})")
 
     if settings["rules"]:
-        write_decisions(matrix, names, resolve(settings["rules"]),
-                        load_taxa(resolve(settings["eppo_taxa"])), out_dir)
+        write_decisions(coco, results, settings, out_dir)
 
     if settings["num_previews"]:
         save_previews(coco, results, dataset.image_dir, out_dir / "previews",
@@ -103,9 +103,13 @@ def main() -> None:
     print(f"-> {out_dir}")
 
 
-def write_decisions(matrix: np.ndarray, names: list[str], rules_path: Path,
-                    taxa: dict[str, dict[str, str]], out_dir: Path) -> None:
+def write_decisions(coco: dict, results: list[dict], settings: dict, out_dir: Path) -> None:
+    rules_path = resolve(settings["rules"])
+    taxa = load_taxa(resolve(settings["eppo_taxa"]))
     rules = load_rules(rules_path, taxa)
+    matrix, names = confusion_matrix(
+        coco, defer_uncertain(results, coco["categories"], rules.defer_below),
+        score_threshold=settings["score_threshold"], iou_threshold=settings["iou_threshold"])
     roles = {name: role_of(name, rules, taxa) for name in names[:-1]}
     grouped = decision_matrix(matrix, names, roles)
     with open(out_dir / "decisions.csv", "w", newline="", encoding="utf-8") as f:

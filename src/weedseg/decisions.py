@@ -2,8 +2,9 @@
 
 The model recognises species; a rule file (see configs/rules/example.yaml) gives each a role:
 crop or neutral -> keep, harmful -> remove. `other_plant` (species the model doesn't know) is
-deferred to a generic model. Rule keys are EPPO codes at any rank (species, genus, family,
-order); the most specific key that matches wins.
+deferred to a generic model, and so is any detection with a confidence under `defer_below`.
+Rule keys are EPPO codes at any rank (species, genus, family, order); the most specific key
+that matches wins.
 """
 
 from dataclasses import dataclass
@@ -26,13 +27,17 @@ ACTION_COLUMNS = ["keep", "remove", "defer", "missed"]
 class Rules:
     default: str
     rules: dict[str, str]  # EPPO code -> role
+    defer_below: float | None = None  # detections less confident than this are deferred
 
 
 def load_rules(path: Path, taxa: dict[str, dict[str, str]]) -> Rules:
     """Read a rule file; roles must be in ROLES and codes known to the EPPO taxa table."""
     with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
-    rules = Rules(default=data["default"], rules=dict(data.get("rules") or {}))
+    rules = Rules(default=data["default"], rules=dict(data.get("rules") or {}),
+                  defer_below=data.get("defer_below"))
+    if rules.defer_below is not None and not 0 <= rules.defer_below <= 1:
+        raise ValueError(f"defer_below in {path} must be between 0 and 1")
     bad_roles = {role for role in [rules.default, *rules.rules.values()] if role not in ROLES}
     if bad_roles:
         raise ValueError(f"Unknown roles in {path}: {sorted(bad_roles)}; use {', '.join(ROLES)}")
@@ -52,6 +57,18 @@ def role_of(name: str, rules: Rules, taxa: dict[str, dict[str, str]]) -> str:
                          "species-level classes (taxonomy species)")
     lineage = [name, *(taxa[name][rank] for rank in PARENT_RANKS)]  # most specific first
     return next((rules.rules[code] for code in lineage if code in rules.rules), rules.default)
+
+
+def defer_uncertain(results: list[dict[str, Any]], categories: list[dict[str, Any]],
+                    defer_below: float | None) -> list[dict[str, Any]]:
+    """Predictions (COCO results) with those under `defer_below` relabelled OTHER_CATEGORY,
+    so they count as deferred. Detection matching ignores classes, so it is unaffected."""
+    if defer_below is None:
+        return results
+    other_id = next((c["id"] for c in categories if c["name"] == OTHER_CATEGORY), None)
+    if other_id is None:
+        raise ValueError(f"defer_below needs an {OTHER_CATEGORY} category")
+    return [{**r, "category_id": other_id} if r["score"] < defer_below else r for r in results]
 
 
 def decision_matrix(matrix: np.ndarray, names: list[str], roles: dict[str, str]) -> np.ndarray:
