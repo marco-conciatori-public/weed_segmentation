@@ -2,8 +2,9 @@
 plus `data`, `run_name` and `output_dir` to find the run and the data).
 
 Writes to <run>/eval/<split>_<checkpoint>/: metrics.json (COCO bbox and segm), per_class.csv,
-confusion_matrix.csv/.png, predictions.json (COCO results) and previews/ (ground truth left,
-predictions right).
+confusion_matrix.csv/.png, predictions.json (COCO results), previews/ (ground truth left,
+predictions right) and, with `evaluate.rules`, decisions.csv/.json (keep / remove / defer per
+true role; see weedseg.decisions).
 """
 
 import csv
@@ -17,6 +18,15 @@ import numpy as np
 from torch.utils.data import DataLoader
 
 from weedseg.config import load_config
+from weedseg.decisions import (
+    ACTION_COLUMNS,
+    TRUE_ROWS,
+    decision_matrix,
+    decision_summary,
+    load_rules,
+    role_of,
+)
+from weedseg.eppo import load_taxa
 from weedseg.evaluation import confusion_matrix, evaluate_coco
 from weedseg.maskrcnn.data import CocoInstanceDataset, collate, load_coco, model_categories
 from weedseg.maskrcnn.engine import predict, select_device
@@ -80,6 +90,10 @@ def main() -> None:
                           f"{run_name(config)}, {split} (score >= {settings['score_threshold']}, "
                           f"IoU >= {settings['iou_threshold']})")
 
+    if settings["rules"]:
+        write_decisions(matrix, names, resolve(settings["rules"]),
+                        load_taxa(resolve(settings["eppo_taxa"])), out_dir)
+
     if settings["num_previews"]:
         save_previews(coco, results, dataset.image_dir, out_dir / "previews",
                       settings["num_previews"], settings["preview_score_threshold"], config["seed"])
@@ -87,6 +101,22 @@ def main() -> None:
         summary = values["summary"]
         print(f"{iou_type}: AP {summary['AP']:.3f}  AP50 {summary['AP50']:.3f}")
     print(f"-> {out_dir}")
+
+
+def write_decisions(matrix: np.ndarray, names: list[str], rules_path: Path,
+                    taxa: dict[str, dict[str, str]], out_dir: Path) -> None:
+    rules = load_rules(rules_path, taxa)
+    roles = {name: role_of(name, rules, taxa) for name in names[:-1]}
+    grouped = decision_matrix(matrix, names, roles)
+    with open(out_dir / "decisions.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["true role \\ action", *ACTION_COLUMNS])
+        writer.writerows([role, *row] for role, row in zip(TRUE_ROWS, grouped.tolist()))
+    summary = decision_summary(grouped)
+    with open(out_dir / "decisions.json", "w", encoding="utf-8") as f:
+        json.dump({"rules": str(rules_path), "summary": summary, "roles": roles}, f, indent=2)
+    print(f"decisions ({rules_path.name}): " + "  ".join(
+        f"{k} {v:.1%}" if isinstance(v, float) else f"{k} {v}" for k, v in summary.items()))
 
 
 def write_per_class(metrics: dict, path: Path) -> None:

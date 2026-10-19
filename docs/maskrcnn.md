@@ -43,6 +43,8 @@ Everything goes to `runs/maskrcnn/<run_name>/` (gitignored):
 - `config.yaml`: the config of the latest start or resume. `tensorboard/`: the logs.
 - `eval/<split>_<checkpoint>/`: `metrics.json`, `per_class.csv`, `confusion_matrix.csv/.png`,
   `predictions.json` (COCO results) and `previews/` (ground truth left, predictions right).
+  With `evaluate.rules`: `decisions.csv` (true role × action counts) and `decisions.json`
+  (summary shares and the role of each class).
 
 ## Choices
 
@@ -74,3 +76,19 @@ Everything goes to `runs/maskrcnn/<run_name>/` (gitignored):
 At 1920×1088, a batch of 4 with mixed precision is expected to fit the 24 GB training GPU,
 but this hasn't been measured yet. If memory runs out, lower `train.batch_size` (and `lr` in proportion), or `eval_batch_size`:
 the predicted masks are pasted at full image size, up to `detections_per_image` per image.
+
+## Decisions
+
+The model recognises species; what the robot does with them is set by a rule file
+(`evaluate.rules`, e.g. `configs/rules/example.yaml`), so the same model serves any field.
+Each class gets a role from the most specific matching EPPO code (species, genus, family or
+order) or the file's `default`: crop and neutral plants are kept, harmful ones removed, and
+`other_plant` is deferred to a generic model. Crop status comes from the rules only: a species
+marked as crop is always kept.
+
+The evaluation groups the confusion matrix by role: rows are the true role of each labelled
+plant (from its ground-truth class), plus "no plant" for detections on no labelled plant;
+columns are keep, remove, defer and missed. The summary gives the shares that matter for the
+robot: crops removed, harmful weeds removed or left, neutral weeds removed, other_plant
+deferred, and removals where no plant is labelled (possibly unlabelled plants). Confusions
+inside one role (e.g. two harmful grasses) cost nothing here.

@@ -81,6 +81,12 @@ evaluate:
   # Confusion matrix: detections with at least this score, matched at this mask IoU.
   score_threshold: 0.5
   iou_threshold: 0.5
+  # Decision rules: which species are crops, harmful or neutral (see configs/rules/). Adds
+  # decisions.csv/.json: what the robot would do (keep / remove / defer) with the plants of
+  # each true role, at the confusion-matrix thresholds above. Needs species-level classes
+  # (EPPO codes); null = skip, e.g. for crop/weed models.
+  rules: configs/rules/example.yaml
+  eppo_taxa: configs/eppo_taxa.csv
   # Images with ground truth and predictions side by side (0 = none).
   num_previews: 20
   preview_score_threshold: 0.5

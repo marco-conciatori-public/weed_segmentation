@@ -1,0 +1,26 @@
+# Example decision rules, for evaluating on CropAndWeed. NOT agronomic advice: replace the
+# harmful list with the project's own, and the crops with the field's.
+#
+# Each recognised plant gets a role: crop or neutral -> the robot keeps it, harmful -> it
+# removes it. other_plant (species the model doesn't know) is handed to the generic model.
+# Keys are EPPO codes at any rank: species (ZEAMX), genus (1POAG), family (1GRAF) or order
+# (1POAO); configs/eppo_taxa.csv lists the codes. The most specific matching key wins, so
+# maize stays a crop inside the harmful grass family. Plants matching no key get `default`.
+default: neutral
+rules:
+  # Crops: every CropAndWeed crop, since its val and test splits mix fields of all of them.
+  BEAVA: crop    # sugar beet
+  GLXMA: crop    # soybean
+  HELAN: crop    # sunflower
+  PIBSX: crop    # pea
+  SOLTU: crop    # potato
+  VICFX: crop    # faba bean
+  ZEAMX: crop    # maize
+  # Harmful (example): strongly competitive or toxic weeds.
+  1GRAF: harmful # grasses (Poaceae)
+  1AMAF: harmful # goosefoots and amaranths (Amaranthaceae); sugar beet stays a crop above
+  1POLF: harmful # knotweeds (Polygonaceae)
+  CIRAR: harmful # creeping thistle
+  CONAR: harmful # field bindweed
+  DATST: harmful # thorn apple (toxic)
+  # Everything else is neutral: e.g. chamomile, cornflower, corn-cockle, geranium, plantain.
