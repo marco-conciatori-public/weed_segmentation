@@ -78,9 +78,13 @@ evaluate:
   # Evaluate a random subset of N images (null = all). For a quick smoke test.
   max_images: null
   batch_size: 2
-  # Confusion matrix: detections with at least this score, matched at this mask IoU.
+  # Confusion matrix, decisions and review: detections with at least this score, matched to
+  # labelled plants at this IoU of their masks or boxes (match_by: mask or box). Box IoU
+  # forgives rough outlines: on the species run, a third of the plants missed by mask IoU
+  # (57% of the grasses) had a detection whose box matched. AP stays mask-based (COCO).
   score_threshold: 0.5
   iou_threshold: 0.5
+  match_by: mask
   # Decision rules: which species are crops, harmful or neutral (see configs/rules/). Adds
   # decisions.csv/.json: what the robot would do (keep / remove / defer) with the plants of
   # each true role, at the confusion-matrix thresholds above. Needs species-level classes
@@ -90,3 +94,13 @@ evaluate:
   # Images with ground truth and predictions side by side (0 = none).
   num_previews: 20
   preview_score_threshold: 0.5
+
+review:
+  # scripts/review_errors.py: the model's worst errors on evaluate.split, as images plus a CSV
+  # form for a plant expert. It reads the evaluation folder (run evaluate_maskrcnn.py first)
+  # and uses the evaluate thresholds and decision rules. Errors shown per error type.
+  per_type: 25
+  # Smallest crop around a plant, in px of the original image (more context for small plants).
+  min_crop_px: 400
+  # The dataset's label map, to name the real species of other_plant plants. null = skip.
+  label_map: configs/label_maps/cropandweed.csv

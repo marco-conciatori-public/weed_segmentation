@@ -10,6 +10,7 @@ All settings live in `configs/maskrcnn.yaml`; both scripts run without arguments
 |---|---|
 | `scripts/train_maskrcnn.py` | Trains, evaluates on val every `eval_every` epochs, keeps the best checkpoint |
 | `scripts/evaluate_maskrcnn.py` | Evaluates a checkpoint on val or test: metrics, confusion matrix, previews |
+| `scripts/review_errors.py` | The worst errors of an evaluation, as images plus a CSV form for a plant expert |
 
 ## Running it
 
@@ -67,9 +68,12 @@ Everything goes to `runs/maskrcnn/<run_name>/` (gitignored):
   colour jitter.
 - **Optimiser:** SGD with linear warm-up and cosine decay, mixed precision on CUDA. The
   learning rate follows torchvision's reference recipe, scaled to the batch size.
-- **Confusion matrix:** detections with score ≥ 0.5 matched to ground truth at mask IoU ≥ 0.5,
+- **Confusion matrix:** detections with score ≥ 0.5 matched to ground truth at IoU ≥ 0.5,
   whatever their class. The last row/column is "background": detections on no plant, and
-  plants nothing detected.
+  plants nothing detected. `evaluate.match_by` chooses mask or box IoU, for the confusion
+  matrix, the decisions and the error review alike (AP is always COCO's mask and box AP).
+  Mask IoU is strict with thin plants: a grass found in the right place but outlined
+  roughly counts as a missed plant plus a detection on no plant. Box IoU counts it as found.
 
 ## Memory
 
@@ -93,3 +97,18 @@ columns are keep, remove, defer and missed. The summary gives the shares that ma
 robot: crops removed, harmful weeds removed or left, neutral weeds removed, other_plant
 deferred, and removals where no plant is labelled (possibly unlabelled plants). Confusions
 inside one role (e.g. two harmful grasses) cost nothing here.
+
+## Error review for an expert
+
+`scripts/review_errors.py` (settings: `review` in `configs/maskrcnn.yaml`) reads the
+predictions of an evaluation, so it needs no GPU, and writes `<eval folder>/review/`. It is
+replaced on each run. The errors are sorted into types by what they would cost the robot,
+under the decision rules: crops that would be removed, harmful weeds kept or missed, neutral
+plants removed, other_plant plants removed, detections where no plant is labelled, wrong
+species with the same role, other wrong classes, other missed plants. Each type's folder
+holds the `per_type` most confident errors (missed plants: the largest) as images, labels
+left and model right with the plant framed in white, and `review.csv`: species by
+scientific and English common name, confidence, role, robot action and size, with empty
+`verdict` and `comment` columns for the expert. `README.txt` explains the images and the
+verdicts; `summary.csv` counts every error of each type.
+

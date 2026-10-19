@@ -32,7 +32,7 @@ from weedseg.evaluation import confusion_matrix, evaluate_coco
 from weedseg.maskrcnn.data import CocoInstanceDataset, collate, load_coco, model_categories
 from weedseg.maskrcnn.engine import predict, select_device
 from weedseg.maskrcnn.model import load_checkpoint_model
-from weedseg.maskrcnn.run import resolve_run_dir, run_name, split_file
+from weedseg.maskrcnn.run import checkpoint_path, eval_dir, run_name, split_file
 from weedseg.paths import resolve
 from weedseg.visualize import draw_annotations, plot_confusion_matrix, put_label
 
@@ -42,15 +42,12 @@ CONFIG = "configs/maskrcnn.yaml"
 def main() -> None:
     config = load_config(CONFIG)
     settings = config["evaluate"]
-    run_dir = resolve_run_dir(config)
-    checkpoint_path = (run_dir / f"{settings['checkpoint']}.pt"
-                       if settings["checkpoint"] in ("best", "last")
-                       else resolve(settings["checkpoint"]))
+    checkpoint_file = checkpoint_path(config)
     device = select_device(config["device"])
     amp = config["train"]["amp"] and device.type == "cuda"
-    model, checkpoint = load_checkpoint_model(checkpoint_path, device)
+    model, checkpoint = load_checkpoint_model(checkpoint_file, device)
     model_config = checkpoint["config"]["model"]
-    print(f"{checkpoint_path} (epoch {checkpoint['epoch']}), device {device}")
+    print(f"{checkpoint_file} (epoch {checkpoint['epoch']}), device {device}")
 
     split = settings["split"]
     coco = load_coco(split_file(config, split))
@@ -71,7 +68,7 @@ def main() -> None:
                         num_workers=config["data"]["num_workers"])
     results = predict(model, loader, categories, device, amp, model_config["mask_threshold"])
 
-    out_dir = run_dir / "eval" / f"{split}_{checkpoint_path.stem}"
+    out_dir = eval_dir(config)
     out_dir.mkdir(parents=True, exist_ok=True)
     with open(out_dir / "predictions.json", "w", encoding="utf-8") as f:
         json.dump(results, f)
@@ -82,14 +79,15 @@ def main() -> None:
     write_per_class(metrics, out_dir / "per_class.csv")
 
     matrix, names = confusion_matrix(coco, results, score_threshold=settings["score_threshold"],
-                                     iou_threshold=settings["iou_threshold"])
+                                     iou_threshold=settings["iou_threshold"],
+                                     match_by=settings["match_by"])
     with open(out_dir / "confusion_matrix.csv", "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["ground_truth \\ predicted", *names])
         writer.writerows([name, *row] for name, row in zip(names, matrix.tolist()))
     plot_confusion_matrix(matrix, names, out_dir / "confusion_matrix.png",
                           f"{run_name(config)}, {split} (score >= {settings['score_threshold']}, "
-                          f"IoU >= {settings['iou_threshold']})")
+                          f"{settings['match_by']} IoU >= {settings['iou_threshold']})")
 
     if settings["rules"]:
         write_decisions(coco, results, settings, out_dir)
@@ -109,7 +107,8 @@ def write_decisions(coco: dict, results: list[dict], settings: dict, out_dir: Pa
     rules = load_rules(rules_path, taxa)
     matrix, names = confusion_matrix(
         coco, defer_uncertain(results, coco["categories"], rules.defer_below),
-        score_threshold=settings["score_threshold"], iou_threshold=settings["iou_threshold"])
+        score_threshold=settings["score_threshold"], iou_threshold=settings["iou_threshold"],
+        match_by=settings["match_by"])
     roles = {name: role_of(name, rules, taxa) for name in names[:-1]}
     grouped = decision_matrix(matrix, names, roles)
     with open(out_dir / "decisions.csv", "w", newline="", encoding="utf-8") as f:

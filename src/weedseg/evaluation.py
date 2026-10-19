@@ -12,6 +12,7 @@ copies every ignore region into every evaluated category instead.
 import contextlib
 import io
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -135,23 +136,32 @@ def _mean_valid(values: np.ndarray, empty: float = float("nan")) -> float:
     return float(valid.mean()) if valid.size else empty
 
 
-def confusion_matrix(gt: dict[str, Any], results: list[dict[str, Any]],
+@dataclass
+class Match:
+    """A labelled plant and the detection matched to it; either may be None (a missed plant,
+    or a detection on no labelled plant)."""
+
+    image_id: int
+    plant: dict[str, Any] | None
+    detection: dict[str, Any] | None
+
+
+MATCH_BY = ("mask", "box")
+
+
+def match_detections(gt: dict[str, Any], results: list[dict[str, Any]],
                      image_ids: list[int] | None = None, score_threshold: float = 0.5,
-                     iou_threshold: float = 0.5) -> tuple[np.ndarray, list[str]]:
-    """Class confusion of detections with score >= `score_threshold`.
+                     iou_threshold: float = 0.5, match_by: str = "mask") -> list[Match]:
+    """Pair detections with score >= `score_threshold` with labelled plants.
 
-    Detections are matched to ground truth regardless of class (greedily by score, IoU of
-    masks when present, else boxes). Rows are ground-truth classes, columns predicted
-    classes; the last row/column is "background": a missed plant (last column) or a
-    detection on no plant (last row). Unmatched detections that lie on an ignore region
-    (IoA >= `iou_threshold`) are not counted.
+    Matching ignores classes: greedily by score, by IoU of masks (`match_by="mask"`, when
+    every detection has one) or of boxes. Box IoU forgives rough outlines, e.g. of thin grass
+    leaves. Unmatched detections that lie on an ignore region (IoA >= `iou_threshold`) are
+    dropped.
     """
+    if match_by not in MATCH_BY:
+        raise ValueError(f"match_by must be one of {MATCH_BY}, not {match_by!r}")
     ignore_ids = ignore_category_ids(gt)
-    categories = [c for c in gt["categories"] if c["id"] not in ignore_ids]
-    index = {c["id"]: i for i, c in enumerate(categories)}
-    background = len(categories)
-    matrix = np.zeros((background + 1, background + 1), np.int64)
-
     image_ids = set(image_ids if image_ids is not None else (i["id"] for i in gt["images"]))
     sizes = {i["id"]: (i["height"], i["width"]) for i in gt["images"]}
     gts, regions, dts = defaultdict(list), defaultdict(list), defaultdict(list)
@@ -163,9 +173,11 @@ def confusion_matrix(gt: dict[str, Any], results: list[dict[str, Any]],
         if result["image_id"] in image_ids and result["score"] >= score_threshold:
             dts[result["image_id"]].append(result)
 
-    for image_id in image_ids:
+    matches = []
+    for image_id in sorted(image_ids):
         image_gts, image_dts = gts[image_id], sorted(dts[image_id], key=lambda r: -r["score"])
-        use_masks = bool(image_dts) and all("segmentation" in r for r in image_dts)
+        use_masks = (match_by == "mask" and bool(image_dts)
+                     and all("segmentation" in r for r in image_dts))
         height, width = sizes[image_id]
         matched, matched_dts = set(), set()
         if image_gts and image_dts:
@@ -177,16 +189,36 @@ def confusion_matrix(gt: dict[str, Any], results: list[dict[str, Any]],
                     g = max(candidates)[1]
                     matched.add(g)
                     matched_dts.add(d)
-                    matrix[index[image_gts[g]["category_id"]], index[dt["category_id"]]] += 1
+                    matches.append(Match(image_id, image_gts[g], dt))
         unmatched = [dt for d, dt in enumerate(image_dts) if d not in matched_dts]
         if unmatched and regions[image_id]:
             ioas = _ious(unmatched, regions[image_id], use_masks, height, width, crowd=True)
             unmatched = [dt for d, dt in enumerate(unmatched) if ioas[d].max() < iou_threshold]
-        for dt in unmatched:
-            matrix[background, index[dt["category_id"]]] += 1
-        for g, annotation in enumerate(image_gts):
-            if g not in matched:
-                matrix[index[annotation["category_id"]], background] += 1
+        matches += [Match(image_id, None, dt) for dt in unmatched]
+        matches += [Match(image_id, annotation, None)
+                    for g, annotation in enumerate(image_gts) if g not in matched]
+    return matches
+
+
+def confusion_matrix(gt: dict[str, Any], results: list[dict[str, Any]],
+                     image_ids: list[int] | None = None, score_threshold: float = 0.5,
+                     iou_threshold: float = 0.5,
+                     match_by: str = "mask") -> tuple[np.ndarray, list[str]]:
+    """Class confusion of detections with score >= `score_threshold`, matched to labelled
+    plants by `match_detections`. Rows are ground-truth classes, columns predicted classes;
+    the last row/column is "background": a missed plant (last column) or a detection on no
+    plant (last row).
+    """
+    ignore_ids = ignore_category_ids(gt)
+    categories = [c for c in gt["categories"] if c["id"] not in ignore_ids]
+    index = {c["id"]: i for i, c in enumerate(categories)}
+    background = len(categories)
+    matrix = np.zeros((background + 1, background + 1), np.int64)
+    for match in match_detections(gt, results, image_ids, score_threshold, iou_threshold,
+                                  match_by):
+        row = background if match.plant is None else index[match.plant["category_id"]]
+        column = background if match.detection is None else index[match.detection["category_id"]]
+        matrix[row, column] += 1
     return matrix, [c["name"] for c in categories] + ["background"]
 
 

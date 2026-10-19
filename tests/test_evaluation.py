@@ -85,3 +85,16 @@ def test_crowd_region_with_a_real_category_is_ignored_for_every_category(iou_typ
     metrics = evaluate_coco(gt, results, iou_types=(iou_type,))[iou_type]
     crop = next(c for c in metrics["per_class"] if c["category"] == "crop")
     assert crop["AP50"] == pytest.approx(1.0)
+
+
+def test_box_matching_forgives_a_rough_outline():
+    # A weed found in the right place, but whose mask covers only a corner of it.
+    gt = {**GT, "annotations": [ann(1, 2, 60, 10, 30, 30)]}
+    rough = det(2, 60, 10, 30, 30, 0.9)
+    rough["segmentation"] = box_mask(60, 10, 10, 10)
+    by_mask = confusion_matrix(gt, [rough], match_by="mask")[0]
+    by_box = confusion_matrix(gt, [rough], match_by="box")[0]
+    assert by_mask[1, 2] == 1 and by_mask[2, 1] == 1  # missed weed + detection on no plant
+    assert by_box[1, 1] == 1 and by_box.sum() == 1
+    with pytest.raises(ValueError, match="match_by"):
+        confusion_matrix(gt, [rough], match_by="center")
