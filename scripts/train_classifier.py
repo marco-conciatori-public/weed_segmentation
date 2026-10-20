@@ -3,15 +3,17 @@
 
 Outputs go to <output_dir>/<run_name>/: last.pt (to resume), best.pt (best val accuracy),
 metrics.jsonl (one line per epoch) and tensorboard/ (`uv run tensorboard --logdir runs`).
-Re-running continues from last.pt; to start over, change run_name.
+Re-running continues from last.pt, which is also saved every `train.checkpoint_every` steps
+(so a crash loses minutes, not an epoch); to start over, change run_name.
 """
 
 import json
 import random
+from functools import partial as bind
 
 import torch
 import yaml
-from torch.utils.data import DataLoader, WeightedRandomSampler
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from weedseg.classifier.crops import cache_dir, read_index
@@ -20,7 +22,13 @@ from weedseg.classifier.engine import accuracy_metrics, predict_probs, train_one
 from weedseg.classifier.model import build_classifier, parameter_groups
 from weedseg.config import load_config
 from weedseg.maskrcnn.data import load_coco, model_categories
-from weedseg.maskrcnn.engine import save_atomic, seed_everything, select_device, warmup_cosine
+from weedseg.maskrcnn.engine import (
+    EpochSampler,
+    save_atomic,
+    seed_everything,
+    select_device,
+    warmup_cosine,
+)
 from weedseg.maskrcnn.run import resolve_run_dir, split_file
 from weedseg.paths import resolve
 
@@ -52,11 +60,12 @@ def main(config_path: str = CONFIG) -> None:
     train_set = CropDataset(rows["train"], folder / "train", classes, crops, config["augment"])
     val_set = CropDataset(rows["val"], folder / "val", classes, crops)
     weights = sample_weights(train_set.labels, train["balance"])
-    sampler = WeightedRandomSampler(weights, len(weights)) if weights is not None else None
+    sampler = EpochSampler(len(train_set), config["seed"], weights)
     loader_options = {"num_workers": data["num_workers"], "pin_memory": device.type == "cuda",
                       "persistent_workers": data["num_workers"] > 0}
-    train_loader = DataLoader(train_set, train["batch_size"], shuffle=sampler is None,
-                              sampler=sampler, drop_last=True, **loader_options)
+    train_loader = DataLoader(train_set, train["batch_size"], sampler=sampler, drop_last=True,
+                              **loader_options)
+    steps_per_epoch = len(train_set) // train["batch_size"]
     val_loader = DataLoader(val_set, train["eval_batch_size"], **loader_options)
     print(f"{len(train_set)} train / {len(val_set)} val crops, {len(classes)} classes: "
           f"{', '.join(classes)}")
@@ -65,11 +74,11 @@ def main(config_path: str = CONFIG) -> None:
     optimizer = torch.optim.AdamW(parameter_groups(model, train["lr_backbone"], train["lr_head"],
                                                    train["weight_decay"]))
     scheduler = torch.optim.lr_scheduler.LambdaLR(
-        optimizer, warmup_cosine(train["epochs"] * len(train_loader), train["warmup_steps"]))
+        optimizer, warmup_cosine(train["epochs"] * steps_per_epoch, train["warmup_steps"]))
     scaler = torch.amp.GradScaler(device.type, enabled=amp)
     criterion = torch.nn.CrossEntropyLoss(label_smoothing=train["label_smoothing"])
 
-    start_epoch, step, best = 0, 0, -1.0
+    start_epoch, step, best, partial = 0, 0, -1.0, None
     last_path, best_path = run_dir / "last.pt", run_dir / "best.pt"
     if train["resume"] and last_path.exists():
         checkpoint = torch.load(last_path, map_location="cpu", weights_only=False)
@@ -82,7 +91,10 @@ def main(config_path: str = CONFIG) -> None:
         scheduler.load_state_dict(checkpoint["scheduler"])
         scaler.load_state_dict(checkpoint["scaler"])
         start_epoch, step, best = checkpoint["epoch"] + 1, checkpoint["step"], checkpoint["best"]
-        print(f"Resuming after epoch {checkpoint['epoch']} (best val accuracy {best:.3f})")
+        partial = checkpoint.get("partial")
+        where = (f"at batch {partial['batches']} of epoch {start_epoch}" if partial
+                 else f"after epoch {checkpoint['epoch']}")
+        print(f"Resuming {where} (best val accuracy {best:.3f})")
     with open(run_dir / "config.yaml", "w", encoding="utf-8") as f:
         yaml.safe_dump(config, f, sort_keys=False)
 
@@ -95,9 +107,20 @@ def main(config_path: str = CONFIG) -> None:
             for name, value in values.items():
                 writer.add_scalar(f"train/{name}", value, step)
 
+    def save_last(finished_epoch: int, partial: dict | None = None) -> None:
+        """last.pt after `finished_epoch`, plus the state of the next epoch if under way."""
+        save_atomic({"model": model.state_dict(), "optimizer": optimizer.state_dict(),
+                     "scheduler": scheduler.state_dict(), "scaler": scaler.state_dict(),
+                     "classes": classes, "config": config, "epoch": finished_epoch,
+                     "step": step, "best": best, "partial": partial}, last_path)
+        writer.flush()
+
     for epoch in range(start_epoch, train["epochs"]):
+        sampler.set_epoch(epoch, partial["batches"] * train["batch_size"] if partial else 0)
         result = train_one_epoch(model, train_loader, optimizer, scheduler, scaler, criterion,
-                                 device, amp, train["grad_clip"], epoch, log_step)
+                                 device, amp, train["grad_clip"], epoch, log_step, partial,
+                                 train["checkpoint_every"], bind(save_last, epoch - 1))
+        partial = None
         record = {"epoch": epoch, "step": step} | {f"train_{k}": v for k, v in result.items()}
         probs, labels = predict_probs(model, val_loader, device, amp)
         for name, value in accuracy_metrics(probs, labels, len(classes)).items():
@@ -108,10 +131,7 @@ def main(config_path: str = CONFIG) -> None:
             save_atomic({"model": model.state_dict(), "classes": classes, "config": config,
                          "epoch": epoch, "val_accuracy": best}, best_path)
             record["best"] = True
-        save_atomic({"model": model.state_dict(), "optimizer": optimizer.state_dict(),
-                     "scheduler": scheduler.state_dict(), "scaler": scaler.state_dict(),
-                     "classes": classes, "config": config, "epoch": epoch, "step": step,
-                     "best": best}, last_path)
+        save_last(epoch)
         with open(run_dir / "metrics.jsonl", "a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")
         writer.flush()

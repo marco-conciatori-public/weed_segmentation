@@ -3,14 +3,14 @@
 import math
 import random
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import torch
 from pycocotools import mask as mask_utils
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Sampler
 from tqdm import tqdm
 
 CLASS_SCORE_MIN = 0.001  # class probabilities kept per detection in predictions
@@ -45,14 +45,51 @@ def warmup_cosine(total_steps: int, warmup_steps: int) -> Callable[[int], float]
     return factor
 
 
+class EpochSampler(Sampler[int]):
+    """Random order of a dataset, fixed by (seed, epoch), that can start part-way through an
+    epoch: a run resumed from a checkpoint saved mid-epoch gets the rest of that epoch's
+    samples. With `weights`, samples are drawn with replacement in proportion to them (like
+    WeightedRandomSampler). Call set_epoch before each epoch."""
+
+    def __init__(self, size: int, seed: int, weights: Any = None):
+        self.size, self.seed = size, seed
+        self.weights = None if weights is None else torch.as_tensor(weights, dtype=torch.double)
+        self.epoch, self.skip = 0, 0
+
+    def set_epoch(self, epoch: int, skip: int = 0) -> None:
+        """Order of `epoch`, without its first `skip` samples."""
+        self.epoch, self.skip = epoch, skip
+
+    def __iter__(self) -> Iterator[int]:
+        generator = torch.Generator().manual_seed(self.seed * 100_000 + self.epoch)
+        if self.weights is None:
+            order = torch.randperm(self.size, generator=generator)
+        else:
+            order = torch.multinomial(self.weights, self.size, replacement=True,
+                                      generator=generator)
+        return iter(order[self.skip:].tolist())
+
+    def __len__(self) -> int:
+        return self.size - self.skip
+
+
 def train_one_epoch(model, loader: DataLoader, optimizer, scheduler, scaler, device: torch.device,
                     amp: bool, grad_clip: float | None, epoch: int,
-                    on_step: Callable[[dict[str, float]], None] | None = None) -> dict[str, float]:
+                    on_step: Callable[[dict[str, float]], None] | None = None,
+                    partial: dict[str, Any] | None = None, save_every: int | None = None,
+                    save: Callable[[dict[str, Any]], None] | None = None) -> dict[str, float]:
     """One pass over `loader`; returns the mean of each loss. `on_step` gets each step's
-    losses and learning rate (for logging)."""
+    losses and learning rate (for logging).
+
+    Mid-epoch checkpoints: every `save_every` batches, `save` gets the state of the epoch so
+    far ({"batches", "sums", "steps"}); passed back as `partial` (with a loader that skips
+    those batches), the epoch continues where it was saved."""
     model.train()
-    sums, steps = defaultdict(float), 0
-    progress = tqdm(loader, desc=f"epoch {epoch}", dynamic_ncols=True)
+    partial = partial or {"batches": 0, "sums": {}, "steps": 0}
+    sums, steps = defaultdict(float, partial["sums"]), partial["steps"]
+    batches = partial["batches"]
+    progress = tqdm(loader, desc=f"epoch {epoch}", dynamic_ncols=True, initial=batches,
+                    total=batches + len(loader))
     for images, targets in progress:
         images = [image.to(device, non_blocking=True) for image in images]
         targets = [{k: v.to(device, non_blocking=True) if torch.is_tensor(v) else v
@@ -79,6 +116,9 @@ def train_one_epoch(model, loader: DataLoader, optimizer, scheduler, scaler, dev
         progress.set_postfix(loss=f"{sums['loss'] / steps:.3f}")
         if on_step is not None:
             on_step(values | {"lr": optimizer.param_groups[0]["lr"]})
+        batches += 1
+        if save_every and save is not None and batches % save_every == 0:
+            save({"batches": batches, "sums": dict(sums), "steps": steps})
     return {k: v / max(1, steps) for k, v in sums.items()}
 
 

@@ -30,7 +30,9 @@ All settings live in `configs/maskrcnn.yaml`; both scripts run without arguments
 5. Run `scripts/evaluate_maskrcnn.py` (`evaluate.split: val`). Use `test` only for the final
    numbers, so model choices aren't tuned on it.
 
-An interrupted training resumes from the last finished epoch when re-run. A new experiment
+An interrupted training resumes when re-run, from the last checkpoint: `last.pt` is saved
+after every epoch and every `train.checkpoint_every` steps (200, a few minutes), and the
+epoch under way continues with the batches it hadn't seen yet. A new experiment
 needs a new run name. `run_name` is a template: `{dataset}` and `{taxonomy}` come from the
 last two folders of `data.dir`; the converter names the latter after its settings (e.g.
 `species_min50img_min20mm`). The default `{dataset}_{taxonomy}` thus changes by itself with
@@ -41,7 +43,8 @@ refuses a run whose `model` settings or `data.dir` differ, but not other setting
 
 Everything goes to `runs/maskrcnn/<run_name>/` (gitignored):
 
-- `last.pt`: model, optimiser and schedule state after the last finished epoch, for resuming.
+- `last.pt`: model, optimiser and schedule state, for resuming (after the last finished
+  epoch, plus how far the next one got).
 - `best.pt`: the model with the best val mask AP, plus its categories and config.
 - `metrics.jsonl`: one line per epoch with the mean losses and, when evaluated, val AP/AP50.
 - `config.yaml`: the config of the latest start or resume. `tensorboard/`: the logs.

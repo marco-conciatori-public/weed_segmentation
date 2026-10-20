@@ -1,6 +1,7 @@
 """Training and prediction loops for the species classifier."""
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -12,11 +13,19 @@ from tqdm import tqdm
 def train_one_epoch(model: nn.Module, loader: DataLoader, optimizer, scheduler, scaler,
                     criterion: nn.Module, device: torch.device, amp: bool,
                     grad_clip: float | None, epoch: int,
-                    on_step: Callable[[dict[str, float]], None] | None = None) -> dict[str, float]:
-    """One pass over `loader`; returns the mean loss and the training accuracy."""
+                    on_step: Callable[[dict[str, float]], None] | None = None,
+                    partial: dict[str, Any] | None = None, save_every: int | None = None,
+                    save: Callable[[dict[str, Any]], None] | None = None) -> dict[str, float]:
+    """One pass over `loader`; returns the mean loss and the training accuracy.
+
+    Mid-epoch checkpoints as in weedseg.maskrcnn.engine.train_one_epoch: every `save_every`
+    batches, `save` gets the state of the epoch so far, which `partial` takes back."""
     model.train()
-    loss_sum, correct, seen = 0.0, 0, 0
-    progress = tqdm(loader, desc=f"epoch {epoch}", dynamic_ncols=True)
+    partial = partial or {"batches": 0, "loss_sum": 0.0, "correct": 0, "seen": 0}
+    loss_sum, correct, seen = partial["loss_sum"], partial["correct"], partial["seen"]
+    batches = partial["batches"]
+    progress = tqdm(loader, desc=f"epoch {epoch}", dynamic_ncols=True, initial=batches,
+                    total=batches + len(loader))
     for images, labels in progress:
         images = images.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
@@ -40,6 +49,9 @@ def train_one_epoch(model: nn.Module, loader: DataLoader, optimizer, scheduler, 
         progress.set_postfix(loss=f"{loss_sum / seen:.3f}", acc=f"{correct / seen:.3f}")
         if on_step is not None:
             on_step({"loss": loss.item(), "lr": optimizer.param_groups[0]["lr"]})
+        batches += 1
+        if save_every and save is not None and batches % save_every == 0:
+            save({"batches": batches, "loss_sum": loss_sum, "correct": correct, "seen": seen})
     return {"loss": loss_sum / max(1, seen), "accuracy": correct / max(1, seen)}
 
 

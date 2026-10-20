@@ -20,9 +20,21 @@ plant at full resolution and starts from a strong pretrained backbone.
 `scripts/run_twostage.py` runs steps 1-7 in order (settings: `configs/run_twostage.yaml`, the
 list of steps), e.g. overnight on the training machine. Each step reads its own config;
 the runner only orders them, after checking that the configs use the same data (see below).
-It stops at the first failure. Re-running is safe: crops already cut are skipped and
-trainings resume from `last.pt` (a finished one does nothing), so after fixing the cause,
-start it again.
+Re-running is safe: crops already cut are skipped and trainings resume from `last.pt`
+(saved every `train.checkpoint_every` steps; a finished training does nothing).
+
+**Crashes.** Each step runs in a process of its own. When that process crashes, e.g. the
+GPU driver resets (Windows does this when the GPU stops responding, and the process dies
+without a Python error), the runner waits `restart_wait_s` and starts the step again, up
+to `max_restarts` times in all; a training then loses only the steps since its last
+checkpoint. A Python error (wrong setting, missing file) stops the runner instead, since
+a restart would fail the same way: fix the cause and start it again. Frequent crashes
+point at the machine: another program using the GPU, GPU memory near full, or an unstable
+card.
+
+**Log.** Everything the runner prints also goes to
+`runs/twostage/logs/run_twostage_<date>_<time>.log` (`log_dir`), one file per start, with
+the Python lines where a step crashed. Progress bars appear once, in their final state.
 
 | Step | Script | Config | Where |
 |---|---|---|---|

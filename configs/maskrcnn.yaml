@@ -70,6 +70,9 @@ train:
   resume: true
   # Log the training losses to TensorBoard every N steps.
   log_every: 20
+  # Also save last.pt every N training steps (null = only after each epoch), so a crash
+  # (e.g. of the GPU driver) loses a few minutes rather than the epoch under way.
+  checkpoint_every: 200
 
 evaluate:
   # Checkpoint of this run: best, last, or a path to a .pt file.

@@ -6,6 +6,8 @@
 # classifier.config), so the prediction step uses the checkpoints just trained.
 twostage: configs/twostage.yaml
 plant_dataset: configs/plant_dataset.yaml
+# Everything the runner prints also goes to <log_dir>/run_twostage_<date>_<time>.log.
+log_dir: runs/twostage/logs
 
 # Steps to run, in this order; remove those you don't need. Re-running is safe: crops already
 # cut are skipped, and trainings resume from their last.pt (a finished one does nothing), so
@@ -25,3 +27,10 @@ steps:
   - train_classifier
   - evaluate_classifier
   - predict_twostage
+
+# Each step runs in a process of its own. When it crashes (e.g. the GPU driver resets), the
+# step is started again after restart_wait_s seconds, up to max_restarts times in all (0 = stop
+# at the first crash). Trainings resume from their last checkpoint (train.checkpoint_every).
+# Python errors (wrong settings, missing files) are never retried.
+max_restarts: 10
+restart_wait_s: 60

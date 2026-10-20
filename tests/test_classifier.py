@@ -13,9 +13,10 @@ from weedseg.classifier.crops import (
     write_cache,
 )
 from weedseg.classifier.data import CropDataset, jitter_mask, sample_weights
-from weedseg.classifier.engine import accuracy_metrics
+from weedseg.classifier.engine import accuracy_metrics, train_one_epoch
 from weedseg.classifier.model import build_classifier, parameter_groups
 from weedseg.data.coco import encode_mask
+from weedseg.maskrcnn.engine import EpochSampler
 
 CROPS = {"margin": 0.25, "input_size": 28, "cache_context": 1.5, "cache_quality": 95,
          "background": "keep", "dim_factor": 0.3}
@@ -132,3 +133,42 @@ def test_accuracy_metrics():
     metrics = accuracy_metrics(probs, labels, 2)
     assert metrics == {"accuracy": 0.75, "balanced_accuracy": 0.75}
     assert accuracy_metrics(probs[:3], labels[:3], 3)["balanced_accuracy"] == 1.0
+
+
+def test_epoch_sampler_is_fixed_per_epoch_and_can_skip():
+    sampler = EpochSampler(10, seed=0)
+    sampler.set_epoch(3)
+    order = list(sampler)
+    assert sorted(order) == list(range(10))
+    assert list(sampler) == order  # same epoch, same order
+    sampler.set_epoch(3, skip=4)
+    assert list(sampler) == order[4:] and len(sampler) == 6
+    sampler.set_epoch(4)
+    assert list(sampler) != order
+    weighted = EpochSampler(10, seed=0, weights=[0] * 9 + [1])
+    assert list(weighted) == [9] * 10
+
+
+def test_train_one_epoch_resumes_mid_epoch():
+    torch.manual_seed(0)
+    data = torch.utils.data.TensorDataset(torch.randn(24, 5), torch.randint(0, 3, (24,)))
+    model = torch.nn.Linear(5, 3)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda step: 1.0)
+    scaler = torch.amp.GradScaler("cpu", enabled=False)
+    sampler = EpochSampler(len(data), seed=0)
+    loader = torch.utils.data.DataLoader(data, 4, sampler=sampler, drop_last=True)
+
+    def epoch(**kwargs):
+        return train_one_epoch(model, loader, optimizer, scheduler, scaler,
+                               torch.nn.CrossEntropyLoss(), torch.device("cpu"), False, None, 0,
+                               **kwargs)
+
+    saved = []
+    sampler.set_epoch(0)
+    epoch(save_every=4, save=saved.append)
+    assert [s["batches"] for s in saved] == [4] and saved[0]["seen"] == 16
+    sampler.set_epoch(0, skip=saved[0]["batches"] * 4)  # crash after batch 4: the last 2 batches
+    result = epoch(partial=saved[0])
+    assert 0 <= result["accuracy"] <= 1
+    assert len(loader) == 2
