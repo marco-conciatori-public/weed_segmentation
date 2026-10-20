@@ -7,6 +7,7 @@ mistake shows up before hours of training, not after. It stops at the first fail
 re-running then skips or resumes the work already done (see the config).
 """
 
+import faulthandler
 import time
 
 import evaluate_classifier
@@ -25,6 +26,9 @@ CONFIG = "configs/run_twostage.yaml"
 
 
 def main(config_path: str = CONFIG) -> None:
+    # A crash inside CUDA can end the process before Python prints a traceback; this prints
+    # at least the Python line it happened on.
+    faulthandler.enable()
     config = load_config(config_path)
     twostage_path = config["twostage"]
     twostage = load_config(twostage_path)
