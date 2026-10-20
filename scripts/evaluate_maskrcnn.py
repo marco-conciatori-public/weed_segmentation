@@ -3,8 +3,10 @@ plus `data`, `run_name` and `output_dir` to find the run and the data).
 
 Writes to <run>/eval/<split>_<checkpoint>/: metrics.json (COCO bbox and segm), per_class.csv,
 confusion_matrix.csv/.png, predictions.json (COCO results), previews/ (ground truth left,
-predictions right) and, with `evaluate.rules`, decisions.csv/.json (keep / remove / defer per
-true role; see weedseg.decisions).
+predictions right), taxonomic_levels.csv (for species-level classes: of the plants found, the
+share whose class is right at species, genus, family, order and role level) and, with
+`evaluate.rules`, decisions.csv/.json (keep / remove / defer per true role; see
+weedseg.decisions).
 """
 
 import csv
@@ -18,12 +20,14 @@ import numpy as np
 from torch.utils.data import DataLoader
 
 from weedseg.config import load_config
+from weedseg.data.coco import IGNORE_CATEGORY, OTHER_CATEGORY
 from weedseg.decisions import (
     ACTION_COLUMNS,
     TRUE_ROWS,
+    apply_decisions,
     decision_matrix,
     decision_summary,
-    defer_uncertain,
+    level_accuracy,
     load_rules,
     role_of,
 )
@@ -89,6 +93,7 @@ def main() -> None:
                           f"{run_name(config)}, {split} (score >= {settings['score_threshold']}, "
                           f"{settings['match_by']} IoU >= {settings['iou_threshold']})")
 
+    write_levels(matrix, names, settings, out_dir / "taxonomic_levels.csv")
     if settings["rules"]:
         write_decisions(coco, results, settings, out_dir)
 
@@ -105,11 +110,12 @@ def write_decisions(coco: dict, results: list[dict], settings: dict, out_dir: Pa
     rules_path = resolve(settings["rules"])
     taxa = load_taxa(resolve(settings["eppo_taxa"]))
     rules = load_rules(rules_path, taxa)
+    roles = {c["name"]: role_of(c["name"], rules, taxa) for c in coco["categories"]
+             if c["name"] != IGNORE_CATEGORY}
     matrix, names = confusion_matrix(
-        coco, defer_uncertain(results, coco["categories"], rules.defer_below),
+        coco, apply_decisions(results, coco["categories"], roles, rules.defer_below),
         score_threshold=settings["score_threshold"], iou_threshold=settings["iou_threshold"],
         match_by=settings["match_by"])
-    roles = {name: role_of(name, rules, taxa) for name in names[:-1]}
     grouped = decision_matrix(matrix, names, roles)
     with open(out_dir / "decisions.csv", "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -120,6 +126,31 @@ def write_decisions(coco: dict, results: list[dict], settings: dict, out_dir: Pa
         json.dump({"rules": str(rules_path), "summary": summary, "roles": roles}, f, indent=2)
     print(f"decisions ({rules_path.name}): " + "  ".join(
         f"{k} {v:.1%}" if isinstance(v, float) else f"{k} {v}" for k, v in summary.items()))
+
+
+def write_levels(matrix: np.ndarray, names: list[str], settings: dict, path: Path) -> None:
+    """Accuracy per taxonomic level of the plants found, from the confusion matrix (without
+    the rules' defer_below: it describes the model). Skipped unless the classes are EPPO
+    codes; the role level needs `evaluate.rules`."""
+    taxa = load_taxa(resolve(settings["eppo_taxa"]))
+    if any(name != OTHER_CATEGORY and name not in taxa for name in names[:-1]):
+        print("taxonomic levels: skipped, the classes are not EPPO codes")
+        return
+    roles = None
+    if settings["rules"]:
+        rules = load_rules(resolve(settings["rules"]), taxa)
+        roles = {name: role_of(name, rules, taxa) for name in names[:-1]}
+    levels = level_accuracy(matrix, names, taxa, roles)
+    other_pairs = levels.pop("other_plant_pairs")
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["level", "plants", "correct", "accuracy"])
+        writer.writerows([level, v["plants"], v["correct"], v["accuracy"]]
+                         for level, v in levels.items())
+    print("taxonomic levels (plants found, class right at): " + "  ".join(
+        f"{level} {v['accuracy']:.1%}" for level, v in levels.items()
+        if v["accuracy"] is not None)
+          + f"  ({other_pairs} pairs with {OTHER_CATEGORY} left out)")
 
 
 def write_per_class(metrics: dict, path: Path) -> None:

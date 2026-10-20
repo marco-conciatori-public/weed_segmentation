@@ -5,9 +5,11 @@ from weedseg.data.coco import OTHER_CATEGORY
 from weedseg.decisions import (
     ACTION_COLUMNS,
     TRUE_ROWS,
+    apply_decisions,
+    decide,
     decision_matrix,
     decision_summary,
-    defer_uncertain,
+    level_accuracy,
     load_rules,
     role_of,
 )
@@ -72,15 +74,73 @@ def test_decision_matrix_groups_classes_by_role_and_action():
     assert summary["removals_on_no_plant"] == 4
 
 
-def test_uncertain_detections_are_deferred(tmp_path):
-    rules = load_rules(write_rules(tmp_path / "r.yaml", "default: neutral\ndefer_below: 0.8\n"),
-                       TAXA)
-    categories = [{"id": 1, "name": "SETVI"}, {"id": 2, "name": OTHER_CATEGORY}]
-    results = [{"category_id": 1, "score": 0.9}, {"category_id": 1, "score": 0.6}]
-    deferred = defer_uncertain(results, categories, rules.defer_below)
-    assert [r["category_id"] for r in deferred] == [1, 2]
-    assert results[1]["category_id"] == 1  # input untouched
-    assert defer_uncertain(results, categories, None) is results
+CATEGORIES = [{"id": 1, "name": "ZEAMX"}, {"id": 2, "name": "SETVI"},
+              {"id": 3, "name": "CHEAL"}, {"id": 4, "name": "MATCH"},
+              {"id": 5, "name": OTHER_CATEGORY}]
+NAMES = {c["id"]: c["name"] for c in CATEGORIES}
+ROLES = {"ZEAMX": "crop", "SETVI": "harmful", "CHEAL": "harmful", "MATCH": "neutral",
+         OTHER_CATEGORY: OTHER_CATEGORY}
+
+
+def result(category_id, score, class_scores=None):
+    r = {"category_id": category_id, "score": score}
+    return r | {"class_scores": class_scores} if class_scores is not None else r
+
+
+def test_decide_sums_probabilities_per_action():
+    # unsure which harmful weed, sure it is harmful: removed, not deferred
+    assert decide(result(2, 0.5, {"2": 0.5, "3": 0.4}), NAMES, ROLES, 0.8) == "remove"
+    # crop and neutral both mean keep
+    assert decide(result(1, 0.5, {"1": 0.5, "4": 0.35}), NAMES, ROLES, 0.8) == "keep"
+    # torn between actions: deferred
+    assert decide(result(2, 0.6, {"2": 0.6, "1": 0.35}), NAMES, ROLES, 0.8) == "defer"
+    # other_plant counts for no action
+    assert decide(result(2, 0.7, {"2": 0.7, "5": 0.25}), NAMES, ROLES, 0.8) == "defer"
+    assert decide(result(5, 0.3, {"5": 0.3, "2": 0.45, "3": 0.4}), NAMES, ROLES, 0.8) == "remove"
+    # without class scores (older predictions): the top class's score alone
+    assert decide(result(2, 0.9), NAMES, ROLES, 0.8) == "remove"
+    assert decide(result(2, 0.6), NAMES, ROLES, 0.8) == "defer"
+    # without defer_below: the top class's action, other_plant deferred
+    assert decide(result(2, 0.3, {"2": 0.3}), NAMES, ROLES, None) == "remove"
+    assert decide(result(5, 0.9, {"5": 0.9}), NAMES, ROLES, None) == "defer"
+
+
+def test_apply_decisions_relabels_to_the_action_taken():
+    results = [
+        result(2, 0.5, {"2": 0.5, "3": 0.4}),  # removed: unchanged
+        result(2, 0.6, {"2": 0.6, "1": 0.35}),  # deferred: other_plant
+        # harmful on top, but the neutral and crop classes add up to keep: most probable keeper
+        result(3, 0.15, {"3": 0.15, "4": 0.14, "1": 0.7}),
+    ]
+    decided = apply_decisions(results, CATEGORIES, ROLES, 0.8)
+    assert [r["category_id"] for r in decided] == [2, 5, 1]
+    assert results[1]["category_id"] == 2  # input untouched
+    assert apply_decisions(results, CATEGORIES, ROLES, None) is results
+    with pytest.raises(ValueError, match=OTHER_CATEGORY):
+        apply_decisions(results, CATEGORIES[:4], ROLES, 0.8)
+
+
+def test_defer_below_must_be_a_probability(tmp_path):
     with pytest.raises(ValueError, match="between 0 and 1"):
         load_rules(write_rules(tmp_path / "bad.yaml", "default: neutral\ndefer_below: 80\n"),
                    TAXA)
+
+
+def test_level_accuracy_counts_found_plants_right_at_each_level():
+    names = ["ZEAMX", "SETVI", "CHEAL", OTHER_CATEGORY, "background"]
+    roles = {"ZEAMX": "crop", "SETVI": "harmful", "CHEAL": "harmful",
+             OTHER_CATEGORY: OTHER_CATEGORY}
+    matrix = np.array([[6, 2, 0, 1, 3],  # maize: right, as SETVI (same family), as other
+                       [0, 4, 1, 0, 2],  # setaria: right, as CHEAL (same role only)
+                       [0, 0, 0, 0, 0],
+                       [0, 0, 1, 2, 0],  # other_plant pairs are left out
+                       [5, 0, 0, 0, 0]])  # detections on no plant are left out
+    levels = level_accuracy(matrix, names, TAXA, roles)
+    assert levels["other_plant_pairs"] == 4
+    assert {k: v["correct"] for k, v in levels.items() if k != "other_plant_pairs"} == {
+        "species": 10, "genus": 10, "family": 12, "order": 12, "role": 11}
+    assert levels["species"]["plants"] == 13
+    assert levels["family"]["accuracy"] == pytest.approx(12 / 13)
+    assert "role" not in level_accuracy(matrix, names, TAXA)
+    with pytest.raises(ValueError, match="weed"):
+        level_accuracy(np.zeros((3, 3)), ["crop", "weed", "background"], TAXA)

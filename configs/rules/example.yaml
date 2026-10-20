@@ -7,11 +7,14 @@
 # (1POAO); configs/eppo_taxa.csv lists the codes. The most specific matching key wins, so
 # maize stays a crop inside the harmful grass family. Plants matching no key get `default`.
 default: neutral
-# Detections less confident than this (0-1) are handed to the generic model too, whatever
-# their class: fewer wrong removals, more calls to the generic model. On the species model's
-# val split, 0.8 cut crop removals from 1.2% to 0.4%; harmful weeds removed directly fell from
-# 63% to 51%, the rest deferred. Only matters above evaluate.score_threshold. null = off.
-defer_below: 0.8
+# Minimum confidence (0-1) in the action to keep or remove a plant; below it, the plant is
+# handed to the generic model too. The confidence is summed over all classes with that
+# action, so a plant that is surely one of two harmful grasses is removed even if the model
+# can't tell which. Higher: fewer wrong removals, more calls to the generic model. On the
+# species model's val split, with the earlier rule (top species' score alone), 0.8 cut crop
+# removals from 1.2% to 0.4%; harmful weeds removed directly fell from 63% to 51%, the rest
+# deferred. Only matters above evaluate.score_threshold. null = off (act on the top class).
+defer_below: 0.9
 rules:
   # Crops: every CropAndWeed crop, since its val and test splits mix fields of all of them.
   BEAVA: crop    # sugar beet

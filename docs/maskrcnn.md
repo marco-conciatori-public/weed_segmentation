@@ -46,7 +46,8 @@ Everything goes to `runs/maskrcnn/<run_name>/` (gitignored):
 - `metrics.jsonl`: one line per epoch with the mean losses and, when evaluated, val AP/AP50.
 - `config.yaml`: the config of the latest start or resume. `tensorboard/`: the logs.
 - `eval/<split>_<checkpoint>/`: `metrics.json`, `per_class.csv`, `confusion_matrix.csv/.png`,
-  `predictions.json` (COCO results) and `previews/` (ground truth left, predictions right).
+  `predictions.json` (COCO results), `previews/` (ground truth left, predictions right) and,
+  for species-level classes, `taxonomic_levels.csv` (see [Decisions](#decisions)).
   With `evaluate.rules`: `decisions.csv` (true role × action counts) and `decisions.json`
   (summary shares and the role of each class).
 
@@ -90,9 +91,19 @@ The model recognises species; what the robot does with them is set by a rule fil
 (`evaluate.rules`, e.g. `configs/rules/example.yaml`), so the same model serves any field.
 Each class gets a role from the most specific matching EPPO code (species, genus, family or
 order) or the file's `default`: crop and neutral plants are kept, harmful ones removed, and
-`other_plant` is deferred to a generic model, as is any detection less confident than the
-file's `defer_below`. Crop status comes from the rules only: a species marked as crop is
-always kept.
+`other_plant` is deferred to a generic model. Crop status comes from the rules only: a
+species marked as crop is always kept.
+
+With the file's `defer_below`, the robot acts on its confidence in the action, not in the
+species. The model gives each detection a probability per class (`class_scores` in
+`predictions.json`, classes under 0.001 left out); the probabilities of all classes with the
+same action are summed, and the plant is kept or removed when that sum reaches
+`defer_below`, else deferred. A plant torn between two harmful grasses (0.5 and 0.4) is
+removed at 0.9, where the top species alone (0.5) would defer it. Probability on
+`other_plant` counts for no action, so a plant that may be an unknown species needs more
+certainty. This covers decisions at genus or family level without naming the level: if all
+of a family is harmful, its species' probabilities add up. Predictions from before
+`class_scores` existed fall back to the top class's score; re-run the evaluation to use them.
 
 The evaluation groups the confusion matrix by role: rows are the true role of each labelled
 plant (from its ground-truth class), plus "no plant" for detections on no labelled plant;
@@ -100,6 +111,13 @@ columns are keep, remove, defer and missed. The summary gives the shares that ma
 robot: crops removed, harmful weeds removed or left, neutral weeds removed, other_plant
 deferred, and removals where no plant is labelled (possibly unlabelled plants). Confusions
 inside one role (e.g. two harmful grasses) cost nothing here.
+
+`taxonomic_levels.csv` looks at the plants the model found (matched in the confusion matrix)
+and gives the share whose predicted class is right at each level: species, genus, family,
+order and, with rules, role. It shows how wrong the wrong species are: if most errors keep
+the genus or family, decisions taken at that level (rules on genus or family codes) lose
+little. Missed plants, detections on no plant and pairs with `other_plant` are left out
+(other_plant has no taxonomy); it uses the raw predictions, without `defer_below`.
 
 ## Error review for an expert
 

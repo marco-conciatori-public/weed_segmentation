@@ -13,6 +13,8 @@ from pycocotools import mask as mask_utils
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+CLASS_SCORE_MIN = 0.001  # class probabilities kept per detection in predictions
+
 
 def select_device(name: str) -> torch.device:
     if name == "auto":
@@ -83,7 +85,12 @@ def train_one_epoch(model, loader: DataLoader, optimizer, scheduler, scaler, dev
 @torch.no_grad()
 def predict(model, loader: DataLoader, categories: list[dict[str, Any]], device: torch.device,
             amp: bool, mask_threshold: float = 0.5) -> list[dict[str, Any]]:
-    """COCO results (bbox x, y, w, h, score, RLE segmentation) for every image in `loader`."""
+    """COCO results (bbox x, y, w, h, score, RLE segmentation) for every image in `loader`.
+
+    Each result also has `class_scores`, {category id (str): probability} of the classes the
+    model gave at least CLASS_SCORE_MIN (the rest, background included, is left out), for
+    decisions on the role rather than the species (see weedseg.decisions).
+    """
     model.eval()
     category_ids = [c["id"] for c in categories]  # label k -> category_ids[k - 1]
     results = []
@@ -91,19 +98,22 @@ def predict(model, loader: DataLoader, categories: list[dict[str, Any]], device:
         images = [image.to(device, non_blocking=True) for image in images]
         with torch.autocast(device.type, enabled=amp):
             outputs = model(images)
-        for output, target in zip(outputs, targets):
+        for output, target, probs in zip(outputs, targets, model.roi_heads.class_scores):
             if len(output["boxes"]) == 0:
                 continue
             boxes = output["boxes"].float().cpu().numpy()
             scores = output["scores"].float().cpu().numpy()
             labels = output["labels"].cpu().numpy()
             masks = (output["masks"][:, 0] > mask_threshold).cpu().numpy()
+            probs = probs[:, 1:].float().cpu().numpy()  # without background
             rles = mask_utils.encode(np.asfortranarray(masks.transpose(1, 2, 0).astype(np.uint8)))
-            for box, score, label, rle in zip(boxes, scores, labels, rles):
+            for box, score, label, rle, p in zip(boxes, scores, labels, rles, probs):
                 rle["counts"] = rle["counts"].decode("ascii")
                 x0, y0, x1, y1 = box.tolist()
                 results.append({"image_id": target["image_id"],
                                 "category_id": category_ids[label - 1],
                                 "bbox": [x0, y0, x1 - x0, y1 - y0],
-                                "score": float(score), "segmentation": rle})
+                                "score": float(score), "segmentation": rle,
+                                "class_scores": {str(category_ids[k]): round(float(p[k]), 4)
+                                                 for k in np.flatnonzero(p >= CLASS_SCORE_MIN)}})
     return results

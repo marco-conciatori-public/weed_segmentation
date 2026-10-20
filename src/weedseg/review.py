@@ -10,7 +10,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from weedseg.data.coco import OTHER_CATEGORY
-from weedseg.decisions import ACTIONS
+from weedseg.decisions import decide
 from weedseg.evaluation import Match
 
 # (folder name, description), in order of cost to the robot.
@@ -60,8 +60,7 @@ def classify(match: Match, names: dict[int, str], roles: dict[str, str],
     predicted_name = names[detection["category_id"]] if detection else None
     action = None
     if detection is not None:
-        uncertain = defer_below is not None and detection["score"] < defer_below
-        action = "defer" if uncertain else ACTIONS[roles[predicted_name]]
+        action = decide(detection, names, roles, defer_below)
 
     if plant is None:
         error_type = "no_plant_detection"

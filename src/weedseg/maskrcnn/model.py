@@ -3,6 +3,7 @@
 from typing import Any
 
 import torch
+import torch.nn.functional as F
 from torchvision.models.detection import (
     MaskRCNN,
     MaskRCNN_ResNet50_FPN_V2_Weights,
@@ -11,8 +12,9 @@ from torchvision.models.detection import (
 from torchvision.models.detection.anchor_utils import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
+from torchvision.models.detection.roi_heads import RoIHeads
 from torchvision.models.detection.rpn import RegionProposalNetwork
-from torchvision.ops import box_iou
+from torchvision.ops import batched_nms, box_iou, clip_boxes_to_image, remove_small_boxes
 
 from weedseg.paths import resolve
 
@@ -36,6 +38,42 @@ class IgnoreAwareRPN(RegionProposalNetwork):
             on_ignore = (matched >= 0) & ignore[matched.clamp(min=0)]
             labels_in_image[on_ignore] = -1.0
         return labels, matched_gt_boxes
+
+
+class ClassScoreRoIHeads(RoIHeads):
+    """RoI heads that keep the full class distribution of each detection.
+
+    torchvision turns every proposal into one detection per class and keeps only that
+    class's score. This is its postprocess_detections with the proposal of each detection
+    tracked, so `class_scores` holds, per image of the last batch, a tensor [detections,
+    classes incl. background] of softmax probabilities, in the order of the detections.
+    """
+
+    class_scores: list[torch.Tensor]
+
+    def postprocess_detections(self, class_logits, box_regression, proposals, image_shapes):
+        num_classes = class_logits.shape[-1]
+        boxes_per_image = [len(p) for p in proposals]
+        pred_boxes = self.box_coder.decode(box_regression, proposals).split(boxes_per_image, 0)
+        pred_scores = F.softmax(class_logits, -1).split(boxes_per_image, 0)
+        all_boxes, all_scores, all_labels = [], [], []
+        self.class_scores = []
+        for boxes, probs, image_shape in zip(pred_boxes, pred_scores, image_shapes):
+            boxes = clip_boxes_to_image(boxes, image_shape)
+            labels = torch.arange(num_classes, device=probs.device).expand_as(probs)
+            rows = torch.arange(len(probs), device=probs.device)[:, None].expand_as(probs)
+            # one candidate per proposal and class, without background
+            boxes = boxes[:, 1:].reshape(-1, 4)
+            scores, labels, rows = (t[:, 1:].reshape(-1) for t in (probs, labels, rows))
+            keep = torch.where(scores > self.score_thresh)[0]
+            keep = keep[remove_small_boxes(boxes[keep], min_size=1e-2)]
+            keep = keep[batched_nms(boxes[keep], scores[keep], labels[keep], self.nms_thresh)]
+            keep = keep[: self.detections_per_img]
+            all_boxes.append(boxes[keep])
+            all_scores.append(scores[keep])
+            all_labels.append(labels[keep])
+            self.class_scores.append(probs[rows[keep]])
+        return all_boxes, all_scores, all_labels
 
 
 def build_model(num_classes: int, config: dict[str, Any]) -> MaskRCNN:
@@ -73,6 +111,7 @@ def build_model(num_classes: int, config: dict[str, Any]) -> MaskRCNN:
         tuple((size,) for size in config["anchor_sizes"]),
         ((0.5, 1.0, 2.0),) * len(config["anchor_sizes"]))
     model.rpn.__class__ = IgnoreAwareRPN
+    model.roi_heads.__class__ = ClassScoreRoIHeads
 
     box_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(box_features, num_classes)

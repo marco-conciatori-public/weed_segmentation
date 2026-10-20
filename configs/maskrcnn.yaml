@@ -90,6 +90,8 @@ evaluate:
   # each true role, at the confusion-matrix thresholds above. Needs species-level classes
   # (EPPO codes); null = skip, e.g. for crop/weed models.
   rules: configs/rules/example.yaml
+  # EPPO taxonomy, for the rules and for taxonomic_levels.csv: of the plants found, the share
+  # whose class is right at species, genus, family, order and (with rules) role level.
   eppo_taxa: configs/eppo_taxa.csv
   # Images with ground truth and predictions side by side (0 = none).
   num_previews: 20

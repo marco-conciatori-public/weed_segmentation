@@ -48,7 +48,8 @@ Please fill in the two last columns of each folder's review.csv:
 
 Roles come from the decision rules {rules}: crop and neutral plants are kept, harmful weeds
 removed, and other_plant (species the model doesn't know) handed to a generic model, as is
-any detection less confident than {defer_below}.
+any detection whose action (keep or remove, summed over all species with that action) is
+less certain than {defer_below}.
 
 Folders:
 {types}

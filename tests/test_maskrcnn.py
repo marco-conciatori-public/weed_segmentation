@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import pytest
 import torch
+from torchvision.models.detection.roi_heads import RoIHeads
 
 from weedseg.data.coco import encode_mask
 from weedseg.maskrcnn.data import IGNORE_LABEL, CocoInstanceDataset, build_augmentation, collate
@@ -81,6 +82,22 @@ def test_train_step_and_predict_run(coco):
     results = predict(model, loader, coco["categories"][:2], torch.device("cpu"), amp=False)
     assert all(r["image_id"] == 7 and r["category_id"] in (1, 2) for r in results)
     assert all(len(r["bbox"]) == 4 and "counts" in r["segmentation"] for r in results)
+    for r in results:  # the detection's own class is among its class scores, with its score
+        assert r["class_scores"][str(r["category_id"])] == pytest.approx(r["score"], abs=1e-4)
+        assert set(r["class_scores"]) <= {"1", "2"} and sum(r["class_scores"].values()) <= 1.001
+
+
+def test_class_score_heads_detect_like_torchvision():
+    torch.manual_seed(0)
+    model = build_model(3, MODEL_CONFIG).eval()
+    images = [torch.rand(3, H, W)]
+    with torch.no_grad():
+        ours = model(images)[0]
+        model.roi_heads.__class__ = RoIHeads
+        stock = model(images)[0]
+    assert len(ours["boxes"]) > 0
+    for key in ("boxes", "scores", "labels"):
+        assert torch.equal(ours[key], stock[key])
 
 
 def test_warmup_cosine_schedule():
