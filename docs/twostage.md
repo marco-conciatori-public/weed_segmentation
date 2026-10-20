@@ -17,24 +17,39 @@ plant at full resolution and starts from a strong pretrained backbone.
 
 ## Steps
 
+`scripts/run_twostage.py` runs steps 1-7 in order (settings: `configs/run_twostage.yaml`, the
+list of steps), e.g. overnight on the training machine. Each step reads its own config;
+the runner only orders them, after checking that the configs use the same data (see below).
+It stops at the first failure. Re-running is safe: crops already cut are skipped and
+trainings resume from `last.pt` (a finished one does nothing), so after fixing the cause,
+start it again.
+
 | Step | Script | Config | Where |
 |---|---|---|---|
 | 1. Plant-only copy of the species data | `make_plant_dataset.py` | `plant_dataset.yaml` | any machine |
 | 2. Crop cache | `prepare_crops.py` | `classifier.yaml` | any machine (CPU) |
-| 3. Train the detector | `train_maskrcnn.py` | `maskrcnn.yaml` with `data.dir` = the plant folder | GPU |
-| 4. Train the classifier | `train_classifier.py` | `classifier.yaml` | GPU |
-| 5. Evaluate the classifier alone | `evaluate_classifier.py` | `classifier.yaml` | GPU |
-| 6. Predict and evaluate both stages | `predict_twostage.py` | `twostage.yaml` | GPU |
-| 7. Review the errors | `review_errors.py` | `maskrcnn.yaml`, `review.eval_dir` = the folder of step 6 | any machine |
+| 3. Train the detector | `train_detector.py` | `detector.yaml` | GPU |
+| 4. Evaluate the detector alone | `evaluate_detector.py` | `detector.yaml` | GPU |
+| 5. Train the classifier | `train_classifier.py` | `classifier.yaml` | GPU |
+| 6. Evaluate the classifier alone | `evaluate_classifier.py` | `classifier.yaml` | GPU |
+| 7. Predict and evaluate both stages | `predict_twostage.py` | `twostage.yaml` | GPU |
+| 8. Review the errors | `review_errors.py` | `maskrcnn.yaml`, `review.eval_dir` = the folder of step 7 | any machine |
 
-Steps 1 and 2 need no GPU: run them before a session on the training machine (and copy the
+Steps 1 and 2 need no GPU: they can run before a session on the training machine (copy the
 `crops_*` folder along if the data is copied rather than re-made there). The DINOv2 weights
 (~350 MB) are downloaded from Hugging Face on the first run; for an offline machine set
 `model.pretrained_path` to the downloaded `model.safetensors`.
 
-`evaluate_maskrcnn.py` also evaluates the detector alone (with `data.dir` on the plant
-folder): its AP and recall show whether the one-class detector finds more plants than the
-species model. Taxonomic levels and decisions are skipped there, since `plant` is not a species.
+**Configs.** `detector.yaml` holds only what differs from `maskrcnn.yaml` (`base:`): the
+plant-only `data.dir`. Every other setting comes from `maskrcnn.yaml`, so the detector and the
+species model are always trained alike, and `maskrcnn.yaml` stays on the species model.
+`twostage.yaml` names the detector and classifier configs and takes `best` (or `last`) of
+their runs, so the prediction uses what was just trained. The runner checks that
+`plant_dataset.yaml`, `classifier.yaml` and `twostage.yaml` use the same species `data.dir`
+and `detector.yaml` the plant folder made from it.
+
+Step 4 shows whether the one-class detector finds more plants than the species model (AP and
+recall); taxonomic levels and decisions are skipped there, since `plant` is not a species.
 
 ## Plant-only data
 

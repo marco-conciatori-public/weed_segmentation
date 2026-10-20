@@ -32,8 +32,8 @@ from weedseg.visualize import plot_confusion_matrix
 CONFIG = "configs/classifier.yaml"
 
 
-def main() -> None:
-    config = load_config(CONFIG)
+def main(config_path: str = CONFIG) -> None:
+    config = load_config(config_path)
     settings = config["evaluate"]
     device = select_device(config["device"])
     amp = config["train"]["amp"] and device.type == "cuda"

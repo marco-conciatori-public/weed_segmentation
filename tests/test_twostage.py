@@ -4,8 +4,14 @@ import pytest
 import torch
 
 from weedseg.classifier.model import build_classifier
+from weedseg.config import load_config
 from weedseg.data.coco import encode_mask
-from weedseg.twostage import classify_detections, detection_input, with_species
+from weedseg.twostage import (
+    classify_detections,
+    config_problems,
+    detection_input,
+    with_species,
+)
 
 CROPS = {"margin": 0.25, "input_size": 28, "cache_context": 1.5, "background": "keep",
          "dim_factor": 0.3}
@@ -50,3 +56,22 @@ def test_classify_detections_end_to_end(tmp_path):
     for r in results:
         assert r["category_id"] in (7, 8, 9)
         assert sum(r["class_scores"].values()) == pytest.approx(r["plant_score"], abs=0.01)
+
+
+def test_config_problems_catch_mismatched_data():
+    species = "data/processed/x/species_min50img_min20mm"
+    plant = {"source_dir": species}
+    detector = {"data": {"dir": "data/processed/x/plant_min20mm"}}
+    same = {"data": {"dir": species}}
+    assert config_problems(plant, detector, same, same) == []
+    problems = config_problems(plant, {"data": {"dir": species}}, same,
+                               {"data": {"dir": "data/processed/y/species"}})
+    assert len(problems) == 2
+    assert "twostage" in problems[0] and "detector" in problems[1]
+
+
+def test_shipped_configs_fit_together():
+    twostage = load_config("configs/twostage.yaml")
+    assert config_problems(load_config("configs/plant_dataset.yaml"),
+                           load_config(twostage["detector"]["config"]),
+                           load_config(twostage["classifier"]["config"]), twostage) == []

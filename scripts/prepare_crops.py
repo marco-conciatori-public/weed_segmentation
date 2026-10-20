@@ -16,8 +16,8 @@ from weedseg.paths import resolve
 CONFIG = "configs/classifier.yaml"
 
 
-def main() -> None:
-    config = load_config(CONFIG)
+def main(config_path: str = CONFIG) -> None:
+    config = load_config(config_path)
     folder = cache_dir(resolve(config["data"]["dir"]), config["crops"])
     for split in SPLITS:
         index = folder / f"index_{split}.csv"

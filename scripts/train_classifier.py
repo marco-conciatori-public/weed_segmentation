@@ -29,8 +29,8 @@ CONFIG = "configs/classifier.yaml"
 FIXED_SECTIONS = ("data", "crops", "model")
 
 
-def main() -> None:
-    config = load_config(CONFIG)
+def main(config_path: str = CONFIG) -> None:
+    config = load_config(config_path)
     data, crops, train = config["data"], config["crops"], config["train"]
     run_dir = resolve_run_dir(config)
     run_dir.mkdir(parents=True, exist_ok=True)

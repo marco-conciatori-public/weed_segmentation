@@ -36,8 +36,8 @@ from weedseg.paths import resolve
 CONFIG = "configs/maskrcnn.yaml"
 
 
-def main() -> None:
-    config = load_config(CONFIG)
+def main(config_path: str = CONFIG) -> None:
+    config = load_config(config_path)
     data, train, model_config = config["data"], config["train"], config["model"]
     run_dir = resolve_run_dir(config)
     run_dir.mkdir(parents=True, exist_ok=True)

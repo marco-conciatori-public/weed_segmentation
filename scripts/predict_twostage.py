@@ -13,7 +13,7 @@ from weedseg.config import load_config
 from weedseg.maskrcnn.data import CocoInstanceDataset, collate, load_coco, model_categories
 from weedseg.maskrcnn.engine import predict, select_device
 from weedseg.maskrcnn.model import load_checkpoint_model
-from weedseg.maskrcnn.run import split_file
+from weedseg.maskrcnn.run import checkpoint_path, split_file
 from weedseg.paths import resolve
 from weedseg.report import write_evaluation
 from weedseg.twostage import classify_detections
@@ -21,13 +21,15 @@ from weedseg.twostage import classify_detections
 CONFIG = "configs/twostage.yaml"
 
 
-def main() -> None:
-    config = load_config(CONFIG)
+def main(config_path: str = CONFIG) -> None:
+    config = load_config(config_path)
     settings, data = config["evaluate"], config["data"]
     device = select_device(config["device"])
     amp = config["amp"] and device.type == "cuda"
-    detector_file = resolve(config["detector"]["checkpoint"])
-    classifier_file = resolve(config["classifier"]["checkpoint"])
+    detector_file = checkpoint_path(load_config(config["detector"]["config"]),
+                                    config["detector"]["checkpoint"])
+    classifier_file = checkpoint_path(load_config(config["classifier"]["config"]),
+                                      config["classifier"]["checkpoint"])
     detector, detector_checkpoint = load_checkpoint_model(detector_file, device)
     classifier, classifier_checkpoint = load_classifier(classifier_file, device)
     detector_config = detector_checkpoint["config"]["model"]

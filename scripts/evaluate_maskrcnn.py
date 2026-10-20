@@ -19,8 +19,8 @@ from weedseg.report import write_evaluation
 CONFIG = "configs/maskrcnn.yaml"
 
 
-def main() -> None:
-    config = load_config(CONFIG)
+def main(config_path: str = CONFIG) -> None:
+    config = load_config(config_path)
     settings = config["evaluate"]
     checkpoint_file = checkpoint_path(config)
     device = select_device(config["device"])

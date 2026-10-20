@@ -16,8 +16,8 @@ from weedseg.paths import resolve
 CONFIG = "configs/plant_dataset.yaml"
 
 
-def main() -> None:
-    config = load_config(CONFIG)
+def main(config_path: str = CONFIG) -> None:
+    config = load_config(config_path)
     source_dir = resolve(config["source_dir"])
     output_dir = None
     for split in SPLITS:

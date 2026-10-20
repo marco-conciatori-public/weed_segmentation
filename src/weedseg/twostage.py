@@ -26,6 +26,7 @@ from weedseg.classifier.crops import FILL_RGB, cut_square, square_window
 from weedseg.classifier.data import to_input
 from weedseg.data.coco import decode_mask
 from weedseg.maskrcnn.engine import CLASS_SCORE_MIN
+from weedseg.paths import resolve
 
 
 def detection_input(image: np.ndarray, detection: dict[str, Any],
@@ -101,3 +102,21 @@ def classify_detections(detections: list[dict[str, Any]], images: list[dict[str,
         results += [with_species(d, p, class_ids)
                     for d, p in zip(by_image[int(image_id)], np.concatenate(probs))]
     return results
+
+
+def config_problems(plant: dict[str, Any], detector: dict[str, Any], classifier: dict[str, Any],
+                    twostage: dict[str, Any]) -> list[str]:
+    """Why the configs of the two-stage steps would work on different data (empty if they
+    fit): the plant copy, the classifier and the prediction must use the same species data,
+    and the detector the plant copy of it."""
+    problems = []
+    species = resolve(plant["source_dir"])
+    for name, config in (("classifier", classifier), ("twostage", twostage)):
+        if resolve(config["data"]["dir"]) != species:
+            problems.append(f"data.dir of the {name} config ({config['data']['dir']}) is not "
+                            f"the species data of plant_dataset.yaml ({plant['source_dir']})")
+    plant_dir = resolve(detector["data"]["dir"])
+    if plant_dir.parent != species.parent or not plant_dir.name.startswith("plant"):
+        problems.append(f"data.dir of the detector config ({detector['data']['dir']}) is not "
+                        f"a plant folder next to {plant['source_dir']}")
+    return problems

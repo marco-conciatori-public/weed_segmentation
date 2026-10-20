@@ -1,5 +1,6 @@
 # Mask R-CNN baseline (torchvision ResNet-50 FPN v2, Apache-2.0).
-# Used by scripts/train_maskrcnn.py and scripts/evaluate_maskrcnn.py.
+# Used by scripts/train_maskrcnn.py and scripts/evaluate_maskrcnn.py, and as the base of
+# configs/detector.yaml (the two-stage pipeline's plant detector: same settings, plant data).
 # Relative paths are resolved against the project root. See docs/maskrcnn.md.
 
 # Outputs (checkpoints, TensorBoard logs, metrics, evaluations) go to <output_dir>/<run_name>/.

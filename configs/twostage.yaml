@@ -19,14 +19,17 @@ data:
   num_workers: 6
 
 detector:
-  # Mask R-CNN trained on the plant-only copy of data.dir (scripts/make_plant_dataset.py).
-  checkpoint: runs/maskrcnn/cropandweed+acre_plant_min20mm/best.pt
+  # The detector's config (scripts/train_detector.py) and its checkpoint: best or last of
+  # that config's run, or a path to a .pt file (then the config is not used to find it).
+  config: configs/detector.yaml
+  checkpoint: best
   batch_size: 2
 
 classifier:
-  # Trained by scripts/train_classifier.py; its crop settings (margin, size, background)
-  # come from the checkpoint.
-  checkpoint: runs/classifier/cropandweed+acre_species_min50img_min20mm_dinov2b/best.pt
+  # The classifier's config (scripts/train_classifier.py) and its checkpoint, as above. The
+  # crop settings (margin, size, background) come from the checkpoint.
+  config: configs/classifier.yaml
+  checkpoint: best
   batch_size: 128
   # Only detections with at least this plant score are classified (the others are dropped).
   # The detector's own score_threshold (0.05) keeps the whole precision curve for AP; raise

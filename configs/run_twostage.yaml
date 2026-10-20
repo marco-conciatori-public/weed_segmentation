@@ -1,0 +1,27 @@
+# Run the steps of the two-stage pipeline one after the other, e.g. overnight on the training
+# machine. Used by scripts/run_twostage.py. See docs/twostage.md.
+#
+# Each step keeps its own config; only the order and the config files live here. The detector
+# and classifier trained are those configs/twostage.yaml names (detector.config,
+# classifier.config), so the prediction step uses the checkpoints just trained.
+twostage: configs/twostage.yaml
+plant_dataset: configs/plant_dataset.yaml
+
+# Steps to run, in this order; remove those you don't need. Re-running is safe: crops already
+# cut are skipped, and trainings resume from their last.pt (a finished one does nothing), so
+# after a failure, fix the cause and start again.
+#   make_plant_dataset   plant-only copy of the species data (scripts/make_plant_dataset.py)
+#   prepare_crops        crop cache for the classifier (CPU only)
+#   train_detector       Mask R-CNN on the plant-only data
+#   evaluate_detector    the detector alone: AP and recall of plants
+#   train_classifier     DINOv2 on the crops
+#   evaluate_classifier  the classifier alone, on labelled crops
+#   predict_twostage     both stages on evaluate.split of configs/twostage.yaml
+steps:
+  - make_plant_dataset
+  - prepare_crops
+  - train_detector
+  - evaluate_detector
+  - train_classifier
+  - evaluate_classifier
+  - predict_twostage

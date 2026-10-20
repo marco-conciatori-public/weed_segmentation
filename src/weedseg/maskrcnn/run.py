@@ -28,9 +28,10 @@ def resolve_run_dir(config: dict[str, Any]) -> Path:
     return resolve(config["output_dir"]) / run_name(config)
 
 
-def checkpoint_path(config: dict[str, Any]) -> Path:
-    """`evaluate.checkpoint`: best or last of the run, or a path to a .pt file."""
-    checkpoint = config["evaluate"]["checkpoint"]
+def checkpoint_path(config: dict[str, Any], checkpoint: str | None = None) -> Path:
+    """`checkpoint` (default `evaluate.checkpoint`): best or last of the run, or a path to a
+    .pt file."""
+    checkpoint = checkpoint or config["evaluate"]["checkpoint"]
     if checkpoint in ("best", "last"):
         return resolve_run_dir(config) / f"{checkpoint}.pt"
     return resolve(checkpoint)
