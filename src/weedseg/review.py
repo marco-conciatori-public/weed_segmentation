@@ -15,22 +15,28 @@ from weedseg.evaluation import Match
 
 # (folder name, description), in order of cost to the robot.
 ERROR_TYPES = [
-    ("crop_removed", "Crop the robot would remove: labelled as a crop, predicted as a "
-                     "harmful species."),
-    ("harmful_kept", "Harmful weed the robot would keep: predicted as a crop or a neutral "
-                     "species."),
-    ("missed_harmful", "Harmful weed the model did not detect at all (ranked by size)."),
-    ("neutral_removed", "Neutral plant the robot would remove: predicted as a harmful "
-                        "species."),
-    ("other_plant_removed", "Plant of a species the model doesn't know (other_plant) that the "
-                            "robot would remove instead of handing it to the generic model."),
-    ("no_plant_detection", "Confident detection where no plant is labelled: either a plant "
-                           "the annotators missed, or a false detection."),
-    ("same_role_wrong_species", "Wrong species with the same role (no effect with the current "
-                                "rules, but it may matter with others)."),
-    ("other_wrong_class", "Other wrong classes, e.g. a crop called neutral, or a wrong class "
-                          "that is deferred to the generic model."),
-    ("missed_other", "Crop, neutral or other_plant not detected at all (ranked by size)."),
+    ("crop_removed",
+     "Crop the robot would remove: labelled as a crop, predicted as a harmful species."),
+    ("harmful_kept",
+     "Harmful weed the robot would keep: predicted as a crop or a neutral species."),
+    ("missed_harmful",
+     "Harmful weed the model did not detect at all (ranked by size)."),
+    ("neutral_removed",
+     "Neutral plant the robot would remove: predicted as a harmful species."),
+    ("other_plant_removed",
+     ("Plant of a species the model doesn't know (other_plant) that the robot would "
+      "remove instead of handing it to the generic model.")),
+    ("no_plant_detection",
+     ("Confident detection where no plant is labelled: either a plant the annotators "
+      "missed, or a false detection.")),
+    ("same_role_wrong_species",
+     ("Wrong species with the same role (no effect with the current rules, but it may "
+      "matter with others).")),
+    ("other_wrong_class",
+     ("Other wrong classes, e.g. a crop called neutral, or a wrong class that is deferred "
+      "to the generic model.")),
+    ("missed_other",
+     "Crop, neutral or other_plant not detected at all (ranked by size)."),
 ]
 
 

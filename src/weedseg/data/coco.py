@@ -144,7 +144,7 @@ def split_by_group[T](items: list[T], group_of: Callable[[T], str],
         labels = group_labels[group]
         rarest = min(labels, key=lambda label: (label_totals[label], label)) if labels else None
 
-        def fill(name: str) -> float:
+        def fill(name: str, rarest: str | None = rarest) -> float:
             # How full a split is relative to its target, for the rarest label plus for all
             # items: a split still without the label usually wins, however small its share,
             # while the item totals stay close to the fractions.
