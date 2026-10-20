@@ -1,4 +1,5 @@
-"""Run directory and data files of a configs/maskrcnn.yaml config."""
+"""Run directory and data files of a run config (configs/maskrcnn.yaml, configs/classifier.yaml):
+its `data.dir`, `run_name`, `output_dir` and `evaluate` checkpoint and split."""
 
 from pathlib import Path
 from typing import Any

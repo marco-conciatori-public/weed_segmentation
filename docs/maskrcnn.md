@@ -46,8 +46,10 @@ Everything goes to `runs/maskrcnn/<run_name>/` (gitignored):
 - `metrics.jsonl`: one line per epoch with the mean losses and, when evaluated, val AP/AP50.
 - `config.yaml`: the config of the latest start or resume. `tensorboard/`: the logs.
 - `eval/<split>_<checkpoint>/`: `metrics.json`, `per_class.csv`, `confusion_matrix.csv/.png`,
-  `predictions.json` (COCO results), `previews/` (ground truth left, predictions right) and,
-  for species-level classes, `taxonomic_levels.csv` (see [Decisions](#decisions)).
+  `predictions.json` (COCO results), `previews/` (ground truth left, predictions right),
+  `evaluation.json` (the split file, seed and `evaluate` settings used, for the error review)
+  and, for species-level classes, `taxonomic_levels.csv` (see [Decisions](#decisions)). The
+  same code (`weedseg.report`) scores the two-stage pipeline ([twostage.md](twostage.md)).
   With `evaluate.rules`: `decisions.csv` (true role × action counts) and `decisions.json`
   (summary shares and the role of each class).
 
@@ -123,7 +125,9 @@ little. Missed plants, detections on no plant and pairs with `other_plant` are l
 
 `scripts/review_errors.py` (settings: `review` in `configs/maskrcnn.yaml`) reads the
 predictions of an evaluation, so it needs no GPU, and writes `<eval folder>/review/`. It is
-replaced on each run. The errors are sorted into types by what they would cost the robot,
+replaced on each run. `review.eval_dir` picks another evaluation folder, e.g. the two-stage
+pipeline's; the split, images, thresholds and rules are those recorded in its
+`evaluation.json`. The errors are sorted into types by what they would cost the robot,
 under the decision rules: crops that would be removed, harmful weeds kept or missed, neutral
 plants removed, other_plant plants removed, detections where no plant is labelled, wrong
 species with the same role, other wrong classes, other missed plants. Each type's folder

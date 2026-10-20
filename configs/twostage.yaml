@@ -1,0 +1,47 @@
+# Two-stage prediction: a one-class (plant) Mask R-CNN finds the plants, the species
+# classifier names them. Used by scripts/predict_twostage.py. Relative paths are resolved
+# against the project root. See docs/twostage.md.
+
+# Outputs go to <output_dir>/<run_name>/eval/<split>/. Placeholders: {detector} and
+# {classifier} = the run folders of the two checkpoints.
+run_name: "{detector}__{classifier}"
+output_dir: runs/twostage
+seed: 0
+# auto = CUDA when available, else CPU (CPU is only good for a smoke test).
+device: auto
+# Mixed precision (CUDA only).
+amp: true
+
+data:
+  # Species folder whose split is evaluated: the classifier's classes must be in it. Use the
+  # folder of the species Mask R-CNN to compare the two pipelines.
+  dir: data/processed/cropandweed+acre/species_min50img_min20mm
+  num_workers: 6
+
+detector:
+  # Mask R-CNN trained on the plant-only copy of data.dir (scripts/make_plant_dataset.py).
+  checkpoint: runs/maskrcnn/cropandweed+acre_plant_min20mm/best.pt
+  batch_size: 2
+
+classifier:
+  # Trained by scripts/train_classifier.py; its crop settings (margin, size, background)
+  # come from the checkpoint.
+  checkpoint: runs/classifier/cropandweed+acre_species_min50img_min20mm_dinov2b/best.pt
+  batch_size: 128
+  # Only detections with at least this plant score are classified (the others are dropped).
+  # The detector's own score_threshold (0.05) keeps the whole precision curve for AP; raise
+  # this to save time when AP doesn't matter.
+  min_plant_score: 0.05
+
+# As in configs/maskrcnn.yaml, so the two pipelines are scored alike.
+evaluate:
+  split: val
+  # Evaluate a random subset of N images (null = all). For a quick smoke test.
+  max_images: null
+  score_threshold: 0.5
+  iou_threshold: 0.5
+  match_by: mask
+  rules: configs/rules/example.yaml
+  eppo_taxa: configs/eppo_taxa.csv
+  num_previews: 20
+  preview_score_threshold: 0.5

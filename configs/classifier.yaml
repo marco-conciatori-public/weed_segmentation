@@ -1,0 +1,98 @@
+# Species classifier on plant crops (DINOv2 via timm, Apache-2.0): the second stage of the
+# two-stage pipeline. Used by scripts/prepare_crops.py, scripts/train_classifier.py and
+# scripts/evaluate_classifier.py. Relative paths are resolved against the project root.
+# See docs/twostage.md.
+
+# Outputs go to <output_dir>/<run_name>/. Placeholders: {dataset} and {taxonomy} = the last
+# two folders of data.dir, as in configs/maskrcnn.yaml.
+run_name: "{dataset}_{taxonomy}_dinov2b"
+output_dir: runs/classifier
+seed: 0
+# auto = CUDA when available, else CPU (CPU is only good for a smoke test).
+device: auto
+
+data:
+  # Species folder (train.json, val.json, test.json); the classes come from the train file.
+  # Use the same folder as the species Mask R-CNN to compare the two pipelines.
+  dir: data/processed/cropandweed+acre/species_min50img_min20mm
+  # Data-loading processes, for training and for prepare_crops.py. 0 = main process.
+  num_workers: 6
+  # Use a random subset of N crops (null = all). For a quick smoke test.
+  max_train_crops: null
+  max_val_crops: null
+
+crops:
+  # Context around each plant: this fraction of its box's longer side on each side. The same
+  # crop is cut around each detection by scripts/predict_twostage.py.
+  margin: 0.25
+  # Classifier input, px (a multiple of 14, DINOv2's patch size).
+  input_size: 224
+  # The cache keeps this many times the crop's side, for box jitter in training (see
+  # augment). Cache folder: <data.dir>/crops_margin<m>_size<s>_context<c>/; prepare_crops.py
+  # fills it once (CPU only, so it can run on any machine) and skips splits already there.
+  cache_context: 1.5
+  cache_quality: 95
+  # Pixels outside the plant's mask: keep, dim (to dim_factor of their brightness) or blank
+  # (grey). dim and blank tell the classifier which plant to look at when neighbours share
+  # the crop; blank also loses leaf tips the mask misses. Changing it needs a new run.
+  background: keep
+  dim_factor: 0.3
+
+model:
+  # timm model name. vit_small_patch14_dinov2.lvd142m (22M parameters) or
+  # vit_large_patch14_dinov2.lvd142m (300M) for a smaller or larger model.
+  backbone: vit_base_patch14_dinov2.lvd142m
+  # Start from the DINOv2 weights. false = random init.
+  pretrained: true
+  # Local weights file (timm's model.safetensors), for machines without internet access.
+  # null = downloaded once from Hugging Face to its cache.
+  pretrained_path: null
+  # Freeze the patch embedding and the first N of the 12 (ViT-B) blocks. 0 = fine-tune all.
+  freeze_blocks: 0
+  # Stochastic depth, a regulariser for ViT fine-tuning.
+  drop_path: 0.1
+
+augment:
+  flips: true
+  rotate90: true
+  color_jitter: {brightness: 0.2, contrast: 0.2, saturation: 0.2, hue: 0.02}
+  # Box jitter, so a model trained on labelled boxes copes with the detector's: the crop's
+  # side is scaled by up to +-box_scale and its centre moved by up to box_shift of the box.
+  box_scale: 0.2
+  box_shift: 0.1
+  # Masks grown or shrunk by up to this many px (at input_size), like the detector's rougher
+  # outlines. Only used when background is dim or blank.
+  mask_jitter_px: 3
+
+train:
+  epochs: 10
+  batch_size: 64
+  # AdamW. The pretrained backbone learns slowly, the new head fast.
+  lr_backbone: 0.00002
+  lr_head: 0.001
+  weight_decay: 0.05
+  warmup_steps: 500
+  label_smoothing: 0.1
+  # Class balance of the training batches: none (as in the data), sqrt (classes drawn in
+  # proportion to the square root of their size) or inverse (all classes equally often).
+  balance: none
+  # Max gradient norm (null = no clipping).
+  grad_clip: 1.0
+  # Mixed precision (CUDA only).
+  amp: true
+  eval_batch_size: 128
+  # Continue from <run>/last.pt when it exists. To start over, change run_name.
+  resume: true
+  # Log the training loss to TensorBoard every N steps.
+  log_every: 20
+
+evaluate:
+  # scripts/evaluate_classifier.py: accuracy on the cached crops of a split (labelled boxes,
+  # no detector). Checkpoint of this run: best, last, or a path to a .pt file.
+  checkpoint: best
+  split: val
+  eppo_taxa: configs/eppo_taxa.csv
+  # Decision rules, for the role level of taxonomic_levels.csv (null = skip that level).
+  rules: configs/rules/example.yaml
+  # Accuracy per plant size, by the box's longer side in mm (bin edges).
+  size_bins_mm: [20, 40, 80, 160]

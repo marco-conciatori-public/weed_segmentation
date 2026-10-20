@@ -7,6 +7,8 @@ dependencies = [
     # Deep learning
     "torch",
     "torchvision",
+    # DINOv2 backbones for the species classifier (Apache-2.0, weights too)
+    "timm>=1.0.30",
     # Images, annotations and augmentation
     "numpy",
     "pillow",

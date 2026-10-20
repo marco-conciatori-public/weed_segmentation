@@ -1,10 +1,12 @@
 """The model's worst errors, as images plus a CSV form, to show a plant expert.
 
-Settings: configs/maskrcnn.yaml (`review`, plus the `evaluate` settings that locate the
-evaluation and set the thresholds and decision rules). Run scripts/evaluate_maskrcnn.py first:
-this script reads its predictions.json, so it needs no GPU.
+Settings: configs/maskrcnn.yaml (`review`; without `review.eval_dir`, the `evaluate` settings
+locate the Mask R-CNN's evaluation). Run scripts/evaluate_maskrcnn.py or
+scripts/predict_twostage.py first: this script reads the evaluation's predictions.json, so it
+needs no GPU. The split, images, thresholds and decision rules are those the evaluation used
+(its evaluation.json; older evaluations without one use the current `evaluate` settings).
 
-Writes <run>/eval/<split>_<checkpoint>/review/ (replaced on each run): README.txt,
+Writes <evaluation folder>/review/ (replaced on each run): README.txt,
 summary.csv (the number of errors of each type) and one folder per error type (see
 weedseg.review.ERROR_TYPES) with the top `per_type` errors as images (labels left, model
 right, the plant in question framed in white) and review.csv, a form for the expert's verdicts.
@@ -62,18 +64,25 @@ CSV_COLUMNS = ["rank", "image", "source_image", "labelled_as", "predicted_as", "
 def main() -> None:
     config = load_config(CONFIG)
     settings, review = config["evaluate"], config["review"]
-    if not settings["rules"]:
-        raise SystemExit("review_errors.py needs decision rules (evaluate.rules)")
-    source = eval_dir(config)
+    source = resolve(review["eval_dir"]) if review["eval_dir"] else eval_dir(config)
     if not (source / "predictions.json").exists():
-        raise SystemExit(f"No predictions in {source}; run scripts/evaluate_maskrcnn.py first")
+        raise SystemExit(f"No predictions in {source}; run scripts/evaluate_maskrcnn.py or "
+                         "scripts/predict_twostage.py first")
     with open(source / "predictions.json", encoding="utf-8") as f:
         results = json.load(f)
+    split_path, seed = split_file(config, settings["split"]), config["seed"]
+    if (source / "evaluation.json").exists():
+        with open(source / "evaluation.json", encoding="utf-8") as f:
+            evaluated = json.load(f)
+        settings, split_path, seed = (evaluated["settings"], resolve(evaluated["split_file"]),
+                                      evaluated["seed"])
+    if not settings["rules"]:
+        raise SystemExit("review_errors.py needs decision rules (evaluate.rules)")
 
-    coco = load_coco(split_file(config, settings["split"]))
+    coco = load_coco(split_path)
     # Evaluation may have used a random subset; review the same images.
     images = CocoInstanceDataset(coco, with_targets=False, max_images=settings["max_images"],
-                                 seed=config["seed"]).images
+                                 seed=seed).images
     taxa = load_taxa(resolve(settings["eppo_taxa"]))
     rules = load_rules(resolve(settings["rules"]), taxa)
     names = {c["id"]: c["name"] for c in coco["categories"]}

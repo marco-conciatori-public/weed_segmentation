@@ -1,0 +1,9 @@
+# One-class (plant) copy of a species dataset, for the detector of the two-stage pipeline.
+# Used by scripts/make_plant_dataset.py. Relative paths are resolved against the project root.
+# See docs/twostage.md.
+
+# Species folder (train.json, val.json, test.json), e.g. a combined one.
+source_dir: data/processed/cropandweed+acre/species_min50img_min20mm
+# Output: a sibling folder of source_dir named plant[_min<size>mm], e.g.
+# data/processed/cropandweed+acre/plant_min20mm. Point data.dir in configs/maskrcnn.yaml there
+# to train the detector with scripts/train_maskrcnn.py.
