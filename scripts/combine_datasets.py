@@ -8,7 +8,7 @@ Writes train.json, val.json, test.json and classes.txt (the class decisions) to
 from pathlib import Path
 
 from weedseg.config import load_config
-from weedseg.data.coco import write_json
+from weedseg.data.coco import BOX_ONLY, write_json
 from weedseg.data.combine import SPLITS, combine
 from weedseg.eppo import load_taxa
 from weedseg.maskrcnn.data import load_coco
@@ -38,7 +38,10 @@ def main() -> None:
     for split, coco in combined.items():
         write_json(coco, output_dir / f"{split}.json")
         plants = sum(1 for a in coco["annotations"] if not a["iscrowd"])
-        print(f"{split}: {len(coco['images'])} images, {plants} plants -> {output_dir}")
+        box_only = sum(1 for image in coco["images"] if image.get(BOX_ONLY))
+        print(f"{split}: {len(coco['images'])} images"
+              + (f" ({box_only} with boxes only: classifier only)" if box_only else "")
+              + f", {plants} plants -> {output_dir}")
 
 
 if __name__ == "__main__":

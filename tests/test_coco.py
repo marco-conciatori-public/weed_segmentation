@@ -1,11 +1,14 @@
 import numpy as np
+import pytest
 from pycocotools import mask as mask_utils
 
 from weedseg.data.coco import (
+    BOX_ONLY,
     IGNORE_CATEGORY,
     ImageRecord,
     Instance,
     LabelMap,
+    drop_box_only,
     ignore_small_plants,
     split_by_group,
     to_coco,
@@ -76,6 +79,31 @@ def test_to_coco_writes_masks_stems_and_crowd_flags(tmp_path):
     assert vegetation["iscrowd"] == 1 and "segmentation" not in vegetation
     assert ignored["iscrowd"] == 1
     assert coco["images"][0]["session"] == "g1"
+
+
+def test_box_only_images_are_marked_and_left_out_of_mask_training(tmp_path):
+    label_map = LabelMap(write_label_map(tmp_path / "map.csv"), "species")
+    mask = np.zeros((10, 20), dtype=bool)
+    mask[2:5, 3:8] = True
+    masked = ImageRecord("a.jpg", 20, 10, "g1", [Instance("1", (3, 2, 8, 5), mask=mask),
+                                                 Instance("3", (0, 0, 2, 2))])
+    boxes = ImageRecord("b.jpg", 20, 10, "g2", [Instance("2", (10, 0, 12, 2))])
+    coco = to_coco([masked], label_map, {})
+    assert BOX_ONLY not in coco["images"][0]
+    assert drop_box_only(coco) is coco  # an ignore region without a mask is fine
+
+    box_coco = to_coco([boxes], label_map, {}, box_only=True)
+    assert box_coco["images"][0][BOX_ONLY] is True
+    both = {**coco, "images": coco["images"] + [{**box_coco["images"][0], "id": 2}],
+            "annotations": coco["annotations"] + [{**box_coco["annotations"][0], "id": 3,
+                                                   "image_id": 2}]}
+    kept = drop_box_only(both)
+    assert [i["file_name"] for i in kept["images"]] == ["a.jpg"]
+    assert [a["id"] for a in kept["annotations"]] == [1, 2]
+
+    unmarked = {**both, "images": [coco["images"][0], {**both["images"][1], BOX_ONLY: False}]}
+    with pytest.raises(ValueError, match="annotation 3"):
+        drop_box_only(unmarked)
 
 
 def test_ignore_small_plants_uses_mm_and_ignore_category():

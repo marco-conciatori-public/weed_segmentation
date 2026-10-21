@@ -1,6 +1,6 @@
 import pytest
 
-from weedseg.data.coco import IGNORE_CATEGORY, OTHER_CATEGORY
+from weedseg.data.coco import BOX_ONLY, IGNORE_CATEGORY, OTHER_CATEGORY, drop_box_only
 from weedseg.data.combine import combine
 from weedseg.data.plant import to_plant_only
 
@@ -78,6 +78,23 @@ def test_plants_of_unknown_species_are_ignore_regions_but_plants_for_the_detecto
     plants = to_plant_only(train)
     assert [(a["category_id"], a["iscrowd"]) for a in plants["annotations"]] == [
         (1, 0), (1, 0), (2, 1)]
+
+
+def test_datasets_with_boxes_only_count_for_the_classes_and_keep_their_mark():
+    masks = dataset([("ZEAMX", "crop"), ("POAAN", "weed")], [["ZEAMX", "POAAN"], ["ZEAMX"]])
+    for annotation in masks["train"]["annotations"]:
+        annotation["segmentation"] = {"size": [10, 10], "counts": "fake"}
+    boxes = dataset([("POAAN", "weed")], [["POAAN"]], image_dir="data/raw/b/images")
+    for image in boxes["train"]["images"]:
+        image[BOX_ONLY] = True
+    combined, _ = combine({"a": masks, "b": boxes}, TAXA, min_images=2)
+    train = combined["train"]
+    names = [c["name"] for c in train["categories"]]
+    assert names == ["ZEAMX", "POAAN", IGNORE_CATEGORY]  # POAAN has 2 images only with b
+    assert [i.get(BOX_ONLY) for i in train["images"]] == [None, None, True]
+    for coco in (train, to_plant_only(train)):  # the detector's copy keeps the mark
+        assert [i["file_name"] for i in drop_box_only(coco)["images"]] == [
+            "data/raw/a/images/1.jpg", "data/raw/a/images/2.jpg"]
 
 
 def test_size_filtered_plants_keep_their_code_and_stay_ignored():

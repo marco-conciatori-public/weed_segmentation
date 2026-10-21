@@ -58,6 +58,7 @@ Standard COCO fields, plus these extras:
 | image | `group` | Split unit, e.g. a recording session. All images of a group are in the same split. |
 | image | `session`, `subset`, ... | Dataset-specific metadata, e.g. soil, moisture, lighting. |
 | image | `mm_per_px`, `mm_per_px_estimated` | Ground resolution, and whether it is only an estimate. |
+| image | `box_only` | The image's dataset is labelled with boxes only, without masks (see below). |
 | annotation | `segmentation` | Instance mask as compressed RLE. |
 | annotation | `stem` | `[x, y]` of the plant's stem / growing point, when known. |
 | annotation | `source_label` | The label as written in the source dataset. |
@@ -115,6 +116,26 @@ The decisions are printed and saved to `classes.txt`. The output goes to
 own EPPO code in an `eppo` field, whatever class it ends up in; image file names become
 paths from the project root (`info.image_dir` is "."), and `info.licences` lists the
 licences of all the datasets, since the most restrictive one applies to the combination.
+
+## Datasets labelled with boxes only
+
+Some datasets name each plant's species but give only its box (GROUNDBASED_WEED, OPPD). Their
+converter passes `box_only=True` to `convert_dataset`, which marks every image `box_only`.
+They are combined with the others into the same files, with one class list (decided
+2026-10-21), and each step takes what it can use:
+
+- Their plants count when combining chooses the classes: a species may become a class only
+  thanks to them.
+- The species classifier of the two-stage pipeline learns from their plants, since a crop
+  needs only a box, and `evaluate_classifier.py` scores it on them
+  (`accuracy_by_dataset.csv`).
+- Mask R-CNN (the species model, the two-stage detector) leaves these images out, since it
+  would learn the boxes as plant outlines. So does the evaluation of instance predictions
+  (`evaluate_maskrcnn.py`, `predict_twostage.py`, `review_errors.py`): all of them read the
+  files through `weedseg.maskrcnn.data.load_masked_coco`.
+
+A labelled plant without a mask on an image not marked `box_only` stops Mask R-CNN training
+and evaluation with an error, so a converter that forgets the mark is noticed.
 
 ## The other_plant category
 

@@ -5,13 +5,19 @@ Writes to <run>/eval/<split>_<checkpoint>/: predictions.json (COCO results) and 
 of weedseg.report.write_evaluation: COCO metrics, per-class AP, confusion matrix, previews
 and, for species-level classes, taxonomic_levels.csv and (with `evaluate.rules`)
 decisions.csv/.json (keep / remove / defer per true role; see weedseg.decisions), plus
-by_dataset.csv when the split combines several datasets.
+by_dataset.csv when the split combines several datasets. Images labelled with boxes only
+are left out.
 """
 
 from torch.utils.data import DataLoader
 
 from weedseg.config import load_config
-from weedseg.maskrcnn.data import CocoInstanceDataset, collate, load_coco, model_categories
+from weedseg.maskrcnn.data import (
+    CocoInstanceDataset,
+    collate,
+    load_masked_coco,
+    model_categories,
+)
 from weedseg.maskrcnn.engine import predict, select_device
 from weedseg.maskrcnn.model import load_checkpoint_model
 from weedseg.maskrcnn.run import checkpoint_path, eval_dir, run_name, split_file
@@ -31,7 +37,7 @@ def main(config_path: str = CONFIG) -> None:
     print(f"{checkpoint_file} (epoch {checkpoint['epoch']}), device {device}")
 
     split = settings["split"]
-    coco = load_coco(split_file(config, split))
+    coco = load_masked_coco(split_file(config, split))
     # The model's labels follow the training categories; look them up by name in this file.
     by_name = {c["name"]: c for c in model_categories(coco)}
     missing = [c["name"] for c in checkpoint["categories"] if c["name"] not in by_name]

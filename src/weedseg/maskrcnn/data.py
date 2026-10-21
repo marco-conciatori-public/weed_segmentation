@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 from torchvision import tv_tensors
 from torchvision.transforms import v2
 
-from weedseg.data.coco import IGNORE_CATEGORY, decode_mask
+from weedseg.data.coco import IGNORE_CATEGORY, decode_mask, drop_box_only
 from weedseg.paths import resolve
 
 # Training label of ignore regions. torchvision's samplers skip proposals and anchors labelled
@@ -24,6 +24,20 @@ IGNORE_LABEL = -1
 def load_coco(path: Path) -> dict[str, Any]:
     with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_masked_coco(path: Path) -> dict[str, Any]:
+    """`load_coco` without the images labelled with boxes only, which Mask R-CNN can't learn
+    from (weedseg.data.coco.drop_box_only), saying how many were left out. Training,
+    evaluation and the error review all read their files this way, so they see the same
+    images."""
+    coco = load_coco(path)
+    masked = drop_box_only(coco)
+    left_out = len(coco["images"]) - len(masked["images"])
+    if left_out:
+        print(f"{path.name}: {left_out} of {len(coco['images'])} images left out "
+              "(labelled with boxes only)")
+    return masked
 
 
 def model_categories(coco: dict[str, Any]) -> list[dict[str, Any]]:
@@ -88,7 +102,7 @@ class CocoInstanceDataset(Dataset):
                 continue
             ignore = annotation.get("iscrowd") or annotation["category_id"] not in self.labels
             mask = decode_mask(annotation, height, width)
-            if mask is None:  # box-only annotation: the box is the best mask we have
+            if mask is None:  # no outline, e.g. an ignore region: its box
                 mask = np.zeros((height, width), bool)
                 mask[round(y):round(y + h), round(x):round(x + w)] = True
             boxes.append([x, y, x + w, y + h])

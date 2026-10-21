@@ -28,13 +28,15 @@ def convert_dataset(names: list[str], group_of: Callable[[str], str],
                     boxes_of: Callable[[str], list[tuple[str, float, float]]],
                     records_of: Callable[[list[str]], Iterator[ImageRecord]],
                     label_map: LabelMap, settings: dict[str, Any],
-                    info: dict[str, Any]) -> Path:
+                    info: dict[str, Any], box_only: bool = False) -> Path:
     """Convert a dataset and write <output_dir>/<taxonomy>[_min<size>mm]/<split>.json.
 
     `boxes_of(name)` gives (source label, width, height) in px of each plant of an image;
     `records_of(names)` yields their ImageRecords. `settings` is the dataset config's
     `convert` section (min_plant_size_mm, mm_per_px_estimate, keep_negative_images, split,
     output_dir); `info` (name, source, licence, image_dir) goes into every file's info.
+    `box_only` for a dataset labelled with boxes only, without masks: its images are marked
+    (weedseg.data.coco.BOX_ONLY) and reach the species classifier only.
     """
     min_size_mm, mm_per_px = settings["min_plant_size_mm"], settings["mm_per_px_estimate"]
     if min_size_mm is not None and mm_per_px is None:
@@ -64,7 +66,7 @@ def convert_dataset(names: list[str], group_of: Callable[[str], str],
             "min_plant_size_mm": min_size_mm,
         }
         records = tqdm(records_of(split_names), total=len(split_names), desc=split_name)
-        coco = ignore_small_plants(to_coco(records, label_map, split_info), min_size_mm)
+        coco = ignore_small_plants(to_coco(records, label_map, split_info, box_only), min_size_mm)
         path = output_dir / f"{split_name}.json"
         write_json(coco, path)
 

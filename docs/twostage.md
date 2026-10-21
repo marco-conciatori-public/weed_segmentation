@@ -6,14 +6,15 @@ so the two can be compared file by file.
 1. **Detector:** the same Mask R-CNN, trained on one class, `plant`. It finds and outlines the
    plants, whatever their species.
 2. **Classifier:** DINOv2 ViT-B/14 (timm; Apache-2.0 code and weights) with a linear head,
-   fine-tuned on square crops around each plant. Same classes as the species model,
+   fine-tuned on square crops around each plant. The classes of the combined species data,
    `other_plant` included.
 
 Why: the species model's weak point is finding plants, not naming them. A one-class detector
 doesn't split a plant's score over similar species (a plant at 0.4 / 0.3 / 0.2 over three
 species can fall under the threshold), and it can later learn from datasets that label
 plants but not species (PhenoBench, Sugar Beets, WeedsGalore). The classifier sees each
-plant at full resolution and starts from a strong pretrained backbone.
+plant at full resolution, starts from a strong pretrained backbone and can learn from
+datasets that label species with boxes only (GROUNDBASED_WEED, OPPD).
 
 ## Steps
 
@@ -76,6 +77,32 @@ species (`1PLAK`): datasets that label each plant but not its species, e.g. ACRE
 Combining marks both kinds `hidden_plant`, so plants the converter left out (untrusted, no
 usable outline) stay ignored even when they carry a code. See `weedseg.data.plant`.
 
+## Datasets labelled with boxes only
+
+All datasets go into one combination with one class list, the classifier's, so the
+evaluation measures the classes the robot will use. Each stage takes what the labels allow
+(images marked `box_only`, see [data-format.md](data-format.md#datasets-labelled-with-boxes-only)).
+For the datasets planned on 2026-10-21:
+
+| | CropAndWeed, ACRE (masks, species) | PhenoBench (masks; weeds without species) | GROUNDBASED_WEED, OPPD (boxes, species) |
+|---|---|---|---|
+| Detector | yes | every plant | no |
+| Classifier | yes | sugar beets | yes |
+| Evaluation of both stages (step 7) | yes | sugar beets; step 4 also counts its weeds | not yet |
+| Evaluation of the classifier (step 6) | yes | sugar beets | yes |
+
+- The species Mask R-CNN can't learn from box-only datasets: it stays the reference trained
+  on CropAndWeed + ACRE ([maskrcnn.md](maskrcnn.md)). Compare it with the two-stage pipeline
+  in the CropAndWeed and ACRE rows of `by_dataset.csv`. Its plants found stay comparable;
+  its class numbers drift a little once a new dataset turns some of its `other_plant`
+  species into classes.
+- A dataset that changes the class list needs a new classifier (~30 min); the detector is
+  retrained only when a dataset with masks joins. The "all" row of `by_dataset.csv` changes
+  with the datasets, so compare runs row by row.
+- On box-only datasets the classifier is scored on the labelled plants' crops only, not on
+  detections. Scoring detection there too (matching by box, box AP only) is planned, to see
+  whether the detector finds plants in fields it never saw.
+
 ## Crops
 
 A plant's crop is a square centred on its box, with `crops.margin` (25%) of the box's longer
@@ -96,7 +123,8 @@ have no "up"); colour jitter.
 next to maize. `keep` (default) leaves the crop as it is; the classifier learns that the label
 belongs to the plant in the centre. `dim` darkens the pixels outside the plant's mask to
 `dim_factor` (30%): context stays visible, the target is obvious. `blank` greys them out, but
-also loses leaf tips the mask misses (the detector's masks are rougher than the labels). With
+also loses leaf tips the mask misses (the detector's masks are rougher than the labels).
+Plants labelled with boxes only have their box as mask, so these two treat them less well. With
 `dim` or `blank`, training masks are grown or shrunk by up to `mask_jitter_px` to mimic the
 detector. The cache always stores masks, so switching needs no new cache, only a new
 classifier run.

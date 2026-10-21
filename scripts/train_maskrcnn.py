@@ -3,7 +3,8 @@
 Outputs go to <output_dir>/<run_name>/: last.pt (to resume), best.pt (best val segm AP),
 metrics.jsonl (one line per epoch) and tensorboard/ (`uv run tensorboard --logdir runs`).
 Re-running continues from last.pt, which is also saved every `train.checkpoint_every` steps
-(so a crash loses minutes, not an epoch); to start over, change run_name.
+(so a crash loses minutes, not an epoch); to start over, change run_name. Images labelled
+with boxes only (no masks) are left out.
 """
 
 import json
@@ -20,7 +21,7 @@ from weedseg.maskrcnn.data import (
     CocoInstanceDataset,
     build_augmentation,
     collate,
-    load_coco,
+    load_masked_coco,
     model_categories,
 )
 from weedseg.maskrcnn.engine import (
@@ -49,11 +50,16 @@ def main(config_path: str = CONFIG) -> None:
     amp = train["amp"] and device.type == "cuda"
     print(f"Run {run_dir}, device {device}{' (mixed precision)' if amp else ''}")
 
-    train_coco = load_coco(split_file(config, "train"))
-    val_coco = load_coco(split_file(config, "val"))
+    train_coco = load_masked_coco(split_file(config, "train"))
+    val_coco = load_masked_coco(split_file(config, "val"))
     categories = model_categories(train_coco)
     if [c["name"] for c in model_categories(val_coco)] != [c["name"] for c in categories]:
         raise SystemExit("Train and val files have different categories")
+    learnable = {a["category_id"] for a in train_coco["annotations"] if not a.get("iscrowd")}
+    unlearnable = [c["name"] for c in categories if c["id"] not in learnable]
+    if unlearnable:
+        print(f"Warning: no training plant with a mask for {', '.join(unlearnable)} (only "
+              "datasets labelled with boxes have them); the model can't learn these classes")
     train_set = CocoInstanceDataset(train_coco, build_augmentation(config["augment"]),
                                     max_images=data["max_train_images"], seed=config["seed"])
     val_set = CocoInstanceDataset(val_coco, with_targets=False,

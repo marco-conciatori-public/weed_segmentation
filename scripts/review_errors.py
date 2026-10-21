@@ -26,7 +26,7 @@ from weedseg.data.coco import OTHER_CATEGORY
 from weedseg.decisions import load_rules, role_of
 from weedseg.eppo import NAME_SEPARATOR, load_taxa
 from weedseg.evaluation import match_detections
-from weedseg.maskrcnn.data import CocoInstanceDataset, load_coco
+from weedseg.maskrcnn.data import CocoInstanceDataset, load_masked_coco
 from weedseg.maskrcnn.run import eval_dir, split_file
 from weedseg.paths import resolve
 from weedseg.review import ERROR_TYPES, ReviewItem, classify, crop_window, rank_errors
@@ -80,7 +80,7 @@ def main() -> None:
     if not settings["rules"]:
         raise SystemExit("review_errors.py needs decision rules (evaluate.rules)")
 
-    coco = load_coco(split_path)
+    coco = load_masked_coco(split_path)
     # Evaluation may have used a random subset; review the same images.
     images = CocoInstanceDataset(coco, with_targets=False, max_images=settings["max_images"],
                                  seed=seed).images

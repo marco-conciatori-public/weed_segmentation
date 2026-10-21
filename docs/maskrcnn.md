@@ -66,6 +66,11 @@ Everything goes to `runs/maskrcnn/<run_name>/` (gitignored):
   heads of torchvision already skip proposals matched to such a box. The RPN is replaced by
   `IgnoreAwareRPN`, which does the same for anchors. A plant hidden in an ignore region is
   thus neither learned as a plant nor as background.
+- **Images labelled with boxes only** (`box_only`, see [data-format.md](data-format.md)) are
+  left out of training and evaluation. The species model therefore stays the reference
+  trained on CropAndWeed + ACRE (decided 2026-10-21): the two-stage classifier learns from
+  box-only datasets, and retrained on a combination with them the species model would have
+  classes without a single plant with a mask (`train_maskrcnn.py` warns about those).
 - **Minimum plant size** is set at conversion (`min_plant_size_mm` in the dataset config):
   plants whose box is shorter than this on its longer side, in mm, are written as ignore
   regions of the `ignore` category, so training and evaluation see the same data. The

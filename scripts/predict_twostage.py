@@ -4,13 +4,20 @@ species classifier names them (see weedseg.twostage). Settings: configs/twostage
 Writes to <output_dir>/<run_name>/eval/<split>/ the same outputs as
 scripts/evaluate_maskrcnn.py (weedseg.report.write_evaluation), so the two pipelines can be
 compared file by file; scripts/review_errors.py reviews them with `review.eval_dir`.
+Images labelled with boxes only are left out: scripts/evaluate_classifier.py scores the
+classifier on their plants.
 """
 
 from torch.utils.data import DataLoader
 
 from weedseg.classifier.model import load_classifier
 from weedseg.config import load_config
-from weedseg.maskrcnn.data import CocoInstanceDataset, collate, load_coco, model_categories
+from weedseg.maskrcnn.data import (
+    CocoInstanceDataset,
+    collate,
+    load_masked_coco,
+    model_categories,
+)
 from weedseg.maskrcnn.engine import predict, select_device
 from weedseg.maskrcnn.model import load_checkpoint_model
 from weedseg.maskrcnn.run import checkpoint_path, split_file
@@ -37,7 +44,7 @@ def main(config_path: str = CONFIG) -> None:
           f"{classifier_file} (epoch {classifier_checkpoint['epoch']}), device {device}")
 
     split = settings["split"]
-    coco = load_coco(split_file(config, split))
+    coco = load_masked_coco(split_file(config, split))
     ids = {c["name"]: c["id"] for c in model_categories(coco)}
     classes = classifier_checkpoint["classes"]
     missing = [name for name in classes if name not in ids]

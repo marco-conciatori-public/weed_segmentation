@@ -22,6 +22,11 @@ IGNORE_CATEGORY = "ignore"
 # Plants of a known species too rare to be a class of their own (see weedseg.data.combine);
 # at inference they are handed to a generic model.
 OTHER_CATEGORY = "other_plant"
+# Image field marking the images of a dataset labelled with boxes only, without masks (e.g.
+# GROUNDBASED_WEED). Mask R-CNN (species model, plant detector) can't learn from them, so its
+# training and the evaluation of instance predictions leave them out (`drop_box_only`); the
+# species classifier learns from their plants all the same, since it needs only a box.
+BOX_ONLY = "box_only"
 
 
 @dataclass
@@ -180,10 +185,11 @@ def decode_mask(annotation: dict[str, Any], height: int, width: int) -> np.ndarr
     return mask_utils.decode(rle).astype(bool)
 
 
-def to_coco(records: Iterable[ImageRecord], label_map: LabelMap,
-            info: dict[str, Any]) -> dict[str, Any]:
+def to_coco(records: Iterable[ImageRecord], label_map: LabelMap, info: dict[str, Any],
+            box_only: bool = False) -> dict[str, Any]:
     """Build a COCO dict. Ignored instances, and those mapped to the ignore category, get
-    `iscrowd = 1`, so COCO evaluation neither rewards nor penalises detections on them."""
+    `iscrowd = 1`, so COCO evaluation neither rewards nor penalises detections on them.
+    `box_only` marks every image BOX_ONLY, for a dataset labelled without masks."""
     categories = label_map.categories()
     category_ids = {c["name"]: c["id"] for c in categories}
     images, annotations = [], []
@@ -191,6 +197,8 @@ def to_coco(records: Iterable[ImageRecord], label_map: LabelMap,
         image_id = len(images) + 1
         images.append({"id": image_id, "file_name": record.file_name, "width": record.width,
                        "height": record.height, "group": record.group, **record.attributes})
+        if box_only:
+            images[-1][BOX_ONLY] = True
         for instance in record.instances:
             category = label_map.category(instance.source_label)
             x0, y0, x1, y1 = instance.bbox_xyxy
@@ -240,6 +248,23 @@ def ignore_small_plants(coco: dict[str, Any], min_size_mm: float | None) -> dict
                           "ignored_category_id": annotation["category_id"]}
         annotations.append(annotation)
     return {**coco, "annotations": annotations}
+
+
+def drop_box_only(coco: dict[str, Any]) -> dict[str, Any]:
+    """Copy of `coco` without the images marked BOX_ONLY and their annotations, for Mask R-CNN
+    training and the evaluation of instance predictions. A labelled plant without a mask on
+    an unmarked image is an error: Mask R-CNN would learn its box as the plant's outline."""
+    box_only = {image["id"] for image in coco["images"] if image.get(BOX_ONLY)}
+    unmarked = [a for a in coco["annotations"] if a["image_id"] not in box_only
+                and not a.get("iscrowd") and not a.get("segmentation")]
+    if unmarked:
+        raise ValueError(f"{len(unmarked)} labelled plants have no mask, on images not marked "
+                         f"{BOX_ONLY} (e.g. annotation {unmarked[0]['id']}); convert datasets "
+                         "labelled with boxes only with box_only=True")
+    if not box_only:
+        return coco
+    return {**coco, "images": [i for i in coco["images"] if i["id"] not in box_only],
+            "annotations": [a for a in coco["annotations"] if a["image_id"] not in box_only]}
 
 
 def write_json(data: dict[str, Any], path: Path) -> None:
