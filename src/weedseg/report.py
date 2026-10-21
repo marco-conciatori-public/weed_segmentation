@@ -4,7 +4,8 @@ scored by the same code.
 
 `write_evaluation` writes to one folder: predictions.json, metrics.json (COCO bbox and segm),
 per_class.csv, confusion_matrix.csv/.png, taxonomic_levels.csv and, with `rules`,
-decisions.csv/.json (both only for species-level classes), previews/ (ground truth left,
+decisions.csv/.json (both only for species-level classes), by_dataset.csv (the main numbers
+per source dataset, for splits that combine several), previews/ (ground truth left,
 predictions right) and evaluation.json (what was evaluated, read by scripts/review_errors.py).
 """
 
@@ -68,12 +69,15 @@ def write_evaluation(coco: dict[str, Any], results: list[dict[str, Any]],
                           f"{settings['match_by']} IoU >= {settings['iou_threshold']})")
 
     taxa = load_taxa(resolve(settings["eppo_taxa"]))
-    if all(name == OTHER_CATEGORY or name in taxa for name in names[:-1]):
+    species = all(name == OTHER_CATEGORY or name in taxa for name in names[:-1])
+    if species:
         write_levels(matrix, names, settings, out_dir / "taxonomic_levels.csv")
         if settings["rules"]:
             write_decisions(coco, results, settings, out_dir)
     else:
         print("taxonomic levels and decisions: skipped, the classes are not EPPO codes")
+    write_by_dataset(coco, results, settings, metrics, max_detections, species,
+                     out_dir / "by_dataset.csv")
 
     if settings["num_previews"]:
         save_previews(coco, results, image_dir, out_dir / "previews", settings["num_previews"],
@@ -95,10 +99,8 @@ def _relative(path: Path) -> str:
 
 def write_decisions(coco: dict, results: list[dict], settings: dict, out_dir: Path) -> None:
     rules_path = resolve(settings["rules"])
-    taxa = load_taxa(resolve(settings["eppo_taxa"]))
-    rules = load_rules(rules_path, taxa)
-    roles = {c["name"]: role_of(c["name"], rules, taxa) for c in coco["categories"]
-             if c["name"] != IGNORE_CATEGORY}
+    _, rules, roles = _rules_and_roles(
+        settings, [c["name"] for c in coco["categories"] if c["name"] != IGNORE_CATEGORY])
     matrix, names = confusion_matrix(
         coco, apply_decisions(results, coco["categories"], roles, rules.defer_below,
                               rules.plant_defer_below),
@@ -120,11 +122,7 @@ def write_levels(matrix: np.ndarray, names: list[str], settings: dict, path: Pat
     """Accuracy per taxonomic level of the plants found, from the confusion matrix (without
     the rules' defer_below: it describes the model). Needs species-level classes; the role
     level needs `rules`."""
-    taxa = load_taxa(resolve(settings["eppo_taxa"]))
-    roles = None
-    if settings["rules"]:
-        rules = load_rules(resolve(settings["rules"]), taxa)
-        roles = {name: role_of(name, rules, taxa) for name in names[:-1]}
+    taxa, _, roles = _rules_and_roles(settings, names[:-1])
     levels = level_accuracy(matrix, names, taxa, roles)
     other_pairs = levels.pop("other_plant_pairs")
     with open(path, "w", newline="", encoding="utf-8") as f:
@@ -136,6 +134,86 @@ def write_levels(matrix: np.ndarray, names: list[str], settings: dict, path: Pat
         f"{level} {v['accuracy']:.1%}" for level, v in levels.items()
         if v["accuracy"] is not None)
           + f"  ({other_pairs} pairs with {OTHER_CATEGORY} left out)")
+
+
+def write_by_dataset(coco: dict, results: list[dict], settings: dict, metrics: dict,
+                     max_detections: int, species: bool, path: Path) -> None:
+    """One row per source dataset (the images' `dataset` field), and one for all of them:
+    COCO AP, the plants found at the score threshold and, with species-level classes, the
+    share of found plants whose species and role are right and the decision summary. Shows
+    whether a dataset helps on the others, which the overall numbers can hide (a dense
+    dataset weighs most in them). Nothing is written for a split from a single dataset.
+
+    `metrics` are those of all images (evaluate_coco), so they aren't computed twice.
+    """
+    image_ids = defaultdict(list)
+    for image in coco["images"]:
+        image_ids[image.get("dataset") or "(none)"].append(image["id"])
+    if len(image_ids) < 2:
+        return
+    taxa = roles = decided = None
+    if species:
+        names = [c["name"] for c in coco["categories"] if c["name"] != IGNORE_CATEGORY]
+        taxa, rules, roles = _rules_and_roles(settings, names)
+        if rules is not None:
+            decided = apply_decisions(results, coco["categories"], roles, rules.defer_below,
+                                      rules.plant_defer_below)
+
+    def row(name: str, ids: list[int] | None, metrics: dict | None = None) -> dict[str, Any]:
+        if metrics is None:
+            metrics = evaluate_coco(coco, results, ids, max_detections=max_detections)
+        thresholds = (settings["score_threshold"], settings["iou_threshold"],
+                      settings["match_by"])
+        matrix, names = confusion_matrix(coco, results, ids, *thresholds)
+        plants, missed = int(matrix[:-1].sum()), int(matrix[:-1, -1].sum())
+        values = {"dataset": name, "images": len(ids if ids is not None else coco["images"]),
+                  "plants": plants}
+        for iou_type, entry in metrics.items():
+            values |= {f"{iou_type}_{key}": entry["summary"][key] for key in ("AP", "AP50")}
+        values |= {"found": (plants - missed) / plants if plants else None, "missed": missed,
+                   "detections_on_no_plant": int(matrix[-1, :-1].sum())}
+        if taxa is not None:
+            levels = level_accuracy(matrix, names, taxa, roles)
+            values["species_right"] = levels["species"]["accuracy"]
+            if roles is not None:
+                values["role_right"] = levels["role"]["accuracy"]
+        if decided is not None:
+            matrix, names = confusion_matrix(coco, decided, ids, *thresholds)
+            values |= decision_summary(decision_matrix(matrix, names, roles))
+        return values
+
+    rows = [row("all", None, metrics), *(row(name, ids) for name, ids in sorted(image_ids.items()))]
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+    print("by dataset:")
+    for values in rows:
+        parts = [f"{values['images']} images", f"{values['plants']} plants",
+                 f"segm AP {_share(values.get('segm_AP'), '.3f')}",
+                 f"found {_share(values['found'])}"]
+        if "species_right" in values:
+            parts.append(f"species right {_share(values['species_right'])}")
+        if "harmful_removed" in values:
+            parts += [f"harmful removed {_share(values['harmful_removed'])}",
+                      f"left {_share(values['harmful_left'])}",
+                      f"crops removed {_share(values['crops_removed'])}"]
+        print(f"  {values['dataset']}: " + ", ".join(parts))
+    print(f"-> {path}")
+
+
+def _share(value: float | None, spec: str = ".1%") -> str:
+    return "-" if value is None else format(value, spec)
+
+
+def _rules_and_roles(settings: dict, names: list[str]) -> tuple[dict, Any, dict | None]:
+    """The EPPO taxa, the decision rules (None without `settings["rules"]`) and the role of
+    each class name (None without rules)."""
+    taxa = load_taxa(resolve(settings["eppo_taxa"]))
+    if not settings["rules"]:
+        return taxa, None, None
+    rules = load_rules(resolve(settings["rules"]), taxa)
+    return taxa, rules, {name: role_of(name, rules, taxa) for name in names}
 
 
 def write_per_class(metrics: dict, path: Path) -> None:

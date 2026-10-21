@@ -54,7 +54,11 @@ Everything goes to `runs/maskrcnn/<run_name>/` (gitignored):
   and, for species-level classes, `taxonomic_levels.csv` (see [Decisions](#decisions)). The
   same code (`weedseg.report`) scores the two-stage pipeline ([twostage.md](twostage.md)).
   With `evaluate.rules`: `decisions.csv` (true role × action counts) and `decisions.json`
-  (summary shares and the role of each class).
+  (summary shares and the role of each class). For a split that combines datasets,
+  `by_dataset.csv` gives the main numbers per source dataset and for all: AP, plants found
+  at the score threshold, species and role right, and the decision shares. A dense dataset
+  weighs most in the overall numbers (ACRE's val has twice CropAndWeed's plants), so compare
+  runs per dataset, and see there whether a dataset added to training helps on the others.
 
 ## Choices
 

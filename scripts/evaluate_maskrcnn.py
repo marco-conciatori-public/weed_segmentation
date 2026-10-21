@@ -4,7 +4,8 @@ plus `data`, `run_name` and `output_dir` to find the run and the data).
 Writes to <run>/eval/<split>_<checkpoint>/: predictions.json (COCO results) and the outputs
 of weedseg.report.write_evaluation: COCO metrics, per-class AP, confusion matrix, previews
 and, for species-level classes, taxonomic_levels.csv and (with `evaluate.rules`)
-decisions.csv/.json (keep / remove / defer per true role; see weedseg.decisions).
+decisions.csv/.json (keep / remove / defer per true role; see weedseg.decisions), plus
+by_dataset.csv when the split combines several datasets.
 """
 
 from torch.utils.data import DataLoader

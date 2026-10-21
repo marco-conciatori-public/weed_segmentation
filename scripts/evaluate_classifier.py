@@ -4,8 +4,9 @@ detector). Settings: configs/classifier.yaml (`evaluate`, plus `data`, `crops`, 
 
 Writes to <run>/eval/<split>_<checkpoint>/: metrics.json (accuracy and balanced accuracy),
 per_class.csv, confusion_matrix.csv/.png, taxonomic_levels.csv (share right at species,
-genus, family, order and, with `evaluate.rules`, role level), accuracy_by_size.csv and
-predictions.csv (one row per crop). Compare taxonomic_levels.csv with the Mask R-CNN's: both
+genus, family, order and, with `evaluate.rules`, role level), accuracy_by_size.csv,
+accuracy_by_dataset.csv (for splits that combine several datasets) and predictions.csv
+(one row per crop). Compare taxonomic_levels.csv with the Mask R-CNN's: both
 count the plants that were found, here all of them.
 """
 
@@ -115,13 +116,28 @@ def main(config_path: str = CONFIG) -> None:
             if total:
                 print(f"size {label} mm: {total} crops, accuracy {accuracy:.1%}")
 
+    datasets = sorted({row["dataset"] for row in rows})
+    if len(datasets) > 1:
+        with open(out_dir / "accuracy_by_dataset.csv", "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["dataset", "crops", "accuracy", "balanced_accuracy"])
+            for name in datasets:
+                inside = np.array([row["dataset"] == name for row in rows])
+                values = accuracy_metrics(probs[inside], labels[inside], len(classes))
+                writer.writerow([name or "(none)", int(inside.sum()), values["accuracy"],
+                                 values["balanced_accuracy"]])
+                print(f"dataset {name or '(none)'}: {int(inside.sum())} crops, accuracy "
+                      f"{values['accuracy']:.1%}, balanced accuracy "
+                      f"{values['balanced_accuracy']:.1%}")
+
     with open(out_dir / "predictions.csv", "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["annotation_id", "image_id", "true", "predicted", "probability",
-                         "size_mm"])
+                         "size_mm", "dataset"])
         for row, label, guess, p in zip(rows, labels, predicted, probs):
             writer.writerow([row["annotation_id"], row["image_id"], classes[label],
-                             classes[guess], round(float(p[guess]), 4), row["size_mm"]])
+                             classes[guess], round(float(p[guess]), 4), row["size_mm"],
+                             row["dataset"]])
     print(f"accuracy {metrics['accuracy']:.1%}, balanced accuracy "
           f"{metrics['balanced_accuracy']:.1%} on {len(labels)} crops -> {out_dir}")
 

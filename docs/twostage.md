@@ -112,8 +112,9 @@ the Mask R-CNN. Outputs: `runs/classifier/<run_name>/`.
 `evaluate_classifier.py` scores the classifier on the labelled crops of a split, without the
 detector: accuracy and balanced accuracy, per class, confusion matrix, `taxonomic_levels.csv`
 (compare with the species model's, which also counts only plants it found), accuracy by plant
-size (`accuracy_by_size.csv`, to see whether small plants suffer from their neighbours) and
-`predictions.csv`.
+size (`accuracy_by_size.csv`, to see whether small plants suffer from their neighbours),
+accuracy per source dataset (`accuracy_by_dataset.csv`, for a split that combines several)
+and `predictions.csv`.
 
 ## Prediction
 
