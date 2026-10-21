@@ -18,7 +18,9 @@ def test_label_map_matches_eppo(path):
         rows = list(csv.DictReader(f))
     assert check_label_rows(rows, TAXA) == []
     for row in rows:
-        if row["eppo"]:
+        if row["eppo"] == "1PLAK":  # a plant of unknown species may have an unknown role too
+            assert row["role"] in {"crop", "weed", "unknown"}
+        elif row["eppo"]:
             assert row["role"] in {"crop", "weed"}
 
 

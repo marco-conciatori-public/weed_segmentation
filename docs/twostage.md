@@ -70,7 +70,11 @@ size, unidentified vegetation, plants whose mask the converter couldn't derive),
 plants hidden only by the choice of classes: a genus-only label that combining turned into an
 ignore region because one of its species is a class (rule 3 in
 [data-format.md](data-format.md)). To a detector that is a plant like any other. On
-CropAndWeed + ACRE that gives back 474 train plants. See `weedseg.data.plant`.
+CropAndWeed + ACRE that gives back 474 train plants. The same goes for plants of unknown
+species (`1PLAK`): datasets that label each plant but not its species, e.g. ACRE's
+"unknown" plants or PhenoBench's weeds, add to the detector's training data only.
+Combining marks both kinds `hidden_plant`, so plants the converter left out (untrusted, no
+usable outline) stay ignored even when they carry a code. See `weedseg.data.plant`.
 
 ## Crops
 

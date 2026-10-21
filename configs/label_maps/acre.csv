@@ -10,6 +10,6 @@ pois,Pea,Pisum sativum,inferred,PIBSX,French pois,crop,PIBSX
 pourpier,Purslane,Portulaca oleracea,inferred,POROL,French pourpier; a natural weed named by the annotators,weed,POROL
 digitaire,Crabgrass,Digitaria,inferred,1DIGG,French digitaire; genus only,weed,1DIGG
 setaire,Bristlegrass,Setaria,inferred,1SETG,French sétaire; genus only,weed,1SETG
-inconnu,Unknown,,,,,unknown,
-unnamed,No name given,,,,,unknown,
-unknow,Marked unknown by the annotators,,,,,unknown,
+inconnu,Unknown,Plantae,,1PLAK,French inconnu; one plant of unknown species,unknown,1PLAK
+unnamed,No name given,Plantae,,1PLAK,One plant without a name,unknown,1PLAK
+unknow,Marked unknown by the annotators,Plantae,,1PLAK,The annotators' class unknow; one plant of unknown species,unknown,1PLAK

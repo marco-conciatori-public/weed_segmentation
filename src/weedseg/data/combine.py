@@ -7,17 +7,22 @@ decides the classes on the combined training images, so the rules see every data
 1. A species code with at least `min_images` training images is a class.
 2. A rarer species goes to OTHER_CATEGORY (handed to a generic model at inference).
 3. A coarser code (e.g. a genus-only label) goes to OTHER_CATEGORY, unless a class belongs to
-   it: then it becomes an ignore region, since such a plant may well be of that class.
+   it: then it becomes an ignore region, since such a plant may well be of that class. A code
+   above order, e.g. Plantae (1PLAK) for a plant of unknown species, counts as holding a
+   class, since the taxa table doesn't record its species.
 4. Ignore regions stay ignore regions (e.g. unidentified plants).
 
-Every plant keeps its own EPPO code in an `eppo` field, whatever class it ends up in.
+Every plant keeps its own EPPO code in an `eppo` field, whatever class it ends up in. Plants
+that are ignore regions only because of rule 3 are marked `hidden_plant`: the two-stage
+detector learns them as plants (weedseg.data.plant), unlike plants the converter left out
+(unidentified, too small, untrusted or without a usable outline).
 """
 
 from collections import Counter
 from typing import Any
 
 from weedseg.data.coco import IGNORE_CATEGORY, OTHER_CATEGORY
-from weedseg.eppo import PARENT_RANKS
+from weedseg.eppo import ABOVE_ORDER, PARENT_RANKS
 
 SPLITS = ("train", "val", "test")
 
@@ -32,6 +37,8 @@ def common_species(codes: set[str], images: Counter, taxa: dict[str, dict[str, s
     classes = {code for code in codes
                if taxa[code]["rank"] == "species" and images[code] >= min_images}
     ancestors = {taxa[code][rank] for code in classes for rank in PARENT_RANKS}
+    if classes:  # which species a code above order holds isn't recorded: assume a class
+        ancestors |= {code for code in codes if taxa[code]["rank"] in ABOVE_ORDER}
     decisions = {}
     for code in codes:
         if code in classes:
@@ -127,6 +134,7 @@ def combine(datasets: dict[str, dict[str, dict[str, Any]]], taxa: dict[str, dict
     combined = {}
     for split in SPLITS:
         out_images, out_annotations = [], []
+        hidden = 0
         for name, splits in datasets.items():
             coco = splits[split]
             image_dir = coco["info"]["image_dir"].rstrip("/")
@@ -149,6 +157,9 @@ def combine(datasets: dict[str, dict[str, dict[str, Any]]], taxa: dict[str, dict
                     new["category_id"] = category_id[decision]
                 else:  # ignore region: unidentified, too small (size filter) or rule 3
                     new.update(category_id=category_id[IGNORE_CATEGORY], iscrowd=1)
+                    if code and not annotation.get("iscrowd"):  # rule 3 alone
+                        new["hidden_plant"] = True
+                        hidden += 1
                 out_annotations.append(new)
         combined[split] = {
             "info": {
@@ -161,6 +172,7 @@ def combine(datasets: dict[str, dict[str, dict[str, Any]]], taxa: dict[str, dict
                 "split": split,
                 "min_train_images": min_images,
                 "min_plant_size_mm": next(iter(next(iter(sizes.values())))),
+                "hidden_plants": hidden,
             },
             "images": out_images,
             "annotations": out_annotations,

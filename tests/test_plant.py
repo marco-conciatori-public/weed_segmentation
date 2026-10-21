@@ -1,3 +1,5 @@
+import pytest
+
 from weedseg.data.plant import PLANT_CATEGORY, to_plant_only
 
 
@@ -6,24 +8,35 @@ def annotation(id_, category_id, bbox, iscrowd=0, **extra):
             "iscrowd": iscrowd, **extra}
 
 
-def test_plants_merge_and_only_hidden_known_plants_leave_ignore_regions():
+def test_plants_merge_and_only_hidden_plants_leave_ignore_regions():
     coco = {
-        "info": {"min_plant_size_mm": 20},
+        "info": {"min_plant_size_mm": 20, "datasets": {"a": {}}, "hidden_plants": 2},
         "images": [{"id": 1, "mm_per_px": 0.5}],
         "categories": [{"id": 1, "name": "ZEAMX"}, {"id": 2, "name": "SETVI"},
                        {"id": 3, "name": "other_plant"}, {"id": 4, "name": "ignore"}],
         "annotations": [
             annotation(1, 1, [0, 0, 60, 60]),  # maize
             annotation(2, 3, [0, 0, 50, 50]),  # other_plant
-            annotation(3, 4, [0, 0, 60, 60], 1, eppo="1SETG"),  # genus hidden by rule 3
+            annotation(3, 4, [0, 0, 60, 60], 1, eppo="1SETG", hidden_plant=True),  # rule 3
             annotation(4, 4, [0, 0, 20, 20], 1, eppo="SETVI"),  # 10 mm: too small
             annotation(5, 4, [0, 0, 80, 80], 1),  # unidentified vegetation
             annotation(6, 2, [0, 0, 60, 60], 1, eppo="SETVI"),  # converter ignore, own class
+            annotation(7, 4, [0, 0, 60, 60], 1, eppo="1PLAK", hidden_plant=True),  # unknown
+            annotation(8, 4, [0, 0, 60, 60], 1, eppo="1PLAK"),  # unknown, untrusted
         ],
     }
     plants = to_plant_only(coco)
     assert [c["name"] for c in plants["categories"]] == [PLANT_CATEGORY, "ignore"]
     assert [(a["category_id"], a["iscrowd"]) for a in plants["annotations"]] == [
-        (1, 0), (1, 0), (1, 0), (2, 1), (2, 1), (2, 1)]
+        (1, 0), (1, 0), (1, 0), (2, 1), (2, 1), (2, 1), (1, 0), (2, 1)]
     assert plants["annotations"][2]["eppo"] == "1SETG"  # other fields kept
     assert coco["annotations"][2]["iscrowd"] == 1  # input untouched
+
+
+def test_combined_data_from_before_the_marks_is_refused():
+    coco = {"info": {"datasets": {"a": {}}}, "images": [], "annotations": [],
+            "categories": [{"id": 1, "name": "ignore"}]}
+    with pytest.raises(ValueError, match="combine_datasets"):
+        to_plant_only(coco)
+    del coco["info"]["datasets"]  # a single converted dataset: nothing is hidden there
+    assert to_plant_only(coco)["annotations"] == []

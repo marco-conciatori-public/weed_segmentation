@@ -38,6 +38,7 @@ Standard COCO fields, plus these extras:
 | annotation | `stem` | `[x, y]` of the plant's stem / growing point, when known. |
 | annotation | `source_label` | The label as written in the source dataset. |
 | annotation | `iscrowd` | 1 = **ignore region**, see below. |
+| annotation | `hidden_plant` | Set by combining on plants that are ignore regions only because of the choice of classes (rule 3 below); the two-stage detector learns them as plants. |
 | category | `supercategory` | `crop`, `weed`, `mixed` or `ignore`. |
 | category | `source_labels`, `common_names`, `scientific_names` | What the category was built from. |
 
@@ -61,6 +62,13 @@ Standard COCO fields, plus these extras:
     labelled *Papaver* vs the weed *Papaver rhoeas*).
 - Dataset-specific groupings (e.g. CropAndWeed's `fine24`) are label-map columns.
   Choosing a coarser grouping only takes a re-conversion, never relabelling.
+- **Plants of unknown species** use the code of the plant kingdom, `1PLAK` (*Plantae*), e.g.
+  PhenoBench's weeds, which are labelled one plant at a time but only as "weed". They
+  can't train the species classes (they become ignore regions there, rule 3 below), but
+  the plant detector of the two-stage pipeline learns from them ([twostage.md](twostage.md)).
+  Use `1PLAK` only when each label is one whole plant. Its role may be `unknown` (e.g.
+  ACRE's "unknown" plants, some of which the annotators called crops). Unclear areas
+  (e.g. CropAndWeed's "Vegetation") get no code and stay ignore regions everywhere.
 
 ## Combining datasets and choosing the classes
 
@@ -73,7 +81,9 @@ images, so that every dataset counts (`weedseg.data.combine`):
 2. A rarer species goes to `other_plant`.
 3. A label coarser than species (e.g. genus only) goes to `other_plant`, unless one of its
    species is a class: then it becomes an ignore region, since the plant may well be of
-   that species (e.g. *Geranium* next to *Geranium pusillum*).
+   that species (e.g. *Geranium* next to *Geranium pusillum*). A code above order (clade,
+   class, phylum, kingdom, e.g. `1PLAK`) always counts as holding a class, since the taxa
+   table doesn't record its species.
 4. Ignore regions stay ignore regions.
 
 The decisions are printed and saved to `classes.txt`. The output goes to

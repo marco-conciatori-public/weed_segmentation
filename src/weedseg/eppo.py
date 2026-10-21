@@ -15,6 +15,8 @@ TAXONOMIC_LINK = 9  # t_link_types: 9 = Taxonomic
 RANKS = {"G": "genus", "S": "subfamily", "F": "family", "O": "order", "D": "clade",
          "C": "class", "P": "phylum", "K": "kingdom"}
 PARENT_RANKS = ("genus", "family", "order")
+# Ranks above order. The taxa table doesn't record which species belong to these.
+ABOVE_ORDER = ("clade", "class", "phylum", "kingdom")
 NAME_SEPARATOR = "; "
 
 

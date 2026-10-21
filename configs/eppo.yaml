@@ -6,7 +6,9 @@ sqlite: data/ref/sources/eppocodes_all.sqlite
 # Every CSV in this folder contributes the codes in its `eppo` column.
 label_maps: configs/label_maps
 # Codes to include even if no label map uses them yet (e.g. our team's species list).
-extra_codes: []
+# 1PLAK (Plantae): a plant labelled as one plant but without its species, see
+# docs/data-format.md.
+extra_codes: [1PLAK]
 # Languages of the common names to keep (EPPO language codes).
 languages: [en, it]
 # The table, versioned in git.

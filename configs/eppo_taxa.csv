@@ -6,6 +6,7 @@ eppo,datatype,rank,active,name,synonyms,genus,genus_name,family,family_name,orde
 1GERG,SPT,genus,yes,Geranium,,1GERG,Geranium,1GERF,Geraniaceae,1GERO,Geraniales,,
 1MERG,SPT,genus,yes,Mercurialis,,1MERG,Mercurialis,1EUPF,Euphorbiaceae,1MALO,Malpighiales,,
 1PAPG,SPT,genus,yes,Papaver,,1PAPG,Papaver,1PPAF,Papaveraceae,1RANO,Ranunculales,,
+1PLAK,SPT,kingdom,yes,Plantae,,,,,,,,,
 1POAG,SPT,genus,yes,Poa,Bellardiochloa,1POAG,Poa,1GRAF,Poaceae,1POAO,Poales,,
 1SALG,SPT,genus,yes,Salvia,Rosmarinus; Perovskia,1SALG,Salvia,1LAMF,Lamiaceae,1LAMO,Lamiales,,
 1SETG,SPT,genus,yes,Setaria,,1SETG,Setaria,1GRAF,Poaceae,1POAO,Poales,,

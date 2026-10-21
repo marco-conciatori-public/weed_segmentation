@@ -2,6 +2,7 @@ import pytest
 
 from weedseg.data.coco import IGNORE_CATEGORY, OTHER_CATEGORY
 from weedseg.data.combine import combine
+from weedseg.data.plant import to_plant_only
 
 
 def taxon(code, rank, genus, family="1GRAF"):
@@ -12,7 +13,9 @@ def taxon(code, rank, genus, family="1GRAF"):
 TAXA = {t["eppo"]: t for t in [
     taxon("ZEAMX", "species", "1ZEAG"), taxon("POAAN", "species", "1POAG"),
     taxon("POATR", "species", "1POAG"), taxon("1POAG", "genus", "1POAG"),
-    taxon("1MERG", "genus", "1MERG", "1EUPF"), taxon("SETVI", "species", "1SETG")]}
+    taxon("1MERG", "genus", "1MERG", "1EUPF"), taxon("SETVI", "species", "1SETG"),
+    {"eppo": "1PLAK", "rank": "kingdom", "name": "Plantae", "genus": "", "family": "",
+     "order": ""}]}
 
 
 def dataset(categories, train_images, image_dir="data/raw/a/images", size=20):
@@ -50,12 +53,31 @@ def test_the_four_rules_on_the_combined_training_images():
     assert got == [("ZEAMX", "ZEAMX", 0), ("POAAN", "POAAN", 0), ("ZEAMX", "ZEAMX", 0),
                    ("1POAG", IGNORE_CATEGORY, 1), ("POAAN", "POAAN", 0),
                    ("POATR", OTHER_CATEGORY, 0), ("1MERG", OTHER_CATEGORY, 0)]
+    assert train["annotations"][3].get("hidden_plant") is True  # the genus Poa
     assert [i["file_name"] for i in train["images"]] == [
         "data/raw/a/images/1.jpg", "data/raw/a/images/2.jpg",
         "data/raw/b/images/1.jpg", "data/raw/b/images/2.jpg"]
     assert len({i["id"] for i in train["images"]}) == 4
     assert train["info"]["image_dir"] == "."
     assert report[0].startswith("2 classes")
+
+
+def test_plants_of_unknown_species_are_ignore_regions_but_plants_for_the_detector():
+    a = dataset([("ZEAMX", "crop"), ("1PLAK", "weed")], [["ZEAMX", "1PLAK", "1PLAK"]])
+    a["train"]["annotations"][2]["iscrowd"] = 1  # an unknown plant the converter left out
+    combined, report = combine({"a": a}, TAXA, min_images=1)
+    train = combined["train"]
+    names = {c["id"]: c["name"] for c in train["categories"]}
+    assert list(names.values()) == ["ZEAMX", IGNORE_CATEGORY]
+    got = [(a["eppo"], names[a["category_id"]], a["iscrowd"], a.get("hidden_plant"))
+           for a in train["annotations"]]
+    assert got == [("ZEAMX", "ZEAMX", 0, None), ("1PLAK", IGNORE_CATEGORY, 1, True),
+                   ("1PLAK", IGNORE_CATEGORY, 1, None)]
+    assert train["info"]["hidden_plants"] == 1
+    assert any(line.lstrip().startswith("1PLAK") and "ignore" in line for line in report)
+    plants = to_plant_only(train)
+    assert [(a["category_id"], a["iscrowd"]) for a in plants["annotations"]] == [
+        (1, 0), (1, 0), (2, 1)]
 
 
 def test_size_filtered_plants_keep_their_code_and_stay_ignored():
@@ -66,7 +88,7 @@ def test_size_filtered_plants_keep_their_code_and_stay_ignored():
     combined, _ = combine({"a": a}, TAXA, min_images=1)
     small = combined["train"]["annotations"][-1]
     assert small["eppo"] == "ZEAMX" and small["iscrowd"] == 1
-    assert "ignored_category_id" not in small
+    assert "ignored_category_id" not in small and "hidden_plant" not in small
     assert combined["train"]["categories"][small["category_id"] - 1]["name"] == IGNORE_CATEGORY
 
 

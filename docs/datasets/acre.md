@@ -30,7 +30,7 @@
 | ray-grass | *Lolium perenne* | 1,002 |
 | matricaire | *Matricaria chamomilla* | 954 |
 | moutarde | *Sinapis arvensis* | 710 |
-| inconnu, empty, class "unknow" | unidentified: ignore regions | about 1,240 |
+| inconnu, empty, class "unknow" | one plant of unknown species (`1PLAK`): ignore regions for the species classes, plants for the two-stage detector | 1,244 (757 at least 20 mm) |
 | others | faba bean, pea, purslane, *Digitaria*, *Setaria* | under 25 each |
 
 ## Conversion choices

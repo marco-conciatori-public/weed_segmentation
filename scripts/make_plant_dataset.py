@@ -30,7 +30,7 @@ def main(config_path: str = CONFIG) -> None:
         before = sum(1 for a in species["annotations"] if not a.get("iscrowd"))
         after = sum(1 for a in plants["annotations"] if not a["iscrowd"])
         print(f"{split}: {len(plants['images'])} images, {after} plants "
-              f"({after - before} from ignore regions) -> {output_dir}")
+              f"({after - before} hidden by the choice of classes) -> {output_dir}")
 
 
 if __name__ == "__main__":
