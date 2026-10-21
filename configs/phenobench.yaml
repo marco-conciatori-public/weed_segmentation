@@ -1,0 +1,18 @@
+# PhenoBench (Weyler et al., 2024; University of Bonn): sugar beet and weeds from a UAV, with
+# plant instance masks for crops and weeds. Used by scripts/download_datasets.py (see
+# configs/download.yaml). Relative paths are resolved against the project root.
+# Licence: CC BY-SA 4.0 (https://www.phenobench.org/dataset.html).
+
+# Where the download is unpacked.
+raw_dir: data/raw/phenobench
+
+download:
+  # Labelled train and val splits (the test labels are not public). Size and MD5 as given
+  # on the dataset page (checked 2026-10-21).
+  files:
+    - url: https://www.phenobench.org/data/PhenoBench-v110.zip
+      size: 7630658167
+      md5: 5168bba762053725890478432cdbdb1d
+      extract: true
+  # Keep the archive in <raw_dir>/.archives/ after unpacking it.
+  keep_archives: false

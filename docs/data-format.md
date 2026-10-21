@@ -25,6 +25,30 @@ configs/label_maps/<dataset>.csv source label -> categories
 Images are not copied. `info.image_dir` in each JSON gives their folder, relative to the
 project root.
 
+## Downloading
+
+`scripts/download_datasets.py` fetches the datasets listed in `configs/download.yaml`; each
+dataset config's `download` section lists its files (URL, size, checksum when published,
+whether to unpack). It is built for the slow, unstable connection we have in China (VPN):
+
+- Each file comes in pieces over several connections at once (`transfer.connections`). On
+  2026-10-21 one connection to phenobench.org gave ~0.66 MB/s, six gave ~3 MB/s.
+- Progress is saved every few seconds (`<file>.part.json` next to `<file>.part`). Stop the
+  script, lose the network or crash: running it again continues where it stopped.
+- A connection that slows to a trickle is reopened, failures are retried with growing waits,
+  and by default it never gives up (`max_retries: null`). Errors a retry can't fix (wrong
+  URL, a web page instead of the file) stop it at once with an explanation.
+- Sizes and MD5/SHA-256 are checked before a file is renamed into place, and unpacking a zip
+  checks every member's CRC. A file that fails is kept as `.bad` and fetched anew next time.
+- Finished files are skipped (markers in `<raw_dir>/.downloaded/`). An unfinished download
+  from elsewhere (e.g. a browser) can be renamed to `<raw_dir>/.archives/<name>.part` and is
+  continued.
+
+Server quirks found on 2026-10-21: digital.csic.es (GROUNDBASED_WEED) sits behind a bot check
+that challenges browsers but lets scripts through, and takes ~30 s before each answer starts,
+hence the long timeout and large pieces. gitlab.au.dk (OPPD) was down for maintenance.
+hf-mirror.com only redirects to huggingface.co, so it brings nothing.
+
 ## COCO fields
 
 Standard COCO fields, plus these extras:

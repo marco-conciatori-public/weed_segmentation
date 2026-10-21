@@ -1,0 +1,27 @@
+# GROUNDBASED_WEED (Moreno, Rivera and Andújar, CSIC; Data in Brief 2025): commercial tomato
+# fields in Badajoz, Spain, 2021-22, boxes for tomato and 5 weed species. Used by
+# scripts/download_datasets.py (see configs/download.yaml). Relative paths are resolved
+# against the project root. Licence: ODbL 1.0, per the DIGITAL.CSIC record
+# (https://doi.org/10.20350/digitalCSIC/17475).
+
+# Where the download is unpacked.
+raw_dir: data/raw/groundbased_weed
+
+download:
+  # Smallest first, so the readme and extra annotations are there to look at early. Sizes
+  # as served on 2026-10-21; the record gives no checksums (unpacking checks each zip
+  # member's CRC instead).
+  files:
+    - url: https://digital.csic.es/bitstream/10261/396144/9/README.txt
+      size: 8450
+    - url: https://digital.csic.es/bitstream/10261/396144/8/Annotations_extra.zip
+      size: 1514337
+      extract: true
+    - url: https://digital.csic.es/bitstream/10261/396144/7/TOMATO_2.zip
+      size: 2133932772
+      extract: true
+    - url: https://digital.csic.es/bitstream/10261/396144/6/TOMATO_1.zip
+      size: 6183520296
+      extract: true
+  # Keep the archives in <raw_dir>/.archives/ after unpacking them.
+  keep_archives: false

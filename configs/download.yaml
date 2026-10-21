@@ -1,0 +1,33 @@
+# Dataset downloads: which datasets scripts/download_datasets.py fetches, and how it uses the
+# connection. Relative paths are resolved against the project root. See docs/data-format.md
+# (Downloading). Safe to stop and run again at any time: finished files are skipped,
+# unfinished ones continue where they stopped.
+
+# Dataset configs, fetched in this order. Each one's `download` section lists its files.
+datasets:
+  - configs/phenobench.yaml
+  - configs/groundbased_weed.yaml
+  - configs/cropandweed.yaml  # already downloaded: skipped
+
+transfer:
+  # Parallel connections per file. Measured 2026-10-21 on the university network + VPN: one
+  # connection to phenobench.org gave ~0.66 MB/s, four gave ~0.6 MB/s each (~2.4 MB/s).
+  connections: 6
+  # Each file is fetched in pieces of this many MB, shared out between the connections;
+  # progress within a piece is kept too. digital.csic.es takes ~30 s to start answering each
+  # request, so keep pieces large. Changing it restarts unfinished files.
+  chunk_mb: 256
+  # Seconds to wait for a server to answer, or for more data, before reconnecting.
+  # digital.csic.es needs ~30 s before the first byte.
+  timeout_s: 120
+  # A connection slower than min_speed_kbs (kB/s) over stall_s seconds is dropped and
+  # reopened: VPN connections sometimes slow to a trickle instead of breaking.
+  min_speed_kbs: 10
+  stall_s: 120
+  # Failed attempts in a row (without data) on one connection before giving up; the waits
+  # between them grow 2, 4, 8 ... up to 120 s. null = never give up, e.g. overnight: the
+  # download goes on when the network comes back. Wrong URLs fail at once anyway.
+  max_retries: null
+  # HTTP(S) proxy for every request, e.g. http://127.0.0.1:7890 for a VPN client that
+  # offers a local proxy. null = none (the VPN routes all traffic, as on this laptop).
+  proxy: null

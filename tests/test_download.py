@@ -1,38 +1,80 @@
+import hashlib
 import io
+import itertools
+import json
 import tarfile
+import threading
+import zipfile
 
 import pytest
 import requests
 
 from weedseg.data import download
+from weedseg.data.download import DownloadError, TransferSettings
 
 DATA = bytes(range(256)) * 40  # 10 kB
+CHUNK = 2048  # bytes per piece in these tests: DATA is 5 pieces
+BLOCK = 1000  # bytes per read from the fake connection
+
+
+def settings(**changes):
+    return TransferSettings(**{"connections": 3, "chunk_mb": CHUNK / (1 << 20),
+                               "max_retries": 3, **changes})
 
 
 class FakeServer:
-    """Stands in for requests.get; drops the connection after `drop_after` bytes, a given
-    number of times."""
+    """Stands in for requests.Session: serves `data` with byte ranges (unless
+    `honour_range` is False), drops the next `drops` connections after `drop_after` bytes,
+    and fails every request once `budget` bytes have been served (the network is gone)."""
 
-    def __init__(self, data, drop_after=None, drops=0, honour_range=True):
+    def __init__(self, data, drop_after=None, drops=0, honour_range=True, budget=None,
+                 status=200, content_type="application/zip"):
         self.data, self.drop_after, self.drops = data, drop_after, drops
-        self.honour_range = honour_range
-        self.ranges = []
+        self.honour_range, self.budget = honour_range, budget
+        self.status, self.content_type = status, content_type
+        self.lock = threading.Lock()
+        self.requests = []  # (start, end) of each request; None without a range
+        self.served = 0
+
+    def session(self):
+        return FakeSession(self)
+
+    def respond(self, headers):
+        with self.lock:
+            if self.budget is not None and self.served >= self.budget:
+                raise requests.ConnectionError("network down")
+            ranged = "Range" in headers and self.honour_range
+            start, end = 0, len(self.data) - 1
+            if ranged:
+                first, last = headers["Range"][len("bytes="):].split("-")
+                start, end = int(first), int(last) if last else end
+            self.requests.append((start, end) if ranged else None)
+            drop = None
+            if self.drops and end > start:  # never the 1-byte probe
+                self.drops -= 1
+                drop = self.drop_after
+        body = self.data[start:end + 1]
+        headers = {"Content-Length": str(len(body)), "Content-Type": self.content_type}
+        if ranged:
+            headers["Content-Range"] = f"bytes {start}-{end}/{len(self.data)}"
+        return FakeResponse(self, body, 206 if ranged else self.status, headers, drop)
+
+
+class FakeSession:
+    def __init__(self, server):
+        self.server, self.proxies = server, {}
 
     def get(self, url, headers=None, stream=True, timeout=None):
-        start = int(headers["Range"][6:-1]) if headers and "Range" in headers else 0
-        self.ranges.append(start)
-        if not self.honour_range:
-            start = 0
-        drop = self.drops > 0
-        self.drops -= drop
-        return FakeResponse(self.data[start:], 206 if start else 200,
-                            self.drop_after if drop else None)
+        return self.server.respond(headers or {})
+
+    def close(self):
+        pass
 
 
 class FakeResponse:
-    def __init__(self, body, status_code, drop_after):
-        self.body, self.status_code, self.drop_after = body, status_code, drop_after
-        self.headers = {"Content-Length": str(len(body))}
+    def __init__(self, server, body, status_code, headers, drop_after):
+        self.server, self.body, self.status_code = server, body, status_code
+        self.headers, self.drop_after = headers, drop_after
 
     def __enter__(self):
         return self
@@ -41,63 +83,140 @@ class FakeResponse:
         return False
 
     def raise_for_status(self):
-        pass
+        if self.status_code >= 400:
+            raise requests.HTTPError(f"{self.status_code}", response=self)
 
     def iter_content(self, chunk_size):
         sent = 0
-        for i in range(0, len(self.body), 1000):
+        for i in range(0, len(self.body), BLOCK):
             if self.drop_after is not None and sent >= self.drop_after:
                 raise requests.ConnectionError("Read timed out.")
-            chunk = self.body[i:i + 1000]
-            sent += len(chunk)
-            yield chunk
+            block = self.body[i:i + BLOCK]
+            with self.server.lock:
+                if self.server.budget is not None:
+                    block = block[:max(0, self.server.budget - self.server.served)]
+                self.server.served += len(block)
+            if not block:
+                raise requests.ConnectionError("network down")
+            sent += len(block)
+            yield block
 
 
 @pytest.fixture(autouse=True)
 def no_sleep(monkeypatch):
-    monkeypatch.setattr(download.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(download, "_sleep", lambda seconds, stop=None: None)
 
 
-def test_download_resumes_after_dropped_connections(tmp_path, monkeypatch):
-    server = FakeServer(DATA, drop_after=3000, drops=2)
-    monkeypatch.setattr(download.requests, "get", server.get)
-    target = tmp_path / "part.tar"
+def serve(monkeypatch, server):
+    monkeypatch.setattr(download.requests, "Session", server.session)
+    return server
 
-    download.download_file("https://x/part.tar", target)
 
+def test_pieces_over_several_connections_resume_after_drops(tmp_path, monkeypatch):
+    server = serve(monkeypatch, FakeServer(DATA, drop_after=BLOCK, drops=3))
+    target = tmp_path / "data.zip"
+    download.download_file("https://x/data.zip", target, settings())
     assert target.read_bytes() == DATA
-    assert server.ranges == [0, 3000, 6000]  # each retry continues where the last stopped
-    assert not (tmp_path / "part.tar.part").exists()
+    assert server.served == len(DATA)  # every retry continued where the last one stopped
+    assert len(server.requests) == 1 + 5 + 3  # probe, pieces, retries
+    assert not list(tmp_path.glob("data.zip.part*"))
 
 
-def test_download_restarts_when_server_ignores_range(tmp_path, monkeypatch):
-    server = FakeServer(DATA, drop_after=3000, drops=1, honour_range=False)
-    monkeypatch.setattr(download.requests, "get", server.get)
-    target = tmp_path / "part.tar"
-    download.download_file("https://x/part.tar", target)
-    assert target.read_bytes() == DATA
-
-
-def test_download_gives_up_after_max_retries(tmp_path, monkeypatch):
-    server = FakeServer(DATA, drop_after=0, drops=100)
-    monkeypatch.setattr(download.requests, "get", server.get)
+def test_a_stopped_run_continues_from_its_saved_progress(tmp_path, monkeypatch):
+    target = tmp_path / "data.zip"
+    serve(monkeypatch, FakeServer(DATA, budget=4500))
     with pytest.raises(requests.ConnectionError):
-        download.download_file("https://x/part.tar", tmp_path / "part.tar", max_retries=3)
-    assert len(server.ranges) == 4
+        download.download_file("https://x/data.zip", target, settings(connections=1,
+                                                                      max_retries=1))
+    state = json.loads((tmp_path / "data.zip.part.json").read_text())
+    assert sum(state["done"]) == 4500
+    server = serve(monkeypatch, FakeServer(DATA))
+    download.download_file("https://x/data.zip", target, settings())
+    assert target.read_bytes() == DATA
+    assert server.served == len(DATA) - 4500
 
 
-def test_download_and_extract_removes_archive(tmp_path, monkeypatch):
+def test_an_unfinished_file_without_progress_is_continued(tmp_path, monkeypatch):
+    (tmp_path / "data.zip.part").write_bytes(DATA[:3000])  # e.g. from a browser
+    server = serve(monkeypatch, FakeServer(DATA))
+    download.download_file("https://x/data.zip", tmp_path / "data.zip", settings())
+    assert (tmp_path / "data.zip").read_bytes() == DATA
+    assert server.served == len(DATA) - 3000
+
+
+def test_checksums_are_checked(tmp_path, monkeypatch):
+    serve(monkeypatch, FakeServer(DATA))
+    md5 = hashlib.md5(DATA).hexdigest()
+    download.download_file("https://x/a.zip", tmp_path / "a.zip", settings(), md5=md5)
+    assert (tmp_path / "a.zip").exists()
+    with pytest.raises(DownloadError, match="MD5"):
+        download.download_file("https://x/b.zip", tmp_path / "b.zip", settings(), md5="0" * 32)
+    assert (tmp_path / "b.zip.bad").exists() and not (tmp_path / "b.zip").exists()
+    assert not (tmp_path / "b.zip.part.json").exists()  # the next run starts over
+
+
+def test_a_stalled_connection_is_reopened(tmp_path, monkeypatch):
+    clock = itertools.count(step=100)  # 100 s pass between reads: 0.01 kB/s
+    monkeypatch.setattr(download, "_clock", lambda: next(clock))
+    server = serve(monkeypatch, FakeServer(DATA))
+    download.download_file("https://x/data.zip", tmp_path / "data.zip",
+                           settings(connections=1, stall_s=50))
+    assert (tmp_path / "data.zip").read_bytes() == DATA
+    # every read but a piece's last one stalls: reads of 1000, 1000 and 48 bytes, so each
+    # piece takes three connections, none of them wasted once the piece is complete
+    assert len(server.requests) == 1 + 3 * 5
+
+
+def test_a_server_without_ranges_gets_one_restarted_stream(tmp_path, monkeypatch):
+    serve(monkeypatch, FakeServer(DATA, drop_after=3000, drops=1, honour_range=False))
+    download.download_file("https://x/data.zip", tmp_path / "data.zip", settings())
+    assert (tmp_path / "data.zip").read_bytes() == DATA
+
+
+@pytest.mark.parametrize("server, error", [
+    (FakeServer(DATA, content_type="text/html; charset=utf-8"), "web page"),
+    (FakeServer(DATA, status=404, honour_range=False), "404"),
+])
+def test_errors_a_retry_cannot_fix_stop_at_once(tmp_path, monkeypatch, server, error):
+    serve(monkeypatch, server)
+    with pytest.raises((DownloadError, requests.HTTPError), match=error):
+        download.download_file("https://x/data.zip", tmp_path / "data.zip", settings())
+    assert len(server.requests) == 1
+
+
+def test_a_file_that_changed_on_the_server_is_noticed(tmp_path, monkeypatch):
+    serve(monkeypatch, FakeServer(DATA))
+    with pytest.raises(DownloadError, match="changed"):
+        download.download_file("https://x/data.zip", tmp_path / "data.zip", settings(),
+                               size=123)
+
+
+def archive(kind):
     buffer = io.BytesIO()
-    with tarfile.open(fileobj=buffer, mode="w") as tar:
-        info = tarfile.TarInfo("images/a.jpg")
-        info.size = 3
-        tar.addfile(info, io.BytesIO(b"abc"))
-    server = FakeServer(buffer.getvalue(), drop_after=2000, drops=1)
-    monkeypatch.setattr(download.requests, "get", server.get)
-    marker = tmp_path / ".downloaded" / "part"
+    if kind == "zip":
+        with zipfile.ZipFile(buffer, "w") as zf:
+            zf.writestr("images/a.jpg", b"abc")
+    else:
+        with tarfile.open(fileobj=buffer, mode="w") as tar:
+            info = tarfile.TarInfo("images/a.jpg")
+            info.size = 3
+            tar.addfile(info, io.BytesIO(b"abc"))
+    return buffer.getvalue()
 
-    download.download_and_extract_tar("https://x/part.tar", tmp_path, marker)
 
+@pytest.mark.parametrize("kind", ["zip", "tar"])
+def test_fetch_files_unpacks_archives_and_skips_finished_ones(tmp_path, monkeypatch, kind):
+    files = [{"url": f"https://x/part.{kind}", "extract": True}]
+    server = serve(monkeypatch, FakeServer(archive(kind)))
+    download.fetch_files(files, tmp_path, settings())
     assert (tmp_path / "images" / "a.jpg").read_bytes() == b"abc"
-    assert marker.exists()
-    assert not (tmp_path / ".archives" / "part.tar").exists()
+    assert (tmp_path / ".downloaded" / "part").exists()
+    assert not (tmp_path / ".archives" / f"part.{kind}").exists()
+    requests_made = len(server.requests)
+    download.fetch_files(files, tmp_path, settings())
+    assert len(server.requests) == requests_made
+
+
+def test_unknown_transfer_settings_are_refused():
+    with pytest.raises(ValueError, match="conections"):
+        TransferSettings.from_config({"conections": 4})

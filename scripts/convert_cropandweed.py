@@ -24,7 +24,7 @@ def main() -> None:
     names = cropandweed.image_names(raw_dir, settings["keep_negative_images"],
                                     settings["require_image_file"])
     if not names:
-        raise SystemExit(f"No images found under {raw_dir}; run scripts/download_cropandweed.py")
+        raise SystemExit(f"No images found under {raw_dir}; run scripts/download_datasets.py")
 
     def records_of(split_names: list[str]):
         return cropandweed.iter_records(raw_dir, split_names, settings["instance_masks"],

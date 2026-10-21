@@ -8,7 +8,7 @@ annotations on 2026-10-13, unless marked otherwise.
   Efficient Crop and Weed Manipulation*, WACV 2023 (paper and supplementary material on the
   CVF open-access site).
 - Code and download: <https://github.com/cropandweed/cropandweed-dataset>. The data itself is
-  hosted on vitro-testing.com and fetched by `scripts/download_cropandweed.py`.
+  hosted on vitro-testing.com and fetched by `scripts/download_datasets.py`.
 - Owner: AIT Austrian Institute of Technology.
 
 ## What we need from a dataset, and how CropAndWeed fits
