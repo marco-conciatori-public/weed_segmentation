@@ -11,6 +11,7 @@ from weedseg.decisions import (
     decision_summary,
     level_accuracy,
     load_rules,
+    plant_probability,
     role_of,
 )
 
@@ -87,6 +88,11 @@ def result(category_id, score, class_scores=None):
     return r | {"class_scores": class_scores} if class_scores is not None else r
 
 
+def two_stage(category_id, plant_score, class_scores):
+    return {"category_id": category_id, "score": plant_score, "plant_score": plant_score,
+            "class_scores": class_scores}
+
+
 def test_decide_sums_probabilities_per_action():
     # unsure which harmful weed, sure it is harmful: removed, not deferred
     assert decide(result(2, 0.5, {"2": 0.5, "3": 0.4}), NAMES, ROLES, 0.8) == "remove"
@@ -96,13 +102,38 @@ def test_decide_sums_probabilities_per_action():
     assert decide(result(2, 0.6, {"2": 0.6, "1": 0.35}), NAMES, ROLES, 0.8) == "defer"
     # other_plant counts for no action
     assert decide(result(2, 0.7, {"2": 0.7, "5": 0.25}), NAMES, ROLES, 0.8) == "defer"
-    assert decide(result(5, 0.3, {"5": 0.3, "2": 0.45, "3": 0.4}), NAMES, ROLES, 0.8) == "remove"
+    assert decide(result(5, 0.4, {"5": 0.4, "2": 0.3, "3": 0.3}), NAMES, ROLES, 0.5) == "remove"
     # without class scores (older predictions): the top class's score alone
     assert decide(result(2, 0.9), NAMES, ROLES, 0.8) == "remove"
     assert decide(result(2, 0.6), NAMES, ROLES, 0.8) == "defer"
     # without defer_below: the top class's action, other_plant deferred
     assert decide(result(2, 0.3, {"2": 0.3}), NAMES, ROLES, None) == "remove"
     assert decide(result(5, 0.9, {"5": 0.9}), NAMES, ROLES, None) == "defer"
+
+
+def test_plant_probability_of_each_kind_of_prediction():
+    assert plant_probability(result(2, 0.45, {"2": 0.45, "3": 0.4})) == pytest.approx(0.85)
+    assert plant_probability(two_stage(2, 0.7, {"2": 0.95, "1": 0.05})) == 0.7
+    assert plant_probability(result(2, 0.6)) == 0.6  # older predictions: the score
+
+
+def test_decide_asks_plant_and_action_separately():
+    # species model: sure it is harmful if it is a plant (0.85 / 0.85), plant probability 0.85
+    species = result(2, 0.45, {"2": 0.45, "3": 0.4})
+    assert decide(species, NAMES, ROLES, 0.9) == "remove"  # no plant threshold
+    assert decide(species, NAMES, ROLES, 0.9, 0.8) == "remove"
+    assert decide(species, NAMES, ROLES, 0.9, 0.9) == "defer"
+    # two-stage: a capped classifier probability no longer drags the plant question down
+    capped = two_stage(2, 0.85, {"2": 0.9, "3": 0.05, "1": 0.05})
+    assert decide(capped, NAMES, ROLES, 0.9, 0.8) == "remove"
+    assert decide(capped, NAMES, ROLES, 0.9, 0.9) == "defer"  # maybe not a plant
+    assert decide(capped, NAMES, ROLES, 0.96, 0.8) == "defer"  # unsure what to do
+    # the plant threshold alone: the top class's action for plants
+    assert decide(capped, NAMES, ROLES, None, 0.8) == "remove"
+    assert decide(capped, NAMES, ROLES, None, 0.9) == "defer"
+    # older predictions: the score answers both
+    assert decide(result(2, 0.85), NAMES, ROLES, 0.8, 0.8) == "remove"
+    assert decide(result(2, 0.85), NAMES, ROLES, 0.8, 0.9) == "defer"
 
 
 def test_apply_decisions_relabels_to_the_action_taken():
@@ -118,12 +149,23 @@ def test_apply_decisions_relabels_to_the_action_taken():
     assert apply_decisions(results, CATEGORIES, ROLES, None) is results
     with pytest.raises(ValueError, match=OTHER_CATEGORY):
         apply_decisions(results, CATEGORIES[:4], ROLES, 0.8)
+    # the plant threshold alone also relabels: maybe not a plant -> other_plant
+    plants = [two_stage(2, 0.85, {"2": 0.9, "1": 0.1}), two_stage(2, 0.95, {"2": 0.9, "1": 0.1})]
+    assert [r["category_id"] for r in apply_decisions(plants, CATEGORIES, ROLES, None, 0.9)] == [
+        5, 2]
 
 
-def test_defer_below_must_be_a_probability(tmp_path):
-    with pytest.raises(ValueError, match="between 0 and 1"):
-        load_rules(write_rules(tmp_path / "bad.yaml", "default: neutral\ndefer_below: 80\n"),
-                   TAXA)
+def test_thresholds_must_be_probabilities(tmp_path):
+    for name in ("defer_below", "plant_defer_below"):
+        with pytest.raises(ValueError, match=f"{name} .* between 0 and 1"):
+            load_rules(write_rules(tmp_path / "bad.yaml", f"default: neutral\n{name}: 80\n"),
+                       TAXA)
+    rules = load_rules(write_rules(tmp_path / "ok.yaml",
+                                   "default: neutral\ndefer_below: 0.9\nplant_defer_below: 0.8\n"),
+                       TAXA)
+    assert (rules.defer_below, rules.plant_defer_below) == (0.9, 0.8)
+    assert load_rules(write_rules(tmp_path / "off.yaml", "default: neutral\n"),
+                      TAXA).plant_defer_below is None
 
 
 def test_level_accuracy_counts_found_plants_right_at_each_level():

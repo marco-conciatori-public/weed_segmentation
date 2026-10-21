@@ -117,10 +117,25 @@ size (`accuracy_by_size.csv`, to see whether small plants suffer from their neig
 score of at least `classifier.min_plant_score`, and writes the same outputs as
 `evaluate_maskrcnn.py` to `runs/twostage/<detector run>__<classifier run>/eval/<split>/`.
 
-Scores keep the species model's meaning: `class_scores[c]` = plant score × classifier
-probability of `c`, and `score` is that of the most probable class. A low score can thus also
-mean "maybe not a plant", and the decision rules (`defer_below`, summed per action) behave as
-for the species model. Each detection also keeps its `plant_score`.
+Each detection answers two questions separately: `score` (and `plant_score`) is the
+detector's plant score, how sure it is that there is a plant; `class_scores[c]` is the
+classifier's probability of `c`, given that it is a plant, and the class is the most probable
+one. The evaluation's score threshold and AP use the plant score; the decision rules use
+each for its own threshold (`plant_defer_below` and `defer_below`, see
+[maskrcnn.md](maskrcnn.md#decisions)). The species model has the same two numbers, only
+mixed: its class probabilities sum to its plant probability.
+
+They were first multiplied (`score` = plant score × classifier probability), to copy the
+species model, but on the first run (CropAndWeed+ACRE, 2026-10-21) that worked badly:
+
+- Label smoothing keeps the classifier's probabilities under ~0.9, so the product rarely
+  reached `defer_below` 0.9: 43% of harmful weeds were deferred.
+- The species is equally often right (94-95%) at every plant score. A low plant score means
+  "maybe not a plant" (half the detections at 0.5-0.8 lie on no labelled plant), not "maybe
+  the wrong species", so it should not lower the confidence in the action.
+- The product also pushed plants under the 0.5 detection threshold (73% of plants found
+  instead of 78%), and ranking by the plant score alone gives a slightly higher AP
+  (CropAndWeed images: segm 0.376 instead of 0.364).
 
 One difference in AP: the species model can return the same plant twice with two classes
 (its post-processing makes one detection per proposal and class), which can add recall at

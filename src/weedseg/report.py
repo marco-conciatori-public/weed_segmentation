@@ -100,7 +100,8 @@ def write_decisions(coco: dict, results: list[dict], settings: dict, out_dir: Pa
     roles = {c["name"]: role_of(c["name"], rules, taxa) for c in coco["categories"]
              if c["name"] != IGNORE_CATEGORY}
     matrix, names = confusion_matrix(
-        coco, apply_decisions(results, coco["categories"], roles, rules.defer_below),
+        coco, apply_decisions(results, coco["categories"], roles, rules.defer_below,
+                              rules.plant_defer_below),
         score_threshold=settings["score_threshold"], iou_threshold=settings["iou_threshold"],
         match_by=settings["match_by"])
     grouped = decision_matrix(matrix, names, roles)

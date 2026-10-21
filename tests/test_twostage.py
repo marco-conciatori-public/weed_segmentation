@@ -19,14 +19,13 @@ TINY_MODEL = {"backbone": "vit_small_patch14_dinov2.lvd142m", "pretrained": Fals
               "pretrained_path": None, "freeze_blocks": 0, "drop_path": 0.0}
 
 
-def test_species_scores_are_plant_score_times_class_probability():
+def test_species_scores_keep_plant_and_class_apart():
     detection = {"image_id": 1, "category_id": 1, "score": 0.8, "bbox": [0, 0, 5, 5],
                  "class_scores": {"1": 0.8}}
     result = with_species(detection, np.array([0.1, 0.6, 0.2999, 0.0001]), [11, 12, 13, 14])
     assert result["category_id"] == 12
-    assert result["score"] == pytest.approx(0.48)
-    assert result["plant_score"] == 0.8
-    assert result["class_scores"] == {"11": 0.08, "12": 0.48, "13": 0.2399}  # 14 too small
+    assert result["score"] == result["plant_score"] == 0.8
+    assert result["class_scores"] == {"11": 0.1, "12": 0.6, "13": 0.2999}  # 14 too small
     assert result["bbox"] == [0, 0, 5, 5]
 
 
@@ -55,7 +54,8 @@ def test_classify_detections_end_to_end(tmp_path):
     assert [r["plant_score"] for r in results] == [0.9, 0.5]  # 0.01 dropped, no 2nd image
     for r in results:
         assert r["category_id"] in (7, 8, 9)
-        assert sum(r["class_scores"].values()) == pytest.approx(r["plant_score"], abs=0.01)
+        assert r["score"] == r["plant_score"]
+        assert sum(r["class_scores"].values()) == pytest.approx(1, abs=0.01)
 
 
 def test_config_problems_catch_mismatched_data():

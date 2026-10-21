@@ -59,14 +59,15 @@ class ReviewItem:
 
 
 def classify(match: Match, names: dict[int, str], roles: dict[str, str],
-             defer_below: float | None) -> ReviewItem | None:
+             defer_below: float | None,
+             plant_defer_below: float | None = None) -> ReviewItem | None:
     """The error type of a match, or None when the class is right."""
     plant, detection = match.plant, match.detection
     true_name = names[plant["category_id"]] if plant else None
     predicted_name = names[detection["category_id"]] if detection else None
     action = None
     if detection is not None:
-        action = decide(detection, names, roles, defer_below)
+        action = decide(detection, names, roles, defer_below, plant_defer_below)
 
     if plant is None:
         error_type = "no_plant_detection"

@@ -5,10 +5,14 @@ margin, size and background treatment) and classified. The result keeps the dete
 and mask and gets the species classes of the classifier, in the same COCO results format as
 the species Mask R-CNN, so the same evaluation, decisions and error review apply:
 
-- `class_scores[c] = plant score x classifier probability of c`, the counterpart of the
-  Mask R-CNN's class probabilities: a low value can also mean "maybe no plant";
-- `category_id` and `score` are those of the most probable class;
-- `plant_score` is the detector's score.
+- `score` and `plant_score` are the detector's score: how sure it is that there is a plant.
+  The evaluation's score threshold and AP use it;
+- `class_scores[c]` is the classifier's probability of c, given that it is a plant;
+- `category_id` is the most probable class.
+
+The two questions stay apart, so the decision rules can set a threshold for each (see
+weedseg.decisions). Multiplying them would mix them, and the classifier's probabilities,
+which label smoothing keeps under ~0.9, would then cap every score.
 """
 
 from collections import defaultdict
@@ -49,12 +53,10 @@ def with_species(detection: dict[str, Any], probs: np.ndarray,
                  class_ids: list[int]) -> dict[str, Any]:
     """A plant detection relabelled with the classifier's probabilities (see module doc)."""
     plant = detection["score"]
-    scores = plant * probs
-    best = int(scores.argmax())
-    return {**detection, "category_id": class_ids[best], "score": float(scores[best]),
-            "plant_score": plant,
-            "class_scores": {str(class_ids[k]): round(float(scores[k]), 4)
-                             for k in np.flatnonzero(scores >= CLASS_SCORE_MIN)}}
+    best = int(probs.argmax())
+    return {**detection, "category_id": class_ids[best], "score": plant, "plant_score": plant,
+            "class_scores": {str(class_ids[k]): round(float(probs[k]), 4)
+                             for k in np.flatnonzero(probs >= CLASS_SCORE_MIN)}}
 
 
 class DetectionCrops(Dataset):

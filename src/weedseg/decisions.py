@@ -5,10 +5,12 @@ crop or neutral -> keep, harmful -> remove. `other_plant` (species the model doe
 deferred to a generic model. Rule keys are EPPO codes at any rank (species, genus, family,
 order); the most specific key that matches wins.
 
-With `defer_below`, the robot acts on its confidence in the action, not in the species: the
-probabilities of all classes leading to one action are summed (see `decide`). A plant the
-model can't place between two harmful grasses is still removed, and only plants whose action
-is unsure go to the generic model.
+The robot asks two questions, each with its own threshold (see `decide`). Is it a plant? With
+`plant_defer_below`, a detection whose plant probability is lower is deferred. What to do
+with it? With `defer_below`, the robot acts on its confidence in the action, not in the
+species: the probabilities of all classes leading to one action, given that it is a plant,
+are summed. A plant the model can't place between two harmful grasses is still removed, and
+only plants whose action is unsure go to the generic model.
 
 `level_accuracy` tells, for the plants the model found, at which taxonomic level its class is
 still right (a wrong species may have the right genus, family or role).
@@ -35,7 +37,8 @@ LEVELS = ("species", *PARENT_RANKS, "role")
 class Rules:
     default: str
     rules: dict[str, str]  # EPPO code -> role
-    defer_below: float | None = None  # detections less confident than this are deferred
+    defer_below: float | None = None  # detections less sure of their action are deferred
+    plant_defer_below: float | None = None  # detections less sure of being a plant are deferred
 
 
 def load_rules(path: Path, taxa: dict[str, dict[str, str]]) -> Rules:
@@ -43,9 +46,12 @@ def load_rules(path: Path, taxa: dict[str, dict[str, str]]) -> Rules:
     with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
     rules = Rules(default=data["default"], rules=dict(data.get("rules") or {}),
-                  defer_below=data.get("defer_below"))
-    if rules.defer_below is not None and not 0 <= rules.defer_below <= 1:
-        raise ValueError(f"defer_below in {path} must be between 0 and 1")
+                  defer_below=data.get("defer_below"),
+                  plant_defer_below=data.get("plant_defer_below"))
+    for name in ("defer_below", "plant_defer_below"):
+        value = getattr(rules, name)
+        if value is not None and not 0 <= value <= 1:
+            raise ValueError(f"{name} in {path} must be between 0 and 1")
     bad_roles = {role for role in [rules.default, *rules.rules.values()] if role not in ROLES}
     if bad_roles:
         raise ValueError(f"Unknown roles in {path}: {sorted(bad_roles)}; use {', '.join(ROLES)}")
@@ -67,29 +73,49 @@ def role_of(name: str, rules: Rules, taxa: dict[str, dict[str, str]]) -> str:
     return next((rules.rules[code] for code in lineage if code in rules.rules), rules.default)
 
 
+def plant_probability(detection: dict[str, Any]) -> float:
+    """Probability that a detection (a COCO result) is a plant at all: the two-stage
+    detector's `plant_score`; for the species model, 1 - P(background), the sum of its
+    `class_scores`. Without either (predictions made before class_scores existed), its score,
+    a lower bound."""
+    if "plant_score" in detection:
+        return detection["plant_score"]
+    class_scores = detection.get("class_scores")
+    return sum(class_scores.values()) if class_scores else detection["score"]
+
+
 def action_scores(detection: dict[str, Any], names: dict[int, str],
                   roles: dict[str, str]) -> dict[str, float]:
     """Probability of each action for a detection (a COCO result; `names` maps category ids
-    to class names): the sum of its `class_scores` over the classes leading to that action.
-    Without `class_scores` (predictions made before they existed), only the detection's own
-    class and score count."""
-    class_scores = (detection.get("class_scores")
-                    or {detection["category_id"]: detection["score"]})
+    to class names), given that it is a plant: its `class_scores`, scaled to sum to 1 (the
+    species model's sum to its plant probability, the two-stage classifier's to 1 already),
+    summed over the classes leading to that action. Without `class_scores` (predictions made
+    before they existed), only the detection's own class and score count."""
+    class_scores = detection.get("class_scores")
+    if class_scores:
+        total = sum(class_scores.values())
+        probabilities = {c: p / total for c, p in class_scores.items()}
+    else:
+        probabilities = {detection["category_id"]: detection["score"]}
     totals = dict.fromkeys(("keep", "remove", "defer"), 0.0)
-    for category_id, probability in class_scores.items():
+    for category_id, probability in probabilities.items():
         totals[ACTIONS[roles[names[int(category_id)]]]] += probability
     return totals
 
 
 def decide(detection: dict[str, Any], names: dict[int, str], roles: dict[str, str],
-           defer_below: float | None) -> str:
+           defer_below: float | None, plant_defer_below: float | None = None) -> str:
     """What the robot does with a detection: keep, remove or defer.
 
-    Without `defer_below`, the action of the detection's class. With it, keep or remove
-    when the summed probability of that action (`action_scores`) is at least `defer_below`,
-    else defer. Probability on other_plant counts for neither, so a plant that may be a
-    species the model doesn't know needs that much more certainty to be acted on.
+    Is it a plant? With `plant_defer_below`, a detection whose `plant_probability` is lower
+    is deferred (without it, every detection above the evaluation's score threshold counts).
+    What to do with it? Without `defer_below`, the action of the detection's class. With it,
+    keep or remove when that action's probability given a plant (`action_scores`) is at least
+    `defer_below`, else defer. Probability on other_plant counts for neither, so a plant that
+    may be a species the model doesn't know needs that much more certainty to be acted on.
     """
+    if plant_defer_below is not None and plant_probability(detection) < plant_defer_below:
+        return "defer"
     if defer_below is None:
         return ACTIONS[roles[names[detection["category_id"]]]]
     scores = action_scores(detection, names, roles)
@@ -98,19 +124,20 @@ def decide(detection: dict[str, Any], names: dict[int, str], roles: dict[str, st
 
 
 def apply_decisions(results: list[dict[str, Any]], categories: list[dict[str, Any]],
-                    roles: dict[str, str], defer_below: float | None) -> list[dict[str, Any]]:
+                    roles: dict[str, str], defer_below: float | None,
+                    plant_defer_below: float | None = None) -> list[dict[str, Any]]:
     """Predictions (COCO results) relabelled so that their class gives the action `decide`
     takes: deferred ones become OTHER_CATEGORY, and one kept or removed against its top
     class (rare: e.g. a harmful top class among many neutral ones that sum to more) becomes
     the most probable class with that action. The decision matrix of the relabelled results
     is then what the robot does. Detection matching ignores classes, so it is unaffected."""
-    if defer_below is None:
+    if defer_below is None and plant_defer_below is None:
         return results
     names = {c["id"]: c["name"] for c in categories}
     other_id = next((c["id"] for c in categories if c["name"] == OTHER_CATEGORY), None)
     relabelled = []
     for result in results:
-        action = decide(result, names, roles, defer_below)
+        action = decide(result, names, roles, defer_below, plant_defer_below)
         if action == ACTIONS[roles[names[result["category_id"]]]]:
             relabelled.append(result)
             continue

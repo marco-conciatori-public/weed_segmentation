@@ -51,7 +51,8 @@ Please fill in the two last columns of each folder's review.csv:
 Roles come from the decision rules {rules}: crop and neutral plants are kept, harmful weeds
 removed, and other_plant (species the model doesn't know) handed to a generic model, as is
 any detection whose action (keep or remove, summed over all species with that action) is
-less certain than {defer_below}.
+less certain than {defer_below}, or that is less certain than {plant_defer_below} to be a
+plant at all.
 
 Folders:
 {types}
@@ -92,7 +93,8 @@ def main() -> None:
                                settings["score_threshold"], settings["iou_threshold"],
                                settings["match_by"])
     items = [item for match in matches
-             if (item := classify(match, names, roles, rules.defer_below)) is not None]
+             if (item := classify(match, names, roles, rules.defer_below,
+                                  rules.plant_defer_below)) is not None]
     ranked = rank_errors(items)
 
     out_dir = source / "review"
@@ -104,6 +106,8 @@ def main() -> None:
         min_size=f"{min_size:g} mm" if min_size else "the minimum size",
         rules=Path(settings["rules"]).name,
         defer_below=rules.defer_below if rules.defer_below is not None else "(not set)",
+        plant_defer_below=(rules.plant_defer_below if rules.plant_defer_below is not None
+                           else "(not set)"),
         types="\n".join(f"- {name}: {text}" for name, text in ERROR_TYPES)), encoding="utf-8")
     with open(out_dir / "summary.csv", "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)

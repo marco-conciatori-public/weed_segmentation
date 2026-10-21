@@ -99,16 +99,25 @@ order) or the file's `default`: crop and neutral plants are kept, harmful ones r
 `other_plant` is deferred to a generic model. Crop status comes from the rules only: a
 species marked as crop is always kept.
 
-With the file's `defer_below`, the robot acts on its confidence in the action, not in the
-species. The model gives each detection a probability per class (`class_scores` in
-`predictions.json`, classes under 0.001 left out); the probabilities of all classes with the
-same action are summed, and the plant is kept or removed when that sum reaches
-`defer_below`, else deferred. A plant torn between two harmful grasses (0.5 and 0.4) is
-removed at 0.9, where the top species alone (0.5) would defer it. Probability on
-`other_plant` counts for no action, so a plant that may be an unknown species needs more
-certainty. This covers decisions at genus or family level without naming the level: if all
-of a family is harmful, its species' probabilities add up. Predictions from before
-`class_scores` existed fall back to the top class's score; re-run the evaluation to use them.
+The robot acts on a detection only when it is sure enough of two things, each with its own
+threshold in the rule file; otherwise the plant is deferred too:
+
+1. **That it is a plant** (`plant_defer_below`). The model gives each detection a
+   probability per class (`class_scores` in `predictions.json`, classes under 0.001 left
+   out), and what they leave to background is the chance that there is no plant there; their
+   sum is the plant probability. In the two-stage pipeline it is the detector's score.
+2. **What to do with it** (`defer_below`), given that it is a plant: the class
+   probabilities, scaled to sum to 1, are summed over all classes with the same action, and
+   the plant is kept or removed when that sum reaches `defer_below`. A plant torn between two
+   harmful grasses (0.5 and 0.4 of 0.9) is removed at 0.9, where the top species alone would
+   defer it. Probability on `other_plant` counts for no action, so a plant that may be an
+   unknown species needs more certainty. This covers decisions at genus or family level
+   without naming the level: if all of a family is harmful, its species' probabilities add up.
+
+The two errors cost different amounts: acting on something that is not a plant mostly
+wastes a pass over soil (and is often a plant left unlabelled), while acting on the wrong
+species can remove a crop. Predictions from before `class_scores` existed fall back to the
+top class's score for both; re-run the evaluation to use them.
 
 The evaluation groups the confusion matrix by role: rows are the true role of each labelled
 plant (from its ground-truth class), plus "no plant" for detections on no labelled plant;
