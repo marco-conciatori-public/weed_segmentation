@@ -8,4 +8,4 @@ base: configs/maskrcnn.yaml
 
 data:
   # Written by scripts/make_plant_dataset.py: a sibling of its source_dir.
-  dir: data/processed/cropandweed+acre/plant_min20mm
+  dir: data/processed/cropandweed+acre+phenobench+oppd/plant_min20mm

@@ -49,10 +49,10 @@ every JPEG is complete.
 - **Images without plants of at least 20 mm are dropped** (`keep_negative_images: false`):
   the classifier, the only stage that sees these images, learns nothing from them.
 - **Split by tray** (`group` = trial + box id, since box ids repeat across trials), balanced
-  over species, fractions 70/15/15 like the other datasets. With 3 trays per species, the
-  balancing gives 17 species one tray in each split, and most others 2 trays for training
-  and 1 for val or test, so the result is 58/21/21% of the plants, not 70/15/15 (see
-  below).
+  over species, **fractions 80/10/10**, which give 69/16/15% of the plants, close to the
+  70/15/15 of the other datasets. The fractions are targets: with only 3 trays per species
+  the balancing overshoots val and test, and 70/15/15 gave 58/21/21%, with 17 species
+  split one tray each (decided 2026-10-22).
 - `PPPDD`, `PPPMM` and `1PLAK` become `1PLAK`, plants of unknown species: ignore regions
   once combined ([data-format.md](../data-format.md)). `3UNCLK` gets no code: an ignore
   region everywhere. `1COMF` stays a family label, handled by combining (rule 3).
@@ -68,45 +68,49 @@ every JPEG is complete.
 
 | | Train | Val | Test |
 |---|---|---|---|
-| Images (with plants ≥ 20 mm) | 3,236 | 1,267 | 1,230 |
-| Trays | 93 | 35 | 36 |
-| Plants ≥ 20 mm | 58,666 | 21,024 | 21,315 |
-| of which species unknown (`1PLAK`) | 3,458 | 1,088 | 1,153 |
-| Plants under 20 mm and other ignore regions | 55,467 | 31,739 | 33,464 |
+| Images (with plants ≥ 20 mm) | 3,810 | 964 | 959 |
+| Trays | 109 | 27 | 28 |
+| Plants ≥ 20 mm | 69,562 | 16,439 | 15,004 |
+| of which species unknown (`1PLAK`) | 3,862 | 1,221 | 616 |
+| Plants under 20 mm and other ignore regions | 72,026 | 20,700 | 27,944 |
 
 The 1,857 dropped images held another 93,363 boxes, all under 20 mm.
 
-Every species has plants in train. Some species got their smallest tray for training:
-*Myosotis arvensis* has 72 train plants against 825 in val, *Urtica urens* 187 against
-1,281. The trays of a species differ a lot in how many plants pass 20 mm, perhaps because of
-their growth conditions; the split balances images, not plants.
-
-Fractions 80/10/10 would give 69/16/15% of the plants, with 7 species split one tray each
-(checked 2026-10-22, not applied).
+Every species has plants in train. Most species have 2 trays in train and 1 in val or
+test; 7 are split one tray each. *Cyanus segetum* (`CENCY`) and *Geranium molle* (`GERMO`)
+have all 3 trays in train, so OPPD scores neither on val or test. Some species got their
+smallest tray for training: *Myosotis arvensis* has 72 train plants against 825 in val,
+*Urtica urens* 187 against 1,281. The trays of a species differ a lot in how many plants
+pass 20 mm, perhaps because of their growth conditions; the split balances images, not
+plants.
 
 ## In the combination
 
-A trial combination with CropAndWeed, ACRE and PhenoBench (2026-10-22, `min_train_images:
-50`):
+Since 2026-10-22 OPPD is in `configs/combine.yaml` with CropAndWeed, ACRE and PhenoBench:
+`data/processed/cropandweed+acre+phenobench+oppd/species_min50img_min20mm`, the data of the
+two-stage configs. Its box-only images are 3,810 of 11,398 in train, 964 of 3,171 in val and
+959 of 2,377 in test. Compared with the same combination without OPPD
+(`min_train_images: 50`):
 
-- **The class list grows from 34 to 60.** None is lost. 15 of the 26 new classes have
-  training images from OPPD only (ALOMY, BROST, BRSNN, EPHHE, EROCI, GERMO, LOLMU, MATIN,
-  MELNO, RUMCR, SENVU, SONOL, VERAR, VERPE, VICHI), each from 2 to 4 trays: a few dozen
-  plants photographed day after day. 10 of the other 11 get most of their training images
-  from OPPD too (FUMOF mostly from CropAndWeed).
+- **Species classes grow from 32 to 64.** None is lost. 20 of the 32 new classes have
+  training images from OPPD only (ALOMY, APESV, BROST, BRSNN, CHYSE, EPHHE, EROCI, GERMO,
+  LOLMU, LYCAR, MATIN, MELNO, POLLA, RUMCR, SENVU, SONOL, VERAR, VERPE, VICHI, VIOAR),
+  each from 2 to 5 trays: a few dozen plants photographed day after day. 11 of the other
+  12 get most of their training images from OPPD too (FUMOF mostly from CropAndWeed).
 - `min_train_images` counts images, and for a daily time series that overstates how many
   different plants a class has seen.
-- Classifier training plants: 64,109 → 117,564. Existing classes gain too (SINAR 540 →
-  3,107, MATCH 1,538 → 4,140, CENCY 701 → 2,617), and `other_plant` 4,427 → 6,979.
-- 12 OPPD species stay `other_plant` (under 50 training images), e.g. VIOAR, URTUR and
-  MYOAR, which got one tray for training.
+- Classifier training plants: 64,109 → 128,056. Existing classes gain too (SINAR 540 →
+  3,107, MATCH 1,538 → 4,140, CENCY 701 → 3,923), and `other_plant` 4,427 → 3,981, since
+  some of its species become classes.
+- 6 OPPD species stay `other_plant` (under 50 training images): ANGAR, EPHPE, LAPCO, MYOAR,
+  SONAS and URTUR, all with one tray for training.
 
 ## Known limitations
 
 - **Not field images**: trays of sieved soil under even lighting, one sown species each. A
   crop around a plant also shows its tray's soil, so the classifier could partly learn the
   tray instead of the plant; val and test trays are never seen in training, so their scores
-  would show it.
+  would show it (except for CENCY and GERMO, which have no OPPD tray outside train).
 - **Little variety per species**: 3 trays of one trial, one site, and the same plants on
   many days. No plant ids to cap images per plant; capping images per tray (e.g. one day in
   N) is possible if OPPD turns out to dominate.

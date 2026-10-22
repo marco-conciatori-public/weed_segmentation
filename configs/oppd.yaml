@@ -50,8 +50,11 @@ convert:
   # Split by tray (trial + box id), never by image: a tray is photographed on many days and
   # its images show the same plants. Balanced over species; each species grew in 3 trays
   # (a few in 6 or 9), so a species gets 1 or 2 trays for training.
+  # The fractions are targets, and with so few trays per species the balancing overshoots
+  # val and test: 70/15/15 (as for the other datasets) gave 58/21/21% of the plants, with 17
+  # species split one tray each. 80/10/10 gives about 70/15/15, like the other datasets.
   split:
     seed: 0
-    fractions: {train: 0.70, val: 0.15, test: 0.15}
+    fractions: {train: 0.80, val: 0.10, test: 0.10}
   # Ground resolution from the dataset page: 44 pixels/mm2, i.e. 6.63 px/mm.
   mm_per_px_estimate: 0.1508

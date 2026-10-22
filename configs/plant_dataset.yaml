@@ -3,6 +3,7 @@
 # See docs/twostage.md.
 
 # Species folder (train.json, val.json, test.json), e.g. a combined one.
-source_dir: data/processed/cropandweed+acre/species_min50img_min20mm
+source_dir: data/processed/cropandweed+acre+phenobench+oppd/species_min50img_min20mm
 # Output: a sibling folder of source_dir named plant[_min<size>mm], e.g.
-# data/processed/cropandweed+acre/plant_min20mm, the data.dir of configs/detector.yaml.
+# data/processed/cropandweed+acre+phenobench+oppd/plant_min20mm, the data.dir of
+# configs/detector.yaml.

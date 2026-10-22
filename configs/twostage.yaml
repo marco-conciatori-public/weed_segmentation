@@ -13,9 +13,10 @@ device: auto
 amp: true
 
 data:
-  # Species folder whose split is evaluated: the classifier's classes must be in it. Use the
-  # folder of the species Mask R-CNN to compare the two pipelines.
-  dir: data/processed/cropandweed+acre/species_min50img_min20mm
+  # Species folder whose split is evaluated: the classifier's classes must be in it. The
+  # species Mask R-CNN stays on cropandweed+acre (the frozen reference): compare the two
+  # pipelines in the CropAndWeed and ACRE rows of by_dataset.csv (docs/twostage.md).
+  dir: data/processed/cropandweed+acre+phenobench+oppd/species_min50img_min20mm
   num_workers: 6
 
 detector:
