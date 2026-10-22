@@ -1,7 +1,8 @@
-# OPPD, Open Plant Phenotyping Database (Madsen et al., 2020; Aarhus University): weed and
-# crop species as EPPO codes, top-down images with a box per plant. Used by
-# scripts/download_datasets.py (see configs/download.yaml). Relative paths are resolved
-# against the project root. Licence: CC BY-NC-SA 4.0 (official page).
+# OPPD, Open Plant Phenotyping Database (Madsen et al., 2020; Aarhus University): weed
+# species as EPPO codes, top-down images of trays with a box per plant. Used by
+# scripts/download_datasets.py (see configs/download.yaml) and scripts/convert_oppd.py.
+# Relative paths are resolved against the project root. Licence: CC BY-NC-SA 4.0 (official
+# page, and LICENSE.md in the download).
 
 # Where the download is unpacked.
 raw_dir: data/raw/oppd
@@ -29,3 +30,28 @@ download:
       extract: true
   # Keep the archive in <raw_dir>/.archives/ after unpacking it.
   keep_archives: false
+
+# Conversion to COCO (scripts/convert_oppd.py). See docs/datasets/oppd.md. Boxes only: the
+# images are marked box_only and reach the species classifier, not Mask R-CNN.
+convert:
+  output_dir: data/processed/oppd
+  label_map: configs/label_maps/oppd.csv
+  eppo_taxa: configs/eppo_taxa.csv
+  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  taxonomy: species
+  # Plants whose box is shorter than this on its longer side (mm, via mm_per_px_estimate)
+  # become ignore regions. Must match the other datasets to combine them. Most OPPD boxes
+  # are seedlings: about a third of them pass 20 mm.
+  min_plant_size_mm: 20
+  # Images without plants (or with only plants under min_plant_size_mm) are negative
+  # samples. false drops them: box-only images reach only the species classifier, which
+  # learns nothing from an image without plants.
+  keep_negative_images: false
+  # Split by tray (trial + box id), never by image: a tray is photographed on many days and
+  # its images show the same plants. Balanced over species; each species grew in 3 trays
+  # (a few in 6 or 9), so a species gets 1 or 2 trays for training.
+  split:
+    seed: 0
+    fractions: {train: 0.70, val: 0.15, test: 0.15}
+  # Ground resolution from the dataset page: 44 pixels/mm2, i.e. 6.63 px/mm.
+  mm_per_px_estimate: 0.1508
