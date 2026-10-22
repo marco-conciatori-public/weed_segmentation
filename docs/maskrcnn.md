@@ -15,7 +15,7 @@ All settings live in `configs/maskrcnn.yaml`; both scripts run without arguments
 ## Running it
 
 1. Convert each dataset with taxonomy `species` (`scripts/convert_cropandweed.py`,
-   `scripts/convert_acre.py`; see `docs/datasets/`), combine
+   `scripts/convert_acre.py`, `scripts/convert_phenobench.py`; see `docs/datasets/`), combine
    them and choose the classes (`scripts/combine_datasets.py`, see
    [data-format.md](data-format.md)), and point `data.dir` at the combined folder, which
    holds `train.json`, `val.json` and `test.json`. A single converted folder works too.

@@ -164,4 +164,6 @@ against predictions of any class, whatever category the region kept (`weedseg.ev
 
 Splits are made by `group` (recording session, field, date), never per image. Neighbouring
 frames of one session are near-duplicates and would leak into the test set. The split
-fractions and the seed are in the dataset config.
+fractions and the seed are in the dataset config. A dataset's own split is kept instead when
+it is cleaner than ours, e.g. PhenoBench's, which separates crop rows
+(`convert_dataset(splits=...)`).

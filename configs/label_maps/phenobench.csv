@@ -1,0 +1,5 @@
+source_label,common_name,scientific_name,name_source,eppo,eppo_note,role,species
+crop,Sugar beet,Beta vulgaris subsp. vulgaris var. altissima,paper,BEAVA,,crop,BEAVA
+partial_crop,Sugar beet less than half visible,Beta vulgaris subsp. vulgaris var. altissima,paper,BEAVA,,crop,BEAVA
+weed,Weed,Plantae,readme,1PLAK,One plant of unknown species: weeds are one class (the paper names six species but doesn't label them),weed,1PLAK
+partial_weed,Weed less than half visible,Plantae,readme,1PLAK,One plant of unknown species: weeds are one class (the paper names six species but doesn't label them),weed,1PLAK
