@@ -34,8 +34,8 @@ class FakeServer:
     resets every request for bytes from `dead_from` on (a server that can't serve them)."""
 
     def __init__(self, data, drop_after=None, drops=0, honour_range=True, budget=None,
-                 status=200, content_type="application/zip", dead_from=None):
-        self.data, self.drop_after, self.drops = data, drop_after, drops
+                 status=200, content_type="application/zip", dead_from=None, etag=None):
+        self.data, self.drop_after, self.drops, self.etag = data, drop_after, drops, etag
         self.honour_range, self.budget, self.dead_from = honour_range, budget, dead_from
         self.status, self.content_type = status, content_type
         self.lock = threading.Lock()
@@ -63,6 +63,8 @@ class FakeServer:
                 drop = self.drop_after
         body = self.data[start:end + 1]
         headers = {"Content-Length": str(len(body)), "Content-Type": self.content_type}
+        if self.etag:
+            headers["ETag"] = self.etag
         if ranged:
             headers["Content-Range"] = f"bytes {start}-{end}/{len(self.data)}"
         return FakeResponse(self, body, 206 if ranged else self.status, headers, drop)
@@ -158,6 +160,18 @@ def test_a_stopped_run_continues_from_its_saved_progress(tmp_path, monkeypatch):
     state = json.loads((tmp_path / "data.zip.part.json").read_text())
     assert sum(state["done"]) == 4500
     server = serve(monkeypatch, FakeServer(DATA))
+    download.download_file("https://x/data.zip", target, settings())
+    assert target.read_bytes() == DATA
+    assert server.served == len(DATA) - 4500
+
+
+def test_a_changed_etag_alone_keeps_the_progress(tmp_path, monkeypatch):
+    target = tmp_path / "data.zip"
+    serve(monkeypatch, FakeServer(DATA, budget=4500, etag='"a"'))
+    with pytest.raises(requests.ConnectionError):
+        download.download_file("https://x/data.zip", target, settings(connections=1,
+                                                                      max_retries=1))
+    server = serve(monkeypatch, FakeServer(DATA, etag='"b"'))
     download.download_file("https://x/data.zip", target, settings())
     assert target.read_bytes() == DATA
     assert server.served == len(DATA) - 4500

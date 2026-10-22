@@ -1,0 +1,31 @@
+# OPPD, Open Plant Phenotyping Database (Madsen et al., 2020; Aarhus University): weed and
+# crop species as EPPO codes, top-down images with a box per plant. Used by
+# scripts/download_datasets.py (see configs/download.yaml). Relative paths are resolved
+# against the project root. Licence: CC BY-NC-SA 4.0 (official page).
+
+# Where the download is unpacked.
+raw_dir: data/raw/oppd
+
+download:
+  # Dataset Ninja's copy "OPPD: Full Images" in Supervisely format: LICENSE.md, README.md,
+  # meta.json (the classes), ds0/ann/<image>.json (the boxes) and ds0/img/. The link of the
+  # download button on https://datasetninja.com/open-plant-phenotyping-database (checked
+  # 2026-10-22): byte ranges work, ~2 MB/s from the university network + VPN, also with 12
+  # connections, so about 6 hours. No checksum is published.
+  #
+  # Alternatives: the dataset-tools package's Dropbox link
+  # (https://www.dropbox.com/scl/fi/3iro0ib5fvqqdibevrdh9/oppd-full-images-DatasetNinja.tar?rlkey=7cxvr3db9quqburng8wzl3buz&dl=1),
+  # disabled for too much traffic on 2026-10-22; the original host,
+  # gitlab.au.dk/AUENG-Vision/OPPD, down on 2026-10-21.
+  #
+  # An unfinished browser download of this link (even one the browser wrongly took as
+  # complete) can be renamed to data/raw/oppd/.archives/oppd-full-images-DatasetNinja.tar.part
+  # and is continued.
+  files:
+    - url: https://assets.supervisely.com/remote/eyJsaW5rIjogInMzOi8vc3VwZXJ2aXNlbHktZGF0YXNldHMvMzAxM19PUFBEOiBGdWxsIEltYWdlcy9vcHBkOi1mdWxsLWltYWdlcy1EYXRhc2V0TmluamEudGFyIiwgInNpZyI6ICJ5cmIreDE5bzErdVJkbDNCcG0zTmExeGtzUmdGTGVDVWpGd2lJLytML0V3PSJ9?response-content-disposition=attachment%3B%20filename%3D%22oppd%3A-full-images-DatasetNinja.tar%22
+      # The server's name has a colon, which Windows doesn't allow.
+      name: oppd-full-images-DatasetNinja.tar
+      size: 44951091200
+      extract: true
+  # Keep the archive in <raw_dir>/.archives/ after unpacking it.
+  keep_archives: false

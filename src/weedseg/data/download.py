@@ -258,7 +258,8 @@ def _check_response(response: requests.Response, url: str) -> None:
     if (response.headers.get("Content-Type", "").startswith("text/html")
             and not urlparse(url).path.endswith((".html", ".htm"))):
         raise DownloadError(f"{url} returned a web page instead of the file (a login, a bot "
-                            "check or a moved file)")
+                            "check, a moved file, or a link disabled for too much traffic, "
+                            "as Dropbox does for a while)")
 
 
 def _fatal(error: Exception) -> bool:
@@ -346,10 +347,17 @@ class _Segmented:
 
     def _load_state(self) -> list[int]:
         """Bytes done per piece: from the progress file when it matches this file and these
-        settings, else from a `.part` without one (taken as the start of the file)."""
+        settings, else from a `.part` without one (taken as the start of the file). A
+        changed ETag or date alone, with the same size, doesn't discard the progress: some
+        servers (e.g. behind redirects) change it, and a changed file of exactly the same
+        size is unlikely."""
         if self.partial.exists() and self.state_path.exists():
             state = json.loads(self.state_path.read_text(encoding="utf-8"))
-            if {k: state.get(k) for k in self.key} == self.key:
+            if all(state.get(k) == v for k, v in self.key.items() if k != "validator"):
+                if state.get("validator") != self.key["validator"]:
+                    tqdm.write(f"{self.partial.name}: the server's ETag or date changed, the "
+                               "size didn't: continuing. If unpacking fails, delete the .part "
+                               "file to start over")
                 return state["done"]
             tqdm.write(f"{self.partial.name}: the file or the piece size changed, "
                        "starting over")

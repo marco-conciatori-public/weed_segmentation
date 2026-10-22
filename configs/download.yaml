@@ -5,6 +5,7 @@
 
 # Dataset configs, fetched in this order. Each one's `download` section lists its files.
 datasets:
+  - configs/oppd.yaml
   - configs/phenobench.yaml
   - configs/groundbased_weed.yaml
   - configs/cropandweed.yaml  # already downloaded: skipped

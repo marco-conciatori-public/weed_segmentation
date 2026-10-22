@@ -51,7 +51,9 @@ whether to unpack). It is built for the slow, unstable connection we have in Chi
 Server quirks found on 2026-10-21: digital.csic.es (GROUNDBASED_WEED) sits behind a bot check
 that challenges browsers but lets scripts through, and takes ~30 s before each answer starts,
 hence the long timeout and large pieces. gitlab.au.dk (OPPD) was down for maintenance.
-hf-mirror.com only redirects to huggingface.co, so it brings nothing.
+hf-mirror.com only redirects to huggingface.co, so it brings nothing. OPPD comes from
+Dataset Ninja's copy on Dropbox, which disables a shared link for a while after too much
+traffic (it did on 2026-10-22): the script then reports a web page instead of the file.
 
 GROUNDBASED_WEED's `TOMATO_2.zip` stopped at 512 MiB (25% of 2.1 GB) on 2026-10-21 for a
 browser and this script alike, on two computers. The script's pieces starting at 512 MiB or
