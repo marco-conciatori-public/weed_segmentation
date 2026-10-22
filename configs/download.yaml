@@ -25,9 +25,16 @@ transfer:
   min_speed_kbs: 10
   stall_s: 120
   # Failed attempts in a row (without data) on one connection before giving up; the waits
-  # between them grow 2, 4, 8 ... up to 120 s. null = never give up, e.g. overnight: the
-  # download goes on when the network comes back. Wrong URLs fail at once anyway.
+  # between them grow 2, 4, 8 ... up to 120 s. null = no limit: the download goes on when
+  # the network comes back, unless give_up_after_min (below) sets the file aside first. Wrong
+  # URLs fail at once anyway.
   max_retries: null
+  # Minutes without a single new byte of a file (the server is down, or can't serve part of
+  # it) before the file is set aside, its progress kept, so the next files get their turn.
+  # Set-aside files get another pass after the others, as long as the previous pass brought
+  # anything new; the unfinished ones are listed at the end. null = wait for ever on each
+  # file (then one stuck file blocks the rest).
+  give_up_after_min: 30
   # HTTP(S) proxy for every request, e.g. http://127.0.0.1:7890 for a VPN client that
   # offers a local proxy. null = none (the VPN routes all traffic, as on this laptop).
   proxy: null

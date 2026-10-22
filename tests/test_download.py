@@ -4,13 +4,14 @@ import itertools
 import json
 import tarfile
 import threading
+import time
 import zipfile
 
 import pytest
 import requests
 
 from weedseg.data import download
-from weedseg.data.download import DownloadError, TransferSettings
+from weedseg.data.download import DownloadError, NoProgress, TransferSettings
 
 DATA = bytes(range(256)) * 40  # 10 kB
 CHUNK = 2048  # bytes per piece in these tests: DATA is 5 pieces
@@ -19,18 +20,23 @@ BLOCK = 1000  # bytes per read from the fake connection
 
 def settings(**changes):
     return TransferSettings(**{"connections": 3, "chunk_mb": CHUNK / (1 << 20),
-                               "max_retries": 3, **changes})
+                               "max_retries": 3, "give_up_after_min": None, **changes})
+
+
+# Gives up after 0.03 s without progress, retrying every 0.01 s meanwhile.
+QUICK_GIVE_UP = {"give_up_after_min": 0.0005, "max_retries": None}
 
 
 class FakeServer:
     """Stands in for requests.Session: serves `data` with byte ranges (unless
     `honour_range` is False), drops the next `drops` connections after `drop_after` bytes,
-    and fails every request once `budget` bytes have been served (the network is gone)."""
+    fails every request once `budget` bytes have been served (the network is gone), and
+    resets every request for bytes from `dead_from` on (a server that can't serve them)."""
 
     def __init__(self, data, drop_after=None, drops=0, honour_range=True, budget=None,
-                 status=200, content_type="application/zip"):
+                 status=200, content_type="application/zip", dead_from=None):
         self.data, self.drop_after, self.drops = data, drop_after, drops
-        self.honour_range, self.budget = honour_range, budget
+        self.honour_range, self.budget, self.dead_from = honour_range, budget, dead_from
         self.status, self.content_type = status, content_type
         self.lock = threading.Lock()
         self.requests = []  # (start, end) of each request; None without a range
@@ -39,7 +45,7 @@ class FakeServer:
     def session(self):
         return FakeSession(self)
 
-    def respond(self, headers):
+    def respond(self, headers, url=None):
         with self.lock:
             if self.budget is not None and self.served >= self.budget:
                 raise requests.ConnectionError("network down")
@@ -49,6 +55,8 @@ class FakeServer:
                 first, last = headers["Range"][len("bytes="):].split("-")
                 start, end = int(first), int(last) if last else end
             self.requests.append((start, end) if ranged else None)
+            if self.dead_from is not None and start >= self.dead_from:
+                raise requests.ConnectionError("connection reset")
             drop = None
             if self.drops and end > start:  # never the 1-byte probe
                 self.drops -= 1
@@ -60,12 +68,25 @@ class FakeServer:
         return FakeResponse(self, body, 206 if ranged else self.status, headers, drop)
 
 
+class FakeRoutes:
+    """Several fake servers, one per URL."""
+
+    def __init__(self, servers):
+        self.servers = servers
+
+    def session(self):
+        return FakeSession(self)
+
+    def respond(self, headers, url):
+        return self.servers[url].respond(headers)
+
+
 class FakeSession:
     def __init__(self, server):
         self.server, self.proxies = server, {}
 
     def get(self, url, headers=None, stream=True, timeout=None):
-        return self.server.respond(headers or {})
+        return self.server.respond(headers or {}, url)
 
     def close(self):
         pass
@@ -105,6 +126,12 @@ class FakeResponse:
 @pytest.fixture(autouse=True)
 def no_sleep(monkeypatch):
     monkeypatch.setattr(download, "_sleep", lambda seconds, stop=None: None)
+
+
+@pytest.fixture
+def short_sleep(monkeypatch):
+    """Retries every 0.01 s, for tests that wait for the give-up time."""
+    monkeypatch.setattr(download, "_sleep", lambda seconds, stop=None: time.sleep(0.01))
 
 
 def serve(monkeypatch, server):
@@ -215,6 +242,53 @@ def test_fetch_files_unpacks_archives_and_skips_finished_ones(tmp_path, monkeypa
     requests_made = len(server.requests)
     download.fetch_files(files, tmp_path, settings())
     assert len(server.requests) == requests_made
+
+
+def test_a_file_without_progress_is_set_aside_with_its_progress_kept(tmp_path, monkeypatch,
+                                                                     short_sleep):
+    target = tmp_path / "data.zip"
+    serve(monkeypatch, FakeServer(DATA, dead_from=2 * CHUNK))  # serves only 2 pieces of 5
+    with pytest.raises(NoProgress, match="stopped at 0.0 of 0.0 MB") as caught:
+        download.download_file("https://x/data.zip", target, settings(**QUICK_GIVE_UP))
+    assert caught.value.gained == 2 * CHUNK
+    state = json.loads((tmp_path / "data.zip.part.json").read_text())
+    assert state["done"] == [CHUNK, CHUNK, 0, 0, 0]
+    server = serve(monkeypatch, FakeServer(DATA))  # the server is mended
+    download.download_file("https://x/data.zip", target, settings())
+    assert target.read_bytes() == DATA
+    assert server.served == len(DATA) - 2 * CHUNK
+
+
+def test_stuck_and_failing_files_dont_stop_the_others(tmp_path, monkeypatch, short_sleep):
+    servers = {"https://x/a.zip": FakeServer(DATA, dead_from=0),  # down, even the probe
+               "https://x/c.zip": FakeServer(DATA, status=404, honour_range=False),
+               "https://x/b.zip": FakeServer(DATA)}
+    serve(monkeypatch, FakeRoutes(servers))
+    files = [{"url": url} for url in servers]
+    progress, unfinished = download.fetch_files(files, tmp_path, settings(**QUICK_GIVE_UP))
+    assert progress and (tmp_path / "b.zip").read_bytes() == DATA
+    assert [(item.name, item.retry) for item in unfinished] == [("a.zip", True),
+                                                                ("c.zip", False)]
+    assert "no answer from the server" in unfinished[0].reason
+
+
+def test_set_aside_files_get_passes_only_while_something_comes_in(tmp_path, monkeypatch,
+                                                                  short_sleep):
+    servers = {"https://x/a.zip": FakeServer(DATA, dead_from=0),
+               "https://x/c.zip": FakeServer(DATA, status=404, honour_range=False),
+               "https://x/b.zip": FakeServer(DATA)}
+    serve(monkeypatch, FakeRoutes(servers))
+    passes = []
+    fetch_files = download.fetch_files
+    monkeypatch.setattr(download, "fetch_files",
+                        lambda *args, **kwargs: passes.append(1) or fetch_files(*args, **kwargs))
+    datasets = [("one", {"files": [{"url": url} for url in servers]}, tmp_path)]
+    with pytest.raises(DownloadError, match=r"c\.zip: HTTPError[\s\S]*a\.zip: no answer"):
+        download.fetch_all(datasets, settings(**QUICK_GIVE_UP))
+    # b.zip came in on the first pass, so a.zip got a second one, which brought nothing
+    assert len(passes) == 2
+    assert len(servers["https://x/c.zip"].requests) == 1  # a 404 is not retried
+    assert (tmp_path / "b.zip").exists()
 
 
 def test_unknown_transfer_settings_are_refused():

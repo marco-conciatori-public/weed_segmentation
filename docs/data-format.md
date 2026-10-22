@@ -35,9 +35,13 @@ whether to unpack). It is built for the slow, unstable connection we have in Chi
   2026-10-21 one connection to phenobench.org gave ~0.66 MB/s, six gave ~3 MB/s.
 - Progress is saved every few seconds (`<file>.part.json` next to `<file>.part`). Stop the
   script, lose the network or crash: running it again continues where it stopped.
-- A connection that slows to a trickle is reopened, failures are retried with growing waits,
-  and by default it never gives up (`max_retries: null`). Errors a retry can't fix (wrong
-  URL, a web page instead of the file) stop it at once with an explanation.
+- A connection that slows to a trickle is reopened, and failures are retried with growing
+  waits, by default without limit (`max_retries: null`).
+- A file that brings no new byte for `give_up_after_min` (30) minutes, because the server is
+  down or can't serve part of it, is set aside with its progress kept, and the next file
+  starts. Set-aside files get another pass after the others, as long as the previous pass
+  brought anything new. Errors a retry can't fix (wrong URL, a web page instead of the file)
+  stop that file at once, not the others. The unfinished files are listed at the end.
 - Sizes and MD5/SHA-256 are checked before a file is renamed into place, and unpacking a zip
   checks every member's CRC. A file that fails is kept as `.bad` and fetched anew next time.
 - Finished files are skipped (markers in `<raw_dir>/.downloaded/`). An unfinished download
@@ -48,6 +52,12 @@ Server quirks found on 2026-10-21: digital.csic.es (GROUNDBASED_WEED) sits behin
 that challenges browsers but lets scripts through, and takes ~30 s before each answer starts,
 hence the long timeout and large pieces. gitlab.au.dk (OPPD) was down for maintenance.
 hf-mirror.com only redirects to huggingface.co, so it brings nothing.
+
+GROUNDBASED_WEED's `TOMATO_2.zip` stopped at 512 MiB (25% of 2.1 GB) on 2026-10-21 for a
+browser and this script alike, on two computers. The script's pieces starting at 512 MiB or
+later got no byte at all, so the server seems unable to serve the rest of the file. Not
+confirmed yet: on 2026-10-22 digital.csic.es stopped answering altogether, from China and
+from elsewhere.
 
 ## COCO fields
 

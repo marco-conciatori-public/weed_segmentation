@@ -12,6 +12,12 @@ when known, its MD5 or SHA-256 before it is renamed into place.
 A `.part` file without its `.json` (e.g. a browser's unfinished download, renamed) is taken
 as the start of the file and continued.
 
+`fetch_all` downloads the files of several datasets. A file that brings no new byte for
+`give_up_after_min` minutes (the server is down, or can't serve part of it) is set aside, its
+progress kept, so the next files get their turn. Set-aside files get another pass after the
+others, as long as the previous pass brought anything new; a file that fails for a reason a
+retry won't fix doesn't stop the others either. The unfinished files are listed at the end.
+
 Requests keep the `python-requests` user agent: digital.csic.es's bot check (Anubis)
 challenges browser user agents, not scripts.
 """
@@ -50,6 +56,7 @@ class TransferSettings:
     min_speed_kbs: float = 10
     stall_s: float = 120
     max_retries: int | None = None  # consecutive failures of a connection; None = no limit
+    give_up_after_min: float | None = 30  # without a new byte: set the file aside; None = never
     proxy: str | None = None
 
     @classmethod
@@ -69,19 +76,73 @@ class Stalled(requests.RequestException):
     """A connection slower than the minimum speed: reopen it."""
 
 
+class NoProgress(RuntimeError):
+    """A file that brought no new byte for `give_up_after_min`: set it aside for now.
+    `gained` is what it brought before that, in bytes."""
+
+    def __init__(self, message: str, gained: int = 0):
+        super().__init__(message)
+        self.gained = gained
+
+
+@dataclass
+class Unfinished:
+    """A file left unfinished by a pass of `fetch_files`."""
+
+    name: str
+    target: Path
+    reason: str
+    retry: bool  # set aside for lack of progress: worth another pass
+
+
 def file_name(url: str) -> str:
     return Path(urlparse(url).path).name
 
 
+def fetch_all(datasets: list[tuple[str, dict[str, Any], Path]],
+              settings: TransferSettings) -> None:
+    """Download the files of several datasets: (name, config `download` section, raw_dir).
+
+    Passes over all files (see `fetch_files`) are repeated for the files set aside for lack
+    of progress, as long as the previous pass brought anything new. Raises DownloadError
+    listing the unfinished files, if any.
+    """
+    failed: list[Unfinished] = []  # failed for a reason a retry won't fix
+    while True:
+        progress, set_aside = False, []
+        for name, download, raw_dir in datasets:
+            tqdm.write(f"===== {name} -> {raw_dir}")
+            made, unfinished = fetch_files(download["files"], raw_dir, settings,
+                                           download.get("keep_archives", False),
+                                           skip={item.target for item in failed})
+            progress |= made
+            for item in unfinished:
+                (set_aside if item.retry else failed).append(item)
+        if not set_aside or not progress:
+            break
+        tqdm.write(f"===== {len(set_aside)} files set aside: another pass")
+    if failed or set_aside:
+        lines = [f"  {item.name}: {item.reason}" for item in failed + set_aside]
+        raise DownloadError("Unfinished downloads:\n" + "\n".join(lines) + "\nProgress is "
+                            "kept: run again later. A file that always stops at the same "
+                            "point may be damaged on the server.")
+
+
 def fetch_files(files: list[dict[str, Any]], raw_dir: Path, settings: TransferSettings,
-                keep_archives: bool = False) -> None:
-    """Download a dataset's files (a config `download.files` list) into `raw_dir`.
+                keep_archives: bool = False,
+                skip: set[Path] | frozenset = frozenset()) -> tuple[bool, list[Unfinished]]:
+    """One pass over a dataset's files (a config `download.files` list), into `raw_dir`.
 
     Each entry has a `url` and optionally `name` (default: from the URL), `size` (bytes),
     `md5` or `sha256`, and `extract` (unpack a .zip or .tar into `raw_dir`; the archive is
     kept in `raw_dir/.archives/` until then, and afterwards with `keep_archives`). A file
-    finished in an earlier run (its marker in `raw_dir/.downloaded/`) is skipped.
+    finished in an earlier run (its marker in `raw_dir/.downloaded/`) is skipped, and so are
+    the download paths in `skip`. A file that fails, or brings no new byte for
+    `give_up_after_min`, is left for later and the next one starts.
+
+    Returns whether anything new came in, and the files left unfinished.
     """
+    progress, unfinished = False, []
     for entry in files:
         name = entry.get("name") or file_name(entry["url"])
         marker = raw_dir / ".downloaded" / Path(name).stem
@@ -90,15 +151,30 @@ def fetch_files(files: list[dict[str, Any]], raw_dir: Path, settings: TransferSe
             continue
         extract = entry.get("extract", False)
         target = raw_dir / ".archives" / name if extract else raw_dir / name
-        download_file(entry["url"], target, settings, size=entry.get("size"),
-                      md5=entry.get("md5"), sha256=entry.get("sha256"),
-                      extract_after=extract)
-        if extract:
-            extract_archive(target, raw_dir)
-            if not keep_archives:
-                target.unlink()
+        if target in skip:
+            continue
+        try:
+            download_file(entry["url"], target, settings, size=entry.get("size"),
+                          md5=entry.get("md5"), sha256=entry.get("sha256"),
+                          extract_after=extract)
+            if extract:
+                extract_archive(target, raw_dir)
+                if not keep_archives:
+                    target.unlink()
+        except NoProgress as error:
+            tqdm.write(f"{name}: {error}; set aside, it gets another try after the others")
+            unfinished.append(Unfinished(name, target, str(error), retry=True))
+            progress |= error.gained > 0
+            continue
+        except (DownloadError, requests.RequestException) as error:
+            tqdm.write(f"{name}: {type(error).__name__}: {error}")
+            unfinished.append(Unfinished(name, target, f"{type(error).__name__}: {error}",
+                                         retry=False))
+            continue
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.touch()
+        progress = True
+    return progress, unfinished
 
 
 def extract_archive(archive: Path, dest: Path) -> None:
@@ -218,14 +294,24 @@ def _sleep(seconds: float, stop: threading.Event | None = None) -> None:
         stop.wait(seconds)
 
 
+def _give_up_s(settings: TransferSettings) -> float | None:
+    minutes = settings.give_up_after_min
+    return None if minutes is None else minutes * 60
+
+
 def _with_retries(action, settings: TransferSettings, what: str):
-    failures = 0
+    failures, started = 0, _clock()
     while True:
         try:
             return action()
         except Exception as error:  # sorted out below
             if _fatal(error) or not isinstance(error, requests.RequestException):
                 raise
+            give_up_s = _give_up_s(settings)
+            if give_up_s is not None and _clock() - started >= give_up_s:
+                raise NoProgress(f"no answer from the server in "
+                                 f"{settings.give_up_after_min:g} min (last: "
+                                 f"{type(error).__name__})") from error
             failures += 1
             _wait(failures, settings, what, error)
 
@@ -297,15 +383,19 @@ class _Segmented:
                    f"pieces, {todo.qsize()} to fetch over {connections} connections")
         self.bar = tqdm(total=self.total, initial=sum(self.done), unit="B", unit_scale=True,
                         desc=self.partial.name[:-5], smoothing=0.05)
-        # Daemon threads: a stopped script must not wait for a connection to time out.
+        initial, give_up_s, stuck = sum(self.done), _give_up_s(self.settings), False
+        self.progress_at = _clock()
+        # Daemon threads: a stopped script, or a file set aside, must not wait for a
+        # connection to time out.
         workers = [threading.Thread(target=self._worker, args=(todo,), daemon=True)
                    for _ in range(connections)]
         try:
             for worker in workers:
                 worker.start()
-            while any(worker.is_alive() for worker in workers):
+            while any(worker.is_alive() for worker in workers) and not stuck:
                 for worker in workers:
                     worker.join(0.5)
+                stuck = give_up_s is not None and _clock() - self.progress_at >= give_up_s
         finally:
             self.stop.set()
             with self.lock:
@@ -313,6 +403,11 @@ class _Segmented:
             self.bar.close()
         if self.errors:
             raise self.errors[0]
+        if stuck:
+            got = sum(self.done)
+            raise NoProgress(f"no new byte in {self.settings.give_up_after_min:g} min; "
+                             f"stopped at {got / 1e6:.1f} of {self.total / 1e6:.1f} MB "
+                             f"({got / self.total:.1%})", gained=got - initial)
         if any(self.done[i] < self._length(i) for i in range(self.count)):
             raise DownloadError(f"{self.partial.name}: pieces missing after all connections "
                                 "stopped; run again to fetch them")
@@ -376,6 +471,7 @@ class _Segmented:
                     now = _clock()
                     with self.lock:
                         self.done[i] += len(block)
+                        self.progress_at = now
                         self.bar.update(len(block))
                         if now - self.saved_at >= SAVE_EVERY_S:
                             self._save_state()
@@ -392,7 +488,7 @@ def _download_stream(url: str, partial: Path, total: int | None,
                      settings: TransferSettings) -> None:
     """One plain stream, for servers without range requests: a break restarts it."""
     session = _session(settings)
-    failures = 0
+    failures, byte_at, give_up_s = 0, _clock(), _give_up_s(settings)
     try:
         while True:
             try:
@@ -403,6 +499,7 @@ def _download_stream(url: str, partial: Path, total: int | None,
                                                         desc=partial.name[:-5]) as bar:
                         for block in response.iter_content(READ_SIZE):
                             f.write(block)
+                            byte_at = _clock()
                             bar.update(len(block))
                 if total is None or partial.stat().st_size == total:
                     return
@@ -410,6 +507,9 @@ def _download_stream(url: str, partial: Path, total: int | None,
             except Exception as error:  # sorted out below
                 if _fatal(error) or not isinstance(error, requests.RequestException):
                     raise
+                if give_up_s is not None and _clock() - byte_at >= give_up_s:
+                    raise NoProgress(f"no new byte in {settings.give_up_after_min:g} min "
+                                     "(this server restarts files from zero)") from error
                 failures += 1
                 _wait(failures, settings, partial.name[:-5], error)
     finally:
