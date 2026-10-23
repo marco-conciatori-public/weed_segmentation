@@ -104,7 +104,8 @@ evaluate:
 review:
   # scripts/review_errors.py: the model's worst errors on evaluate.split, as images plus a CSV
   # form for a plant expert. It reads the evaluation folder (run evaluate_maskrcnn.py first)
-  # and uses the thresholds and decision rules that evaluation used. Errors shown per type.
+  # and uses that evaluation's thresholds and rule file (read as it is now). Errors shown per
+  # type.
   # Evaluation folder to review; null = this config's evaluate checkpoint and split. E.g.
   # runs/twostage/<run>/eval/val for the two-stage pipeline (scripts/predict_twostage.py).
   eval_dir: null

@@ -128,6 +128,16 @@ wastes a pass over soil (and is often a plant left unlabelled), while acting on 
 species can remove a crop. Predictions from before `class_scores` existed fall back to the
 top class's score for both; re-run the evaluation to use them.
 
+**Changing the rule file.** `decisions.csv`, `decisions.json` and the decision columns of
+`by_dataset.csv` are written when the evaluation runs, with the rule file as it is then;
+`evaluation.json` records the file's path, not its content. The error review reads the file
+again, so after a change it follows the new rules while the saved decisions don't. Re-run
+the evaluation to bring them in line: only the decisions change, not the predictions, but
+no script re-scores a saved `predictions.json` yet. On 2026-10-23 bean (`PHSVX`, the crop of
+ACRE's validation plots) joined the crops of `configs/rules/example.yaml`; it used to fall
+under `default: neutral`. Evaluations made before then give ACRE 0% crops removed, while
+their ACRE "neutral removed" (about 10%) is mostly beans.
+
 The evaluation groups the confusion matrix by role: rows are the true role of each labelled
 plant (from its ground-truth class), plus "no plant" for detections on no labelled plant;
 columns are keep, remove, defer and missed. The summary gives the shares that matter for the
@@ -147,8 +157,10 @@ little. Missed plants, detections on no plant and pairs with `other_plant` are l
 `scripts/review_errors.py` (settings: `review` in `configs/maskrcnn.yaml`) reads the
 predictions of an evaluation, so it needs no GPU, and writes `<eval folder>/review/`. It is
 replaced on each run. `review.eval_dir` picks another evaluation folder, e.g. the two-stage
-pipeline's; the split, images, thresholds and rules are those recorded in its
-`evaluation.json`. The errors are sorted into types by what they would cost the robot,
+pipeline's; the split, images and thresholds are those recorded in its `evaluation.json`,
+and the rules are read from the file it names, as that file is now (see
+[Changing the rule file](#decisions)). The errors are sorted into types by what they would
+cost the robot,
 under the decision rules: crops that would be removed, harmful weeds kept or missed, neutral
 plants removed, other_plant plants removed, detections where no plant is labelled, wrong
 species with the same role, other wrong classes, other missed plants. Each type's folder

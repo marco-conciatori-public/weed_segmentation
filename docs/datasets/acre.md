@@ -37,7 +37,9 @@
 
 - `scripts/convert_acre.py` (`configs/acre.yaml`), shared pipeline `weedseg.data.convert`.
 - **Group = recording batch.** Only 10 groups, so the 70/15/15 split comes out as 6/2/2
-  batches. The download's `split_dictionary.json` is not used.
+  batches. The download's `split_dictionary.json` is not used. Both validation batches are
+  bean plots, so bean is the crop there: `configs/rules/example.yaml` has listed it as a crop
+  since 2026-10-23 (see [Decisions](../maskrcnn.md#decisions)).
 - **mm/px is estimated at 0.5**: the camera height and lens are not given. Maize 10-15 cm
   tall spans a median 490 px, beans 8-10 cm about 260 px. The real value would come from the
   curator; it matters for the 20 mm size filter.

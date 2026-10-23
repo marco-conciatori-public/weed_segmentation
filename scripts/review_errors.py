@@ -3,8 +3,10 @@
 Settings: configs/maskrcnn.yaml (`review`; without `review.eval_dir`, the `evaluate` settings
 locate the Mask R-CNN's evaluation). Run scripts/evaluate_maskrcnn.py or
 scripts/predict_twostage.py first: this script reads the evaluation's predictions.json, so it
-needs no GPU. The split, images, thresholds and decision rules are those the evaluation used
-(its evaluation.json; older evaluations without one use the current `evaluate` settings).
+needs no GPU. The split, images and thresholds are those the evaluation used (its
+evaluation.json; older evaluations without one use the current `evaluate` settings), and the
+decision rules are read from the file it names, as that file is now: after a change to it,
+the review follows the new rules while the evaluation's decisions.csv doesn't.
 
 Writes <evaluation folder>/review/ (replaced on each run): README.txt,
 summary.csv (the number of errors of each type) and one folder per error type (see
