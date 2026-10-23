@@ -1,5 +1,5 @@
-# Example decision rules, for evaluating on CropAndWeed. NOT agronomic advice: replace the
-# harmful list with the project's own, and the crops with the field's.
+# Example decision rules, for evaluating on CropAndWeed and ACRE. NOT agronomic advice:
+# replace the harmful list with the project's own, and the crops with the field's.
 #
 # Each recognised plant gets a role: crop or neutral -> the robot keeps it, harmful -> it
 # removes it. other_plant (species the model doesn't know) is handed to the generic model.
@@ -21,13 +21,15 @@ plant_defer_below: 0.8
 # Higher values: fewer wrong removals, more calls to the generic model. Two-stage on the
 # CropAndWeed+ACRE val split (2026-10-21), with defer_below 0.9: plant_defer_below 0.7 / 0.8 /
 # 0.9 removed 57% / 51% / 41% of harmful weeds and deferred 16% / 21% / 31%; crops removed
-# 0% throughout.
+# 0% throughout (ACRE's beans, PHSVX, still counted as neutral then).
 defer_below: 0.9
 rules:
-  # Crops: every CropAndWeed crop, since its val and test splits mix fields of all of them.
+  # Crops: every CropAndWeed crop, since its val and test splits mix fields of all of them,
+  # and ACRE's bean (its val fields are bean fields).
   BEAVA: crop    # sugar beet
   GLXMA: crop    # soybean
   HELAN: crop    # sunflower
+  PHSVX: crop    # common bean
   PIBSX: crop    # pea
   SOLTU: crop    # potato
   VICFX: crop    # faba bean
