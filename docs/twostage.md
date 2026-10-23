@@ -174,3 +174,35 @@ One difference in AP: the species model can return the same plant twice with two
 (its post-processing makes one detection per proposal and class), which can add recall at
 low scores; the two-stage pipeline returns each plant once, with its best class. The
 confusion matrix, taxonomic levels and decisions, at score 0.5, are unaffected.
+
+## Deployment package
+
+`scripts/export_twostage.py` (settings: `configs/export_twostage.yaml`) packages the
+detector and classifier of `configs/twostage.yaml` for someone who runs the model outside
+this repo, e.g. on a demo website. It writes `exports/weed_twostage_<date>/`:
+
+| File | |
+|---|---|
+| `detector.safetensors`, `classifier.safetensors` | The weights only: plain tensors, no pickled code |
+| `model.json` | What `weed_model.py` needs (image size, anchors, crop margin, normalisation), the classes with their scientific and English names, the training datasets and their licences, and the hand-off thresholds |
+| `weed_model.py` | Self-contained inference, `WeedModel.predict(rgb_image)`: torch, torchvision, timm, safetensors, numpy and opencv, nothing from `weedseg` |
+| `requirements.txt` | Those packages |
+| `README.md` | For the person deploying it: install, input, output, hand-off, the species list, validation numbers, training data and licences |
+
+The README is made from `src/weedseg/deploy/README_template.md`, with the species,
+training data and validation numbers of the runs read from their evaluation folders (run
+steps 6 and 7 first). `weed_model.py` repeats the preprocessing of `predict_twostage.py`
+(scaling, crop geometry, padding, normalisation) bit for bit. `tests/test_deploy.py` checks
+it against the training code, so a change there that the package misses makes the tests
+fail.
+
+Each plant comes out with its box, outline (polygons), plant score, species, top 5 and a
+`send_to_zero_shot` flag for the generic model: set when the top class is `other_plant`, the
+plant score is under `zero_shot_below_plant_score` (0.8, as `plant_defer_below`) or the
+species probability is under `zero_shot_below_species_probability` (0.7: on the val crops of
+2026-10-23, 90% of the plants stay with the model, 97% of them right). No roles or
+keep/remove decisions: those depend on the field's rules.
+
+On 2026-10-23 the package gave the same plants, species and masks as `predict_twostage.py`
+on CropAndWeed, ACRE and PhenoBench val images (CPU, full precision). The only differences
+were the package's rounding of boxes and scores.

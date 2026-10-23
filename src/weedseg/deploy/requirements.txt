@@ -1,0 +1,8 @@
+# Python 3.10 or newer. Install PyTorch first, the build for your machine (CUDA or CPU):
+# https://pytorch.org/get-started/locally/
+torch>=2.1
+torchvision>=0.16
+timm>=1.0
+safetensors
+numpy
+opencv-python-headless

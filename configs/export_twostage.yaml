@@ -1,0 +1,29 @@
+# Deployment package of the two-stage model: the weights of both stages, model.json, a
+# self-contained weed_model.py and a README for whoever runs the model outside this repo.
+# Used by scripts/export_twostage.py. Relative paths are resolved against the project root.
+# See docs/twostage.md#deployment-package.
+
+# The detector and classifier this two-stage config uses (its detector/classifier config
+# and checkpoint), and its evaluation, whose numbers go into the README.
+twostage: configs/twostage.yaml
+# The package goes to <output_dir>/<name>/. Placeholder {date}: today, YYYY-MM-DD.
+output_dir: exports
+name: "weed_twostage_{date}"
+# Replace a package of the same name (false = stop if it exists).
+overwrite: false
+# EPPO taxonomy: scientific and English names, families.
+eppo_taxa: configs/eppo_taxa.csv
+
+# Written to model.json, where the package's user can change them.
+handoff:
+  # Detections with a lower plant score are left out (as evaluate.score_threshold of
+  # configs/twostage.yaml).
+  min_plant_score: 0.5
+  # A plant goes to the zero-shot model when its class is other_plant, or its plant score
+  # is under this (as plant_defer_below of configs/rules/example.yaml) ...
+  zero_shot_below_plant_score: 0.8
+  # ... or its species probability is under this. On the val crops of the 2026-10-23
+  # classifier, 0.7 left 90% of the plants to the model, 97% of them right.
+  zero_shot_below_species_probability: 0.7
+# Species-probability thresholds of the README's table (share named, share right).
+handoff_table: [0.5, 0.6, 0.7, 0.8, 0.85, 0.9]
