@@ -1,0 +1,31 @@
+# Run an exported two-stage model on any images, labelled or not: each plant is drawn on the
+# image (outline, species, probability) and saved as JSON. Used by
+# scripts/demo_twostage.py. Relative paths are resolved against the project root.
+# See docs/twostage.md#inference-on-any-images.
+
+# A package made by scripts/export_twostage.py. Its own weed_model.py runs it, so the
+# results are those of the code shipped with these weights.
+model: exports/weed_twostage_2026-10-23
+# An image, a folder (its images, not those of its subfolders) or a list of both.
+# Top-down photos whose short side covers about 0.45 to 1.1 m of ground (see the package's
+# README).
+images: data/raw/cropandweed/images/ave-0241-0003.jpg
+# Per image: <name>.jpg (the plants drawn on it) and <name>.json (the plants, as in the
+# package's README). Placeholder {model}: the package's folder name.
+output_dir: "runs/demo/{model}"
+# auto = CUDA when available, else CPU (about 10 s per image on a laptop CPU).
+device: auto
+# Half precision on CUDA, as the model was evaluated.
+amp: true
+# Plants with a lower plant score are left out (null = the package's
+# handoff.min_plant_score). The zero-shot thresholds are in the package's model.json.
+min_plant_score: null
+# Open each drawn image in the default viewer once it is saved. For a few images.
+open_results: false
+
+draw:
+  # Label text: code (EPPO code, e.g. ZEAMX) or name (scientific name, e.g. Zea mays).
+  label: code
+  # Opacity of the mask fill (0 = outlines only). Plants sent to the zero-shot model are
+  # white, labelled "zero-shot".
+  mask_alpha: 0.35

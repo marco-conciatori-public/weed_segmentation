@@ -206,3 +206,18 @@ keep/remove decisions: those depend on the field's rules.
 On 2026-10-23 the package gave the same plants, species and masks as `predict_twostage.py`
 on CropAndWeed, ACRE and PhenoBench val images (CPU, full precision). The only differences
 were the package's rounding of boxes and scores.
+
+## Inference on any images
+
+`scripts/demo_twostage.py` (settings: `configs/demo_twostage.yaml`) runs an exported
+package on images with no labels: one image, a folder or a list of both. It writes to
+`runs/demo/<package>/`, per image, `<name>.jpg` with the plants drawn on it (mask and
+outline coloured by species, label with the species probability; plants sent to the zero-shot
+model in white, labelled "zero-shot") and `<name>.json` with the plants as the package's
+README describes them. It prints the time and the species found per image; `open_results`
+opens each drawing.
+
+It runs the package's own `weed_model.py`, so it shows what the package's user gets. It
+neither scores nor needs labels: for numbers on a labelled split, use `predict_twostage.py`.
+On a laptop CPU it takes about 10 s per image (2026-10-25: 10.4 s for a CropAndWeed image
+with 8 plants), plus 3 s to load the model.

@@ -1,13 +1,19 @@
 import ast
+import json
+import shutil
 
+import cv2
 import numpy as np
+import pytest
 import torch
+from safetensors.torch import save_file
 
 from weedseg.classifier.crops import FILL_RGB
 from weedseg.classifier.data import MEAN, STD
 from weedseg.classifier.model import build_classifier
 from weedseg.deploy import weed_model
 from weedseg.deploy.export import describe_class, handoff_table
+from weedseg.deploy.inference import image_files, run_inference
 from weedseg.eppo import load_taxa
 from weedseg.maskrcnn.model import build_model
 from weedseg.paths import resolve
@@ -101,3 +107,46 @@ def test_class_descriptions_and_handoff_table(tmp_path):
     table = handoff_table(folder, [0.5, 0.7, 0.95]).splitlines()
     assert table[2:] == ["| 0.5 | 100.0% | 66.7% |", "| 0.7 | 66.7% | 100.0% |",
                          "| 0.95 | 0% | - |"]
+
+
+def test_image_files_takes_files_folders_and_lists(tmp_path):
+    for name in ("a.jpg", "b.PNG", "notes.txt"):
+        (tmp_path / name).write_bytes(b"")
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "c.jpg").write_bytes(b"")
+    assert [p.name for p in image_files(str(tmp_path))] == ["a.jpg", "b.PNG"]
+    assert [p.name for p in image_files([str(tmp_path / "sub"), str(tmp_path / "b.PNG")])] == [
+        "c.jpg", "b.PNG"]
+    with pytest.raises(ValueError, match="overwrite"):
+        image_files([str(tmp_path), str(tmp_path / "a.jpg")])
+    with pytest.raises(FileNotFoundError):
+        image_files(str(tmp_path / "missing.jpg"))
+
+
+def test_inference_runs_a_package_on_an_image(tmp_path):
+    package = tmp_path / "package"
+    package.mkdir()
+    shutil.copyfile(resolve("src/weedseg/deploy/weed_model.py"), package / "weed_model.py")
+    codes = ["CHEAL", "ZEAMX", "other_plant"]
+    info = {"detector": {**DETECTOR, "score_threshold": 0.0},
+            "classifier": SETTINGS,
+            "handoff": {"min_plant_score": 0.0, "zero_shot_below_plant_score": 0.8,
+                        "zero_shot_below_species_probability": 0.7},
+            "classes": [{"code": c, "name": c.lower(), "common_names": []} for c in codes]}
+    (package / "model.json").write_text(json.dumps(info), encoding="utf-8")
+    torch.manual_seed(0)
+    save_file(weed_model.build_detector(DETECTOR).state_dict(), package / "detector.safetensors")
+    save_file(weed_model.build_classifier(SETTINGS, len(codes)).state_dict(),
+              package / "classifier.safetensors")
+    image = np.random.default_rng(0).integers(0, 256, (90, 120, 3), np.uint8)
+    cv2.imwrite(str(tmp_path / "field.png"), image)
+
+    run_inference({"model": str(package), "images": str(tmp_path / "field.png"),
+                   "output_dir": str(tmp_path / "out" / "{model}"), "device": "cpu",
+                   "amp": False, "min_plant_score": None, "open_results": False,
+                   "draw": {"label": "code", "mask_alpha": 0.35}})
+    drawn = cv2.imread(str(tmp_path / "out" / "package" / "field.jpg"))
+    assert drawn.shape == image.shape
+    record = json.loads((tmp_path / "out" / "package" / "field.json").read_text("utf-8"))
+    assert (record["width"], record["height"], record["model"]) == (120, 90, "package")
+    assert all(plant["species"] in codes and "mask" not in plant for plant in record["plants"])

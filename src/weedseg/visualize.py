@@ -1,4 +1,4 @@
-"""Drawing COCO annotations (and later predictions) over images, for visual checks."""
+"""Drawing COCO annotations and model predictions over images, for visual checks."""
 
 from typing import Any
 
@@ -8,6 +8,8 @@ import numpy as np
 from weedseg.data.coco import IGNORE_CATEGORY, decode_mask
 
 IGNORE_COLOR = (160, 160, 160)  # BGR
+ZERO_SHOT_COLOR = (255, 255, 255)  # plants an exported model hands to the zero-shot model
+OTHER_PLANT = "other_plant"  # as weedseg.deploy.weed_model.OTHER
 
 
 def category_colors(categories: list[dict[str, Any]]) -> dict[int, tuple[int, int, int]]:
@@ -122,13 +124,73 @@ def plot_confusion_matrix(matrix: np.ndarray, names: list[str], path, title: str
     plt.close(fig)
 
 
+def draw_plants(image: np.ndarray, plants: list[dict[str, Any]], codes: list[str],
+                label: str = "code", mask_alpha: float = 0.35) -> np.ndarray:
+    """Return a copy of a BGR image with the plants of an exported two-stage model drawn on
+    (weedseg.deploy.weed_model: mask, outline, species and its probability).
+
+    One colour per species in the image, spread over the species present (`codes`: the
+    model's classes, which give their order), so a species' colour can change from image
+    to image; plants sent to the zero-shot model are white and labelled so. `label`: "code"
+    (EPPO) or "name" (scientific). Labels are placed so they don't cover each other, the
+    most certain plants' first.
+    """
+    if label not in ("code", "name"):
+        raise ValueError(f"label must be 'code' or 'name', not {label!r}")
+    height, width = image.shape[:2]
+    present = {plant["species"] for plant in plants if not plant["send_to_zero_shot"]}
+    colors = category_colors([{"id": code, "name": code} for code in codes if code in present])
+    scale = max(height, width) / 1920  # as draw_annotations
+    thickness = max(1, round(2 * scale))
+    font_scale = 0.6 * scale
+
+    def color(plant: dict[str, Any]) -> tuple[int, int, int]:
+        return ZERO_SHOT_COLOR if plant["send_to_zero_shot"] else colors[plant["species"]]
+
+    overlay = image.copy()
+    for plant in plants:
+        if "mask" in plant:
+            overlay[plant["mask"]] = color(plant)
+        else:
+            for polygon in plant["polygons"]:
+                cv2.fillPoly(overlay, [np.array(polygon, np.int32)], color(plant))
+    result = cv2.addWeighted(overlay, mask_alpha, image, 1 - mask_alpha, 0)
+    for plant in plants:
+        cv2.polylines(result, [np.array(p, np.int32) for p in plant["polygons"]], True,
+                      color(plant), thickness)
+    taken = []
+    for plant in plants:
+        name = plant["species"] if label == "code" or plant["species"] == OTHER_PLANT \
+            else plant["species_name"]
+        text = f"{name} {plant['species_probability']:.2f}"
+        if plant["send_to_zero_shot"]:
+            text = f"zero-shot: {text}"
+        x, y = (round(v) for v in plant["box"][:2])
+        put_label(result, text, (x, y), color(plant), font_scale, thickness, taken)
+    return result
+
+
 def put_label(image: np.ndarray, text: str, corner: tuple[int, int],
-              color: tuple[int, int, int], font_scale: float, thickness: int) -> None:
-    """Text on a filled background whose bottom-left is at `corner` (moved inside the image)."""
+              color: tuple[int, int, int], font_scale: float, thickness: int,
+              taken: list[tuple[int, int, int, int]] | None = None) -> None:
+    """Text on a filled background whose bottom-left is at `corner` (moved inside the image).
+
+    `taken`: the rectangles (x0, y0, x1, y1) of labels already drawn. The label moves down
+    below any it would cover (while it fits in the image), and its own is added.
+    """
     font = cv2.FONT_HERSHEY_SIMPLEX
     (tw, th), baseline = cv2.getTextSize(text, font, font_scale, thickness)
     x = min(max(corner[0], 0), image.shape[1] - tw - 4)
     y = max(corner[1], th + baseline + 4)
+    if taken is not None:
+        label_height = th + baseline + 4
+        while True:
+            covered = [r for r in taken
+                       if x < r[2] and r[0] < x + tw + 4 and y - label_height < r[3] and r[1] < y]
+            if not covered or max(r[3] for r in covered) + label_height > image.shape[0]:
+                break
+            y = max(r[3] for r in covered) + label_height
+        taken.append((x, y - label_height, x + tw + 4, y))
     cv2.rectangle(image, (x, y - th - baseline - 4), (x + tw + 4, y), color, -1)
     text_color = (0, 0, 0) if sum(color) > 380 else (255, 255, 255)
     cv2.putText(image, text, (x + 2, y - baseline - 2), font, font_scale, text_color,
