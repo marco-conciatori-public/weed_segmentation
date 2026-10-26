@@ -1,3 +1,6 @@
+import copy
+import csv
+
 import cv2
 import numpy as np
 import pytest
@@ -8,12 +11,18 @@ from weedseg.classifier.crops import (
     apply_background,
     cache_dir,
     cut_square,
+    index_is_current,
     read_index,
     square_window,
     write_cache,
 )
 from weedseg.classifier.data import CropDataset, jitter_mask, sample_weights
-from weedseg.classifier.engine import accuracy_metrics, train_one_epoch
+from weedseg.classifier.engine import (
+    PartialLabelLoss,
+    accuracy_metrics,
+    label_fit,
+    train_one_epoch,
+)
 from weedseg.classifier.model import build_classifier, parameter_groups
 from weedseg.data.coco import encode_mask
 from weedseg.maskrcnn.engine import EpochSampler
@@ -73,17 +82,21 @@ def cache(tmp_path):
              "segmentation": encode_mask(mask)},
             {"id": 6, "image_id": 1, "category_id": 2, "bbox": [100, 80, 15, 15], "iscrowd": 0},
             {"id": 7, "image_id": 1, "category_id": 3, "bbox": [0, 0, 10, 10], "iscrowd": 1},
+            # a hidden plant with a partial label, e.g. a weed of unknown species
+            {"id": 8, "image_id": 1, "category_id": 3, "bbox": [60, 60, 20, 20], "iscrowd": 1,
+             "eppo": "1PLAK", "hidden_plant": True, "allowed_classes": ["SETVI", "other_plant"]},
         ],
     }
     folder = cache_dir(tmp_path, CROPS)
     index = write_cache(coco, tmp_path, folder / "train", CROPS)
-    return folder, read_index(index)
+    return folder, read_index(index), coco, index
 
 
 def test_cache_holds_every_labelled_plant(cache):
-    folder, rows = cache
-    assert [(r["annotation_id"], r["category"], r["size_mm"]) for r in rows] == [
-        (5, "ZEAMX", 15.0), (6, "SETVI", 7.5)]  # the ignore region is left out
+    folder, rows, _, _ = cache
+    assert [(r["annotation_id"], r["category"], r["size_mm"], r["allowed"]) for r in rows] == [
+        (5, "ZEAMX", 15.0, []), (6, "SETVI", 7.5, []),
+        (8, "ignore", 10.0, ["SETVI", "other_plant"])]  # the plain ignore region is left out
     crop = cv2.imread(str(folder / "train" / "5.jpg"))
     assert crop.shape == (42, 42, 3)  # input_size x cache_context
     mask = cv2.imread(str(folder / "train" / "5.png"), cv2.IMREAD_GRAYSCALE)
@@ -91,17 +104,54 @@ def test_cache_holds_every_labelled_plant(cache):
     assert cv2.imread(str(folder / "train" / "6.png"), cv2.IMREAD_GRAYSCALE)[21, 21] == 255
 
 
+def test_cache_index_made_from_other_data_is_not_current(cache):
+    _, _, coco, index = cache
+    assert index_is_current(index, coco)
+    changed = copy.deepcopy(coco)
+    changed["annotations"][3]["allowed_classes"] = ["SETVI"]
+    assert not index_is_current(index, changed)
+    changed["annotations"].pop()
+    assert not index_is_current(index, changed)  # the plant is gone
+    with open(index, newline="", encoding="utf-8") as f:
+        old = [{k: v for k, v in row.items() if k != "allowed"} for row in csv.DictReader(f)]
+    with open(index, "w", newline="", encoding="utf-8") as f:  # an index from before 2026-10-26
+        writer = csv.DictWriter(f, list(old[0]))
+        writer.writeheader()
+        writer.writerows(old)
+    assert not index_is_current(index, coco)
+    assert read_index(index)[2]["allowed"] == []
+
+
 @pytest.mark.parametrize("background", ["keep", "dim"])
 def test_crop_dataset_samples(cache, background):
-    folder, rows = cache
+    folder, rows, _, _ = cache
     crops = {**CROPS, "background": background}
+    classes = ["SETVI", "ZEAMX", "other_plant"]
     for augment in (None, AUGMENT):
-        dataset = CropDataset(rows, folder / "train", ["SETVI", "ZEAMX"], crops, augment)
-        image, label = dataset[0]
+        dataset = CropDataset(rows, folder / "train", classes, crops, augment)
+        image, label, allowed = dataset[0]
         assert image.shape == (3, 28, 28) and image.dtype == torch.float32
-        assert label == 1 and dataset.labels == [1, 0]
+        assert label == 1 and allowed.tolist() == [False, True, False]
+        assert dataset.labels == [1, 0, -1]  # -1: a partial label
+        assert dataset[2][2].tolist() == [True, False, True]
+        assert dataset.balance_keys() == [1, 0, (0, 2)]
     with pytest.raises(ValueError, match="ZEAMX"):
-        CropDataset(rows, folder / "train", ["SETVI"], CROPS)
+        CropDataset(rows, folder / "train", ["SETVI", "other_plant"], CROPS)
+    with pytest.raises(ValueError, match="other_plant"):
+        CropDataset(rows, folder / "train", ["SETVI", "ZEAMX"], CROPS)
+
+
+def test_partial_label_loss():
+    torch.manual_seed(0)
+    logits, labels = torch.randn(6, 4), torch.tensor([0, 3, 1, 1, 2, 0])
+    one_hot = torch.nn.functional.one_hot(labels, 4).bool()
+    for smoothing in (0.0, 0.1):  # one allowed class: the usual cross-entropy
+        expected = torch.nn.CrossEntropyLoss(label_smoothing=smoothing)(logits, labels)
+        assert torch.allclose(PartialLabelLoss(smoothing)(logits, one_hot), expected)
+    allowed = torch.tensor([[True, False, True, False]])
+    probs = logits[:1].softmax(1)[0]
+    assert torch.allclose(PartialLabelLoss()(logits[:1], allowed),
+                          -torch.log(probs[0] + probs[2]))
 
 
 def test_sample_weights_balance_classes():
@@ -133,6 +183,10 @@ def test_accuracy_metrics():
     metrics = accuracy_metrics(probs, labels, 2)
     assert metrics == {"accuracy": 0.75, "balanced_accuracy": 0.75}
     assert accuracy_metrics(probs[:3], labels[:3], 3)["balanced_accuracy"] == 1.0
+    partly = np.concatenate([probs, [[0.5, 0.5]]]), np.concatenate([labels, [-1]])
+    assert accuracy_metrics(*partly, 2) == metrics  # partial labels are left out
+    assert label_fit(np.array([0, 1, 1]), [[0, 2], [0, 2], [1]]) == pytest.approx(2 / 3)
+    assert label_fit(np.array([]), []) is None
 
 
 def test_epoch_sampler_is_fixed_per_epoch_and_can_skip():
@@ -172,3 +226,23 @@ def test_train_one_epoch_resumes_mid_epoch():
     result = epoch(partial=saved[0])
     assert 0 <= result["accuracy"] <= 1
     assert len(loader) == 2
+
+
+def test_train_one_epoch_with_partial_labels():
+    torch.manual_seed(0)
+    labels = torch.tensor([0, 1, 2, -1] * 4)
+    allowed = torch.nn.functional.one_hot(labels.clamp(min=0), 3).bool()
+    allowed[labels < 0] = torch.tensor([True, True, False])  # "not class 2"
+    data = torch.utils.data.TensorDataset(torch.randn(16, 5), labels, allowed)
+    model = torch.nn.Linear(5, 3)
+    with torch.no_grad():  # always predicts class 0
+        model.weight.zero_()
+        model.bias.copy_(torch.tensor([5.0, 0.0, 0.0]))
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.0)
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda step: 1.0)
+    loader = torch.utils.data.DataLoader(data, 4)
+    result = train_one_epoch(model, loader, optimizer, scheduler,
+                             torch.amp.GradScaler("cpu", enabled=False), PartialLabelLoss(),
+                             torch.device("cpu"), False, None, 0)
+    assert result["accuracy"] == pytest.approx(1 / 3)  # of the 12 labelled samples
+    assert result["loss"] > 0

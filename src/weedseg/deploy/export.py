@@ -96,6 +96,7 @@ def export_package(config: dict[str, Any]) -> Path:
             "fill_rgb": list(FILL_RGB), "mean": MEAN.flatten().tolist(),
             "std": STD.flatten().tolist(), "batch_size": twostage["classifier"]["batch_size"],
             "run": classifier_file.parent.name, "epoch": classifier["epoch"],
+            "partial_labels": classifier["config"]["data"].get("partial_labels", False),
         },
         "handoff": config["handoff"],
         "min_plant_size_mm": train["info"]["min_plant_size_mm"],
@@ -162,6 +163,8 @@ def readme_text(info: dict[str, Any], train: dict[str, Any], classes: list[str],
         "handoff_table": handoff_table(classifier_eval, thresholds),
         "results_table": results_table(twostage_eval, datasets),
         "classifier_table": classifier_table(classifier_eval, datasets),
+        "partial_section": partial_section(classifier_eval, datasets, taxa,
+                                           info["classifier"]["partial_labels"]),
         "dataset_table": dataset_table(train),
     }
     template = Template((HERE / "README_template.md").read_text(encoding="utf-8"))
@@ -251,6 +254,33 @@ def classifier_table(classifier_eval: Path, datasets: dict[str, Any]) -> str:
         lines.append(f"| {datasets[r['dataset']]['name']} | {int(r['crops']):,} | "
                      f"{share(r['accuracy'])} | {share(r['balanced_accuracy'])} |")
     return "\n".join(lines)
+
+
+def partial_section(classifier_eval: Path, datasets: dict[str, Any],
+                    taxa: dict[str, dict[str, str]], trained: bool) -> str:
+    """How often the classifier's answer fits plants labelled without their species
+    (partial_labels.csv of evaluate_classifier.py); nothing when it has no such plants.
+    `trained`: whether the classifier learned from them (data.partial_labels)."""
+    path = classifier_eval / "partial_labels.csv"
+    if not path.is_file():
+        return ""
+    learned = ("The classifier learned from these too, as \"one of the classes the label "
+               "allows\"." if trained else "The classifier did not learn from these.")
+    intro = ("Some plants are labelled without their species: only with their genus or "
+             "family, or with the classes they can or can't be (PhenoBench's weeds: anything "
+             f"but sugar beet). {learned} They can't be scored as right or wrong, but the "
+             "classifier's answer can fit the label or not:")
+    columns = ["Dataset", "Label", "Classes it allows", "Val plants", "Answer fits",
+               "Most often called"]
+    lines = ["", intro, "", f"| {' | '.join(columns)} |", "|---" * len(columns) + "|"]
+    for r in read_csv(path):
+        taxon = taxa.get(r["eppo"], {})
+        label = (f"*{taxon['name']}*" if taxon.get("rank") in ("genus", "family", "order")
+                 else "species unknown")
+        lines.append(f"| {datasets[r['dataset']]['name']} | {label} | {r['allowed']} | "
+                     f"{int(r['crops']):,} | {share(r['label_fit'])} | "
+                     f"{r['most_predicted']} |")
+    return "\n".join(lines) + "\n"
 
 
 def dataset_table(train: dict[str, Any]) -> str:

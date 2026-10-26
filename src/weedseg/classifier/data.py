@@ -1,4 +1,4 @@
-"""Crop cache -> classifier samples (normalised image tensor, class index)."""
+"""Crop cache -> classifier samples (normalised image tensor, class index, allowed classes)."""
 
 import random
 from collections import Counter
@@ -42,6 +42,10 @@ def to_input(crop: np.ndarray, mask: np.ndarray | None, crops: dict[str, Any],
 class CropDataset(Dataset):
     """Cached plant crops (see weedseg.classifier.crops) with their class index.
 
+    A sample is (image, label, allowed): `label` is the class index, or -1 for a plant with
+    a partial label (index column `allowed`); `allowed` marks the classes it may belong to
+    (bool, one per class), its own class alone for a labelled plant.
+
     With `augment` (training): random box jitter (`box_scale`, `box_shift`), flips, 90-degree
     rotations, colour jitter and, unless the background is kept, mask jitter
     (`mask_jitter_px`). Without: the plain crop, as at prediction.
@@ -50,18 +54,32 @@ class CropDataset(Dataset):
     def __init__(self, rows: list[dict[str, Any]], folder: Path, classes: list[str],
                  crops: dict[str, Any], augment: dict[str, Any] | None = None):
         index = {name: i for i, name in enumerate(classes)}
-        unknown = sorted({row["category"] for row in rows} - set(index))
+        needed = {name for row in rows for name in row.get("allowed") or [row["category"]]}
+        unknown = sorted(needed - set(index))
         if unknown:
             raise ValueError(f"Crops of classes the model doesn't have: {', '.join(unknown)}")
         self.rows, self.folder, self.crops, self.augment = rows, folder, crops, augment
-        self.labels = [index[row["category"]] for row in rows]
+        self.num_classes = len(classes)
+        self.allowed = [[index[name] for name in row.get("allowed") or []] for row in rows]
+        self.labels = [-1 if allowed else index[row["category"]]
+                       for row, allowed in zip(rows, self.allowed)]
         self.color_jitter = (v2.ColorJitter(**augment["color_jitter"])
                              if augment and augment.get("color_jitter") else None)
 
     def __len__(self) -> int:
         return len(self.rows)
 
-    def __getitem__(self, i: int) -> tuple[torch.Tensor, int]:
+    def balance_keys(self) -> list[Any]:
+        """What `sample_weights` balances: the class, or the set of allowed classes."""
+        return [label if label >= 0 else tuple(allowed)
+                for label, allowed in zip(self.labels, self.allowed)]
+
+    def allowed_mask(self, i: int) -> torch.Tensor:
+        mask = torch.zeros(self.num_classes, dtype=torch.bool)
+        mask[self.allowed[i] or [self.labels[i]]] = True
+        return mask
+
+    def __getitem__(self, i: int) -> tuple[torch.Tensor, int, torch.Tensor]:
         stem = self.folder / str(self.rows[i]["annotation_id"])
         image = cv2.imread(f"{stem}.jpg", cv2.IMREAD_COLOR)
         if image is None:
@@ -89,7 +107,8 @@ class CropDataset(Dataset):
                                                         augment["mask_jitter_px"]))
         if augment:
             crop, mask = flip_rotate(crop, mask, augment)
-        return to_input(crop, mask, self.crops, self.color_jitter), self.labels[i]
+        return (to_input(crop, mask, self.crops, self.color_jitter), self.labels[i],
+                self.allowed_mask(i))
 
 
 def flip_rotate(crop: np.ndarray, mask: np.ndarray | None,
@@ -115,9 +134,10 @@ def jitter_mask(mask: np.ndarray, pixels: int) -> np.ndarray:
     return operation(mask.astype(np.uint8), kernel) > 0
 
 
-def sample_weights(labels: list[int], balance: str) -> list[float] | None:
+def sample_weights(labels: list[Any], balance: str) -> list[float] | None:
     """Per-sample weights for a WeightedRandomSampler: `sqrt` and `inverse` draw classes in
-    proportion to the square root of their size, or equally; `none` = None (plain shuffle)."""
+    proportion to the square root of their size, or equally; `none` = None (plain shuffle).
+    `labels` may be any hashable keys (CropDataset.balance_keys)."""
     if balance not in BALANCE:
         raise ValueError(f"balance must be one of {BALANCE}, not {balance!r}")
     if balance == "none":

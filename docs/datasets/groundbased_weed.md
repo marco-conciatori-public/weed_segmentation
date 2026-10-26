@@ -95,7 +95,9 @@ at 0.5 mm/px, 190 would.
   on the seed. Seed 0 put 34% of the ECHCG plants in val. Seed 5, the best of seeds 0–9,
   keeps every species within 5 points of the fractions.
 - `NR` becomes `1PLAK`, a plant of unknown species, with role `weed`. Once combined, these
-  plants are ignore regions ([data-format.md](../data-format.md)).
+  plants are ignore regions ([data-format.md](../data-format.md)). They get no partial
+  label: the authors don't say that an `NR` plant can't be a tomato, and TOMATO_2 leaves
+  its tomatoes unlabelled.
 - `LYPES` (tomato) has role `crop`. `configs/rules/example.yaml` lists it as a crop.
 - Image fields: `subset` (`TOMATO_1`/`TOMATO_2`) and `year`, plus `quadrat` on the cut-outs.
   Annotation fields: `truncated` and `difficult` when the VOC file sets them. Those plants

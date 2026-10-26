@@ -136,3 +136,19 @@ def test_balanced_split_spreads_a_rare_label_over_all_splits():
     for split in splits.values():
         assert any(item.split("-")[0] in rare_groups for item in split)
     assert abs(len(splits["train"]) - 700) <= 20
+
+
+def test_label_limits_go_into_the_annotations(tmp_path):
+    path = tmp_path / "map.csv"
+    path.write_text("source_label,role,eppo,species,one_of,none_of\n"
+                    "beet,crop,BEAVA,BEAVA,,\n"
+                    "weed,weed,1PLAK,1PLAK,, BEAVA\n"
+                    "grass,weed,1PLAK,1PLAK,1POAO 1ASGO,\n", encoding="utf-8")
+    label_map = LabelMap(path, "species")
+    assert label_map.limits("beet") == {}
+    record = ImageRecord("a.jpg", 20, 10, "g1", [Instance(label, (0, 0, 2, 2))
+                                                 for label in ("beet", "weed", "grass")])
+    beet, weed, grass = to_coco([record], label_map, {})["annotations"]
+    assert "one_of" not in beet and "none_of" not in beet
+    assert weed["none_of"] == ["BEAVA"] and "one_of" not in weed
+    assert grass["one_of"] == ["1POAO", "1ASGO"]

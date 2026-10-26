@@ -22,6 +22,10 @@ XML = """<root><metadata><size><width>40</width><height>20</height></size></meta
    <point id="3" x="2" y="2"/></points>
   <class>weed</class><name></name><trusted><isTrusted>true</isTrusted></trusted>
  </clipping>
+ <clipping id="5"><points><point id="1" x="4" y="12"/><point id="2" x="8" y="12"/>
+   <point id="3" x="8" y="15"/></points>
+  <class>crop</class><name>Inconnu</name><trusted><isTrusted>true</isTrusted></trusted>
+ </clipping>
 </clippings></data></root>"""
 
 
@@ -37,7 +41,8 @@ def test_names_batches_and_labels(tmp_path):
     assert acre.image_names(raw) == ["Maize/2022-06-08-16-44/rgb-1"]
     assert acre.batch_of("Maize/2022-06-08-16-44/rgb-1") == "Maize/2022-06-08-16-44"
     assert acre.box_labels(raw, "Maize/2022-06-08-16-44/rgb-1") == [
-        ("chenopode", 8, 6), ("mais", 6, 4), ("unknow", 6, 6), ("unnamed", 2, 2)]
+        ("chenopode", 8, 6), ("mais", 6, 4), ("unknow", 6, 6), ("unnamed (weed)", 2, 2),
+        ("inconnu (crop)", 5, 4)]  # a plant without a name keeps the annotators' class
 
 
 def test_records_masks_stems_and_ignore_regions(tmp_path):
@@ -48,10 +53,10 @@ def test_records_masks_stems_and_ignore_regions(tmp_path):
     assert record.group == "Maize/2022-06-08-16-44"
     assert record.attributes == {"crop_field": "maize", "batch": "2022-06-08-16-44",
                                  "mm_per_px": 0.5, "mm_per_px_estimated": True}
-    weed, maize, unknown, unnamed = record.instances
+    weed, maize, unknown, unnamed, _ = record.instances
     assert weed.bbox_xyxy == (2, 2, 10, 8) and weed.stem_xy == (5.0, 5.0)
     assert weed.mask.sum() == 8 * 6 and not weed.ignore  # filled polygon, edges included
     assert maize.ignore and maize.stem_xy is None  # 2 points: no outline, box as mask
     assert np.array_equal(np.argwhere(maize.mask).min(axis=0), [3, 20])
     assert unknown.ignore and unknown.stem_xy is None  # untrusted; stem flag without x/y
-    assert unnamed.source_label == "unnamed" and not unnamed.ignore
+    assert unnamed.source_label == "unnamed (weed)" and not unnamed.ignore

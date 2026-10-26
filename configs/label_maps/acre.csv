@@ -1,15 +1,17 @@
-source_label,common_name,scientific_name,name_source,eppo,eppo_note,role,species
-chenopode,Lamb's quarter,Chenopodium album,datasheet,CHEAL,,weed,CHEAL
-haricot,Common bean,Phaseolus vulgaris,datasheet,PHSVX,,crop,PHSVX
-mais,Maize,Zea mays,datasheet,ZEAMX,,crop,ZEAMX
-ray-grass,Perennial ryegrass,Lolium perenne,datasheet,LOLPE,,weed,LOLPE
-matricaire,Matricaria,Matricaria chamomilla,datasheet,MATCH,,weed,MATCH
-moutarde,Mustard,Sinapis arvensis,datasheet,SINAR,,weed,SINAR
-feverole,Faba bean,Vicia faba,inferred,VICFX,French féverole,crop,VICFX
-pois,Pea,Pisum sativum,inferred,PIBSX,French pois,crop,PIBSX
-pourpier,Purslane,Portulaca oleracea,inferred,POROL,French pourpier; a natural weed named by the annotators,weed,POROL
-digitaire,Crabgrass,Digitaria,inferred,1DIGG,French digitaire; genus only,weed,1DIGG
-setaire,Bristlegrass,Setaria,inferred,1SETG,French sétaire; genus only,weed,1SETG
-inconnu,Unknown,Plantae,,1PLAK,French inconnu; one plant of unknown species,unknown,1PLAK
-unnamed,No name given,Plantae,,1PLAK,One plant without a name,unknown,1PLAK
-unknow,Marked unknown by the annotators,Plantae,,1PLAK,The annotators' class unknow; one plant of unknown species,unknown,1PLAK
+source_label,common_name,scientific_name,name_source,eppo,eppo_note,role,species,one_of,none_of
+chenopode,Lamb's quarter,Chenopodium album,datasheet,CHEAL,,weed,CHEAL,,
+haricot,Common bean,Phaseolus vulgaris,datasheet,PHSVX,,crop,PHSVX,,
+mais,Maize,Zea mays,datasheet,ZEAMX,,crop,ZEAMX,,
+ray-grass,Perennial ryegrass,Lolium perenne,datasheet,LOLPE,,weed,LOLPE,,
+matricaire,Matricaria,Matricaria chamomilla,datasheet,MATCH,,weed,MATCH,,
+moutarde,Mustard,Sinapis arvensis,datasheet,SINAR,,weed,SINAR,,
+feverole,Faba bean,Vicia faba,inferred,VICFX,French féverole,crop,VICFX,,
+pois,Pea,Pisum sativum,inferred,PIBSX,French pois,crop,PIBSX,,
+pourpier,Purslane,Portulaca oleracea,inferred,POROL,French pourpier; a natural weed named by the annotators,weed,POROL,,
+digitaire,Crabgrass,Digitaria,inferred,1DIGG,French digitaire; genus only,weed,1DIGG,,
+setaire,Bristlegrass,Setaria,inferred,1SETG,French sétaire; genus only,weed,1SETG,,
+inconnu (crop),Unknown crop,Plantae,,1PLAK,French inconnu with the annotators' class crop: one of the dataset's crops,crop,1PLAK,PHSVX ZEAMX VICFX PIBSX,
+inconnu (weed),Unknown weed,Plantae,,1PLAK,French inconnu with the annotators' class weed: none of the dataset's crops,weed,1PLAK,,PHSVX ZEAMX VICFX PIBSX
+unnamed (crop),No name; class crop,Plantae,,1PLAK,One plant without a name and with the annotators' class crop: one of the dataset's crops,crop,1PLAK,PHSVX ZEAMX VICFX PIBSX,
+unnamed (weed),No name; class weed,Plantae,,1PLAK,One plant without a name and with the annotators' class weed: none of the dataset's crops,weed,1PLAK,,PHSVX ZEAMX VICFX PIBSX
+unknow,Marked unknown by the annotators,Plantae,,1PLAK,The annotators' class unknow; one plant of unknown species,unknown,1PLAK,,

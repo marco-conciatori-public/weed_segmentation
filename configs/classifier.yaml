@@ -21,6 +21,11 @@ data:
   # Use a random subset of N crops (null = all). For a quick smoke test.
   max_train_crops: null
   max_val_crops: null
+  # Plants whose label rules out only some classes, e.g. PhenoBench's weeds (not sugar beet)
+  # or CropAndWeed's genus-only Poa (Poa annua or other_plant), train as "one of the allowed
+  # classes" (combining sets them, see docs/data-format.md). false leaves them out, as
+  # before 2026-10-26.
+  partial_labels: true
 
 crops:
   # Context around each plant: this fraction of its box's longer side on each side. The same

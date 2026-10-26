@@ -20,6 +20,9 @@ from weedseg.data.coco import ImageRecord, Instance
 
 UNKNOWN_CLASS = "unknow"  # the annotators' class for plants they could not tell
 UNNAMED = "unnamed"  # source label of a plant with an empty name
+# Names of plants the annotators didn't identify. Their class (crop or weed) still says
+# whether they are one of the plot's crops, so it becomes part of the source label.
+NAMELESS = ("inconnu", UNNAMED)
 
 
 def image_names(raw_dir: Path) -> list[str]:
@@ -33,10 +36,15 @@ def batch_of(name: str) -> str:
 
 
 def source_label(clipping: ET.Element) -> str:
-    """The plant's name, lower-cased; "unknow" when the annotators marked it as unknown."""
-    if clipping.findtext("class") == UNKNOWN_CLASS:
+    """The plant's name, lower-cased; "unknow" when the annotators marked it as unknown. A
+    plant without a name, or named "inconnu", also gets its class: e.g. "inconnu (weed)"."""
+    plant_class = clipping.findtext("class")
+    if plant_class == UNKNOWN_CLASS:
         return UNKNOWN_CLASS
-    return (clipping.findtext("name") or "").strip().lower() or UNNAMED
+    name = (clipping.findtext("name") or "").strip().lower() or UNNAMED
+    if name in NAMELESS and plant_class in ("crop", "weed"):
+        return f"{name} ({plant_class})"
+    return name
 
 
 def _plants(raw_dir: Path, name: str) -> tuple[ET.Element, list[tuple[ET.Element, np.ndarray]]]:

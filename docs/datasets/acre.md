@@ -31,6 +31,8 @@
 | matricaire | *Matricaria chamomilla* | 954 |
 | moutarde | *Sinapis arvensis* | 710 |
 | inconnu, empty, class "unknow" | one plant of unknown species (`1PLAK`): ignore regions for the species classes, plants for the two-stage detector | 1,244 (757 at least 20 mm) |
+| of which class "weed" | source labels `inconnu (weed)`, `unnamed (weed)`: none of the crops below | 1,083 (635) |
+| of which class "crop" | `inconnu (crop)`, `unnamed (crop)`: one of the crops below | 31 (31) |
 | others | faba bean, pea, purslane, *Digitaria*, *Setaria* | under 25 each |
 
 ## Conversion choices
@@ -45,6 +47,13 @@
   curator; it matters for the 20 mm size filter.
 - Polygons with fewer than 3 points (box used as mask) and plants marked untrusted become
   ignore regions, like unidentified plants.
+- **Plants without a species keep the annotators' class.** A plant named "inconnu" or
+  without a name still has a class, crop or weed, so its source label carries it (e.g.
+  `inconnu (weed)`). In the label map, a weed is `none_of` the dataset's crops (bean, maize,
+  faba bean, pea) and a crop `one_of` them, so the classifier learns what that rules out
+  ([partial labels](../data-format.md#partial-labels)). The faba beans and peas are classed
+  crop by the annotators, in bean plots and (3 faba beans) in a maize plot. A plant of
+  class "unknow" stays `unknow`, whatever its name, and rules out nothing.
 
 ## Known limitations
 

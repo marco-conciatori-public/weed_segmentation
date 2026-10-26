@@ -1,7 +1,7 @@
 import pytest
 
 from weedseg.data.coco import BOX_ONLY, IGNORE_CATEGORY, OTHER_CATEGORY, drop_box_only
-from weedseg.data.combine import combine
+from weedseg.data.combine import allowed_classes, combine, describe_classes
 from weedseg.data.plant import to_plant_only
 
 
@@ -14,6 +14,7 @@ TAXA = {t["eppo"]: t for t in [
     taxon("ZEAMX", "species", "1ZEAG"), taxon("POAAN", "species", "1POAG"),
     taxon("POATR", "species", "1POAG"), taxon("1POAG", "genus", "1POAG"),
     taxon("1MERG", "genus", "1MERG", "1EUPF"), taxon("SETVI", "species", "1SETG"),
+    taxon("1SETG", "genus", "1SETG"),
     {"eppo": "1PLAK", "rank": "kingdom", "name": "Plantae", "genus": "", "family": "",
      "order": ""}]}
 
@@ -115,3 +116,42 @@ def test_combine_refuses_mixed_sizes_and_non_species_categories():
                  "b": dataset([("ZEAMX", "crop")], [["ZEAMX"]], size=30)}, TAXA, 1)
     with pytest.raises(ValueError, match="not an EPPO code"):
         combine({"a": dataset([("grasses", "weed")], [["grasses"]])}, TAXA, 1)
+
+
+def test_allowed_classes_of_hidden_plants():
+    classes = ["ZEAMX", "POAAN", "SETVI", OTHER_CATEGORY]
+    roles = {"ZEAMX": "crop", "POAAN": "weed", "SETVI": "weed", OTHER_CATEGORY: "other"}
+
+    def allowed(code, role, one_of=(), none_of=()):
+        return allowed_classes(code, role, list(one_of), list(none_of), classes, roles, TAXA)
+
+    assert allowed("1POAG", "weed") == ["POAAN", OTHER_CATEGORY]  # Poa: Poa annua or another
+    assert allowed("1SETG", "crop") == [OTHER_CATEGORY]  # a crop Setaria isn't the weed
+    assert allowed("1PLAK", "weed", none_of=["ZEAMX"]) == ["POAAN", "SETVI", OTHER_CATEGORY]
+    assert allowed("1PLAK", "weed", one_of=["1POAG", "1SETG"]) == [
+        "POAAN", "SETVI", OTHER_CATEGORY]
+    assert allowed("1PLAK", "crop", one_of=["ZEAMX"]) == ["ZEAMX"]  # all its species are classes
+    assert allowed("1PLAK", "crop", one_of=["ZEAMX", "PHSVX"]) == ["ZEAMX", OTHER_CATEGORY]
+    assert allowed("1PLAK", "unknown") is None  # every class: nothing to learn
+    assert allowed("1PLAK", "weed", one_of=["1POAO"]) is None
+    assert describe_classes(["POAAN", OTHER_CATEGORY], classes) == "POAAN, other_plant"
+    assert describe_classes(["POAAN", "SETVI", OTHER_CATEGORY], classes) == (
+        "every class but ZEAMX")
+
+
+def test_combining_gives_hidden_plants_their_allowed_classes():
+    a = dataset([("ZEAMX", "crop"), ("POAAN", "weed"), ("1PLAK", "weed"), ("1POAG", "weed")],
+                [["ZEAMX", "POAAN", "1PLAK", "1PLAK", "1POAG"]])
+    weed, unknown = a["train"]["annotations"][2:4]
+    weed["none_of"] = ["ZEAMX"]  # e.g. a weed of a maize field: anything but maize
+    combined, report = combine({"a": a}, TAXA, min_images=1)
+    train = combined["train"]
+    got = [a.get("allowed_classes") for a in train["annotations"]]
+    # Without other_plant, a Poa can only be Poa annua.
+    assert got == [None, None, ["POAAN"], None, ["POAAN"]]
+    assert unknown.get("none_of") is None and train["annotations"][3]["hidden_plant"]
+    assert train["info"]["partial_labels"] == 2
+    assert report[-3].startswith("Partial labels")
+    assert any("1PLAK" in line and "-> POAAN" in line for line in report[-2:])
+    plants = to_plant_only(train)  # the detector learns them as plants all the same
+    assert [a["category_id"] for a in plants["annotations"]] == [1] * 5

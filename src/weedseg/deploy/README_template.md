@@ -168,11 +168,11 @@ How to read these numbers:
   plants, so its numbers understate the model.
 - **ACRE** has dense, small seedlings, with motion blur in many images, which is hard for
   any model. Its validation fields are bean fields full of fat-hen (*Chenopodium album*).
-- **PhenoBench** gives a species only for sugar beet. Its weeds trained the detector, not
-  the classifier.
+- **PhenoBench** gives a species only for sugar beet, so only its sugar beets are scored
+  here.
 - **OPPD** and **GROUNDBASED_WEED** have boxes, not outlines, so only the classifier is
   scored on them.
-
+${partial_section}
 ## Training data
 
 ${dataset_table}

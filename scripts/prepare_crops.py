@@ -2,11 +2,12 @@
 Settings: configs/classifier.yaml (`data`, `crops`). CPU only.
 
 Writes <data.dir>/crops_margin<m>_size<s>_context<c>/<split>/ (<annotation id>.jpg and .png,
-the plant's mask) and index_<split>.csv. Splits whose index exists are skipped; delete the
-index to redo one.
+the plant's mask) and index_<split>.csv. A split whose index lists the plants of the current
+data is skipped; one made from other data (e.g. before re-combining) is cut again. Delete the
+index to redo a split anyway.
 """
 
-from weedseg.classifier.crops import cache_dir, write_cache
+from weedseg.classifier.crops import cache_dir, index_is_current, write_cache
 from weedseg.config import load_config
 from weedseg.data.combine import SPLITS
 from weedseg.maskrcnn.data import load_coco
@@ -21,10 +22,12 @@ def main(config_path: str = CONFIG) -> None:
     folder = cache_dir(resolve(config["data"]["dir"]), config["crops"])
     for split in SPLITS:
         index = folder / f"index_{split}.csv"
-        if index.exists():
-            print(f"{split}: {index} exists, skipped")
-            continue
         coco = load_coco(split_file(config, split))
+        if index.exists():
+            if index_is_current(index, coco):
+                print(f"{split}: {index} is up to date, skipped")
+                continue
+            print(f"{split}: {index} was made from other data, cutting the crops again")
         write_cache(coco, resolve(coco["info"]["image_dir"]), folder / split, config["crops"],
                     config["data"]["num_workers"])
         print(f"{split} -> {index}")

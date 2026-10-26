@@ -41,6 +41,10 @@
   and test. The group (recorded, not used for splitting) is the drone photo.
 - Sugar beet is `BEAVA`; weeds are `1PLAK`, plants of unknown species: ignore regions in the
   species files, plants for the two-stage detector ([data-format.md](../data-format.md)).
+  Their label map row says `none_of` `BEAVA`, so the classifier learns them as "anything but
+  sugar beet" ([partial labels](../data-format.md#partial-labels)). Without that, every
+  PhenoBench plant the classifier saw was a beet, and it called all PhenoBench weeds sugar
+  beet (run 2, 2026-10-23).
 - **Partly visible plants become ignore regions** (`ignore_partial_plants`), keeping their
   code. A plant cut by the image border is at least half visible in an overlapping image:
   the paper chose the overlap for that.

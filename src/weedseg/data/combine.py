@@ -16,6 +16,11 @@ Every plant keeps its own EPPO code in an `eppo` field, whatever class it ends u
 that are ignore regions only because of rule 3 are marked `hidden_plant`: the two-stage
 detector learns them as plants (weedseg.data.plant), unlike plants the converter left out
 (unidentified, too small, untrusted or without a usable outline).
+
+A hidden plant's label still rules out some classes, e.g. a *Poa* can only be *Poa annua*
+or other_plant, and a PhenoBench weed (`none_of` BEAVA in its label map) anything but sugar
+beet. Such plants get `allowed_classes`, and the species classifier learns from them that
+they belong to one of those classes (a partial label, see `allowed_classes`).
 """
 
 from collections import Counter
@@ -25,6 +30,7 @@ from weedseg.data.coco import IGNORE_CATEGORY, OTHER_CATEGORY
 from weedseg.eppo import ABOVE_ORDER, PARENT_RANKS
 
 SPLITS = ("train", "val", "test")
+ROLES = ("crop", "weed")
 
 
 def common_species(codes: set[str], images: Counter, taxa: dict[str, dict[str, str]],
@@ -50,6 +56,47 @@ def common_species(codes: set[str], images: Counter, taxa: dict[str, dict[str, s
     return decisions
 
 
+def within(code: str, taxon: str, taxa: dict[str, dict[str, str]]) -> bool:
+    """Whether the species class `code` belongs to `taxon` (itself, its genus, family or
+    order)."""
+    return taxon == code or taxon in (taxa[code][rank] for rank in PARENT_RANKS)
+
+
+def allowed_classes(code: str, role: str, one_of: list[str], none_of: list[str],
+                    classes: list[str], class_roles: dict[str, str],
+                    taxa: dict[str, dict[str, str]]) -> list[str] | None:
+    """The classes a plant hidden by rule 3 may belong to, from what its label says; None
+    when that is every class (nothing to learn).
+
+    - A genus, family or order code allows the classes in that taxon. If the label's role
+      is crop or weed, only those of the same role: a crop labelled *Papaver* is not the
+      weed *Papaver rhoeas*.
+    - A code above order (e.g. 1PLAK) allows every class.
+    - `one_of` keeps the classes in one of those taxa, `none_of` drops those in any of them.
+    - other_plant is allowed too (a species without a class of its own), unless `one_of`
+      names only species that are all classes.
+    """
+    species = [c for c in classes if c != OTHER_CATEGORY]
+    if taxa[code]["rank"] in PARENT_RANKS:
+        kept = [c for c in species if within(c, code, taxa)
+                and (role not in ROLES or class_roles[c] not in ROLES or class_roles[c] == role)]
+    else:
+        kept = species
+    if one_of:
+        kept = [c for c in kept if any(within(c, taxon, taxa) for taxon in one_of)]
+    kept = [c for c in kept if not any(within(c, taxon, taxa) for taxon in none_of)]
+    other = OTHER_CATEGORY in classes and not (one_of and all(t in species for t in one_of))
+    allowed = kept + [OTHER_CATEGORY] * other
+    return allowed if allowed and len(allowed) < len(classes) else None
+
+
+def describe_classes(allowed: list[str], classes: list[str]) -> str:
+    """A set of classes, listed, or as "every class but ..." when that is shorter."""
+    if 2 * len(allowed) <= len(classes):
+        return ", ".join(allowed)
+    return "every class but " + ", ".join(c for c in classes if c not in allowed)
+
+
 def class_report(decisions: dict[str, str], images: Counter, taxa: dict[str, dict[str, str]],
                  min_images: int) -> list[str]:
     """Report lines: every class, every species sent to OTHER_CATEGORY, every coarser code."""
@@ -72,19 +119,33 @@ def class_report(decisions: dict[str, str], images: Counter, taxa: dict[str, dic
     ]
 
 
+def partial_report(groups: Counter, classes: list[str],
+                   taxa: dict[str, dict[str, str]]) -> list[str]:
+    """Report lines: the partial labels, per dataset and label, with their training plants."""
+    if not groups:
+        return []
+    return ["Partial labels (hidden plants the classifier learns as one of these classes):",
+            *(f"  {code:6} {taxa[code]['name'][:22]:22} {dataset:16} {n:5} train plants -> "
+              f"{describe_classes(list(allowed), classes)}"
+              for (dataset, code, allowed), n in sorted(groups.items(),
+                                                        key=lambda kv: (-kv[1], kv[0])))]
+
+
 def combine(datasets: dict[str, dict[str, dict[str, Any]]], taxa: dict[str, dict[str, str]],
             min_images: int) -> tuple[dict[str, dict[str, Any]], list[str]]:
     """Merge converted datasets ({name: {split: COCO dict}}) and choose the classes.
 
     Returns the combined COCO dict of each split and the class report. Image file names
     become paths relative to the project root (`info.image_dir` is "."), since each dataset
-    keeps its images in its own folder.
+    keeps its images in its own folder. Hidden plants whose label rules out some classes get
+    `allowed_classes` (see `allowed_classes`).
     """
     sizes = {name: {coco["info"].get("min_plant_size_mm") for coco in splits.values()}
              for name, splits in datasets.items()}
     if len({size for values in sizes.values() for size in values}) > 1:
         raise ValueError(f"The datasets were converted with different min_plant_size_mm: {sizes}")
     code_of = {}  # (dataset, category id) -> EPPO code; None for the ignore category
+    role_of = {}  # (dataset, category id) -> its role (supercategory)
     roles: dict[str, set[str]] = {}
     for name, splits in datasets.items():
         if set(splits) != set(SPLITS):
@@ -97,6 +158,7 @@ def combine(datasets: dict[str, dict[str, dict[str, Any]]], taxa: dict[str, dict
                 raise ValueError(f"Category {category['name']!r} of {name} is not an EPPO code; "
                                  "convert the datasets with taxonomy species")
             code_of[name, category["id"]] = category["name"]
+            role_of[name, category["id"]] = category["supercategory"]
             roles.setdefault(category["name"], set()).add(category["supercategory"])
 
     images = Counter()  # training images per EPPO code, over all datasets
@@ -130,11 +192,13 @@ def combine(datasets: dict[str, dict[str, dict[str, Any]]], taxa: dict[str, dict
                        "supercategory": IGNORE_CATEGORY, "eppo_codes": [],
                        "scientific_names": []})
     category_id = {c["name"]: c["id"] for c in categories}
+    class_roles = {c["name"]: c["supercategory"] for c in categories}
 
     combined = {}
+    partial_groups = Counter()  # (dataset, EPPO code, allowed classes) -> training plants
     for split in SPLITS:
         out_images, out_annotations = [], []
-        hidden = 0
+        hidden = partial = 0
         for name, splits in datasets.items():
             coco = splits[split]
             image_dir = coco["info"]["image_dir"].rstrip("/")
@@ -160,6 +224,15 @@ def combine(datasets: dict[str, dict[str, dict[str, Any]]], taxa: dict[str, dict
                     if code and not annotation.get("iscrowd"):  # rule 3 alone
                         new["hidden_plant"] = True
                         hidden += 1
+                        allowed = allowed_classes(code, role_of[name, own_id],
+                                                  annotation.get("one_of", []),
+                                                  annotation.get("none_of", []), names,
+                                                  class_roles, taxa)
+                        if allowed:
+                            new["allowed_classes"] = allowed
+                            partial += 1
+                            if split == "train":
+                                partial_groups[name, code, tuple(allowed)] += 1
                 out_annotations.append(new)
         combined[split] = {
             "info": {
@@ -173,9 +246,11 @@ def combine(datasets: dict[str, dict[str, dict[str, Any]]], taxa: dict[str, dict
                 "min_train_images": min_images,
                 "min_plant_size_mm": next(iter(next(iter(sizes.values())))),
                 "hidden_plants": hidden,
+                "partial_labels": partial,
             },
             "images": out_images,
             "annotations": out_annotations,
             "categories": categories,
         }
-    return combined, class_report(decisions, images, taxa, min_images)
+    report = class_report(decisions, images, taxa, min_images)
+    return combined, report + partial_report(partial_groups, names, taxa)

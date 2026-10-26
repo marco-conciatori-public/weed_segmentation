@@ -79,3 +79,18 @@ def test_check_label_rows(tmp_path):
     problems = check_label_rows(rows, taxa)
     assert len(problems) == 2
     assert problems[0].startswith("label 3:") and problems[1].startswith("label 5:")
+
+
+def test_check_label_rows_limits(tmp_path):
+    export = make_export(tmp_path / "eppo.sqlite")
+    taxa = {row["eppo"]: row for row in build_taxa(export, ["CHEAL", "1CAFO", "1CHES"])}
+    rows = [
+        {"source_label": "1", "eppo": "CHEAL", "scientific_name": "", "one_of": "1CAFO CHEAL",
+         "none_of": ""},
+        {"source_label": "2", "eppo": "CHEAL", "scientific_name": "", "none_of": "1CHES"},
+        {"source_label": "3", "eppo": "CHEAL", "scientific_name": "", "one_of": "YYYYY"},
+        {"source_label": "4", "eppo": "", "scientific_name": "", "none_of": "CHEAL"},
+    ]
+    problems = check_label_rows(rows, taxa)
+    assert [p.split(":")[0] for p in problems] == ["label 2", "label 3", "label 4"]
+    assert "subfamily" in problems[0]  # the taxa table doesn't record what a subfamily holds

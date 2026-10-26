@@ -7,7 +7,7 @@ checks every label map against the new table and prints any problem.
 import csv
 
 from weedseg.config import load_config
-from weedseg.eppo import build_taxa, check_label_rows, write_taxa
+from weedseg.eppo import build_taxa, check_label_rows, label_codes, write_taxa
 from weedseg.paths import resolve
 
 CONFIG = "configs/eppo.yaml"
@@ -24,7 +24,7 @@ def main() -> None:
     for path in sorted(resolve(config["label_maps"]).glob("*.csv")):
         with open(path, newline="", encoding="utf-8") as f:
             label_maps[path.name] = list(csv.DictReader(f))
-    codes = {row["eppo"] for rows in label_maps.values() for row in rows if row.get("eppo")}
+    codes = {code for rows in label_maps.values() for row in rows for code in label_codes(row)}
 
     rows = build_taxa(sqlite_path, codes | set(config["extra_codes"]), config["languages"])
     output = resolve(config["output"])

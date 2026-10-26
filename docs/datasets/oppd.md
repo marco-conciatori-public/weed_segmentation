@@ -56,6 +56,10 @@ every JPEG is complete.
 - `PPPDD`, `PPPMM` and `1PLAK` become `1PLAK`, plants of unknown species: ignore regions
   once combined ([data-format.md](../data-format.md)). `3UNCLK` gets no code: an ignore
   region everywhere. `1COMF` stays a family label, handled by combining (rule 3).
+- What `PPPDD` and `PPPMM` still say is kept for the classifier
+  ([partial labels](../data-format.md#partial-labels)): a monocot is `one_of` the 11 EPPO
+  monocot orders (in our classes, the grasses), a dicot `none_of` them. `1COMF` allows the
+  Asteraceae classes and `other_plant`.
 - Brassica napus (`BRSNN`) has role `weed`: OPPD grows it as a weed (volunteer oilseed
   rape).
 - mm/px is the dataset page's 0.1508 (`mm_per_px_estimated: false`).

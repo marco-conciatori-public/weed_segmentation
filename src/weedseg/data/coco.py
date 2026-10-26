@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 from pycocotools import mask as mask_utils
 
-from weedseg.eppo import PARENT_RANKS
+from weedseg.eppo import LIMIT_COLUMNS, PARENT_RANKS
 
 IGNORE_CATEGORY = "ignore"
 # Plants of a known species too rare to be a class of their own (see weedseg.data.combine);
@@ -55,8 +55,9 @@ class LabelMap:
     """Maps source labels to categories, read from a CSV with one row per source label.
 
     Required columns: `source_label`, `role` (crop/weed) and one column per taxonomy whose
-    values are category names. An empty taxonomy value marks labels to be ignored. Any other
-    columns (common name, scientific name, ...) are kept for the category metadata.
+    values are category names. An empty taxonomy value marks labels to be ignored. Optional
+    `one_of` and `none_of` narrow down a label coarser than species (weedseg.eppo.LIMIT_COLUMNS).
+    Any other columns (common name, scientific name, ...) are kept for the category metadata.
 
     The taxonomies `genus`, `family` and `order` need no column: they come from the `eppo`
     column and the EPPO taxa table (`taxa`, see weedseg.eppo.load_taxa). They group weeds
@@ -88,6 +89,12 @@ class LabelMap:
         if source_label not in self.rows:
             raise KeyError(f"Source label {source_label!r} missing from the label map")
         return self.rows[source_label][self.taxonomy] or IGNORE_CATEGORY
+
+    def limits(self, source_label: str) -> dict[str, list[str]]:
+        """The label's `one_of` and `none_of` EPPO codes, those it has."""
+        row = self.rows[source_label]
+        return {column: row[column].split() for column in LIMIT_COLUMNS
+                if (row.get(column) or "").strip()}
 
     def categories(self) -> list[dict[str, Any]]:
         """COCO categories of the selected taxonomy, ignore category last."""
@@ -189,6 +196,7 @@ def to_coco(records: Iterable[ImageRecord], label_map: LabelMap, info: dict[str,
             box_only: bool = False) -> dict[str, Any]:
     """Build a COCO dict. Ignored instances, and those mapped to the ignore category, get
     `iscrowd = 1`, so COCO evaluation neither rewards nor penalises detections on them.
+    The label map's `one_of` and `none_of` go into each annotation of that label.
     `box_only` marks every image BOX_ONLY, for a dataset labelled without masks."""
     categories = label_map.categories()
     category_ids = {c["name"]: c["id"] for c in categories}
@@ -210,6 +218,7 @@ def to_coco(records: Iterable[ImageRecord], label_map: LabelMap, info: dict[str,
                 "area": float((x1 - x0) * (y1 - y0)),
                 "iscrowd": int(instance.ignore or category == IGNORE_CATEGORY),
                 "source_label": instance.source_label,
+                **label_map.limits(instance.source_label),
                 **instance.attributes,
             }
             if instance.mask is not None:

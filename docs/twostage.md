@@ -21,7 +21,7 @@ datasets that label species with boxes only (GROUNDBASED_WEED, OPPD).
 `scripts/run_twostage.py` runs steps 1-7 in order (settings: `configs/run_twostage.yaml`, the
 list of steps), e.g. overnight on the training machine. Each step reads its own config;
 the runner only orders them, after checking that the configs use the same data (see below).
-Re-running is safe: crops already cut are skipped and trainings resume from `last.pt`
+Re-running is safe: crops already cut for the same data are skipped and trainings resume from `last.pt`
 (saved every `train.checkpoint_every` steps; a finished training does nothing).
 
 **Crashes.** Each step runs in a process of its own. When that process crashes, e.g. the
@@ -87,9 +87,9 @@ For the datasets planned on 2026-10-21:
 | | CropAndWeed, ACRE (masks, species) | PhenoBench (masks; weeds without species) | GROUNDBASED_WEED, OPPD (boxes, species) |
 |---|---|---|---|
 | Detector | yes | every plant | no |
-| Classifier | yes | sugar beets | yes |
+| Classifier | yes | sugar beets; weeds as "not sugar beet" ([partial labels](#partial-labels)) | yes |
 | Evaluation of both stages (step 7) | yes | sugar beets; step 4 also counts its weeds | not yet |
-| Evaluation of the classifier (step 6) | yes | sugar beets | yes |
+| Evaluation of the classifier (step 6) | yes | sugar beets; weeds by `label_fit` | yes |
 
 - The species Mask R-CNN can't learn from box-only datasets: it stays the reference trained
   on CropAndWeed + ACRE ([maskrcnn.md](maskrcnn.md)). Compare it with the two-stage pipeline
@@ -109,11 +109,13 @@ A plant's crop is a square centred on its box, with `crops.margin` (25%) of the 
 side as context on each side, resized to `crops.input_size` (224 px). Crops at image edges are
 padded with the ImageNet mean grey.
 
-**Cache.** `prepare_crops.py` cuts every labelled plant once, 1.5 times larger than the crop
-(`cache_context`, room for box jitter), with its mask:
+**Cache.** `prepare_crops.py` cuts every labelled plant once, and every plant with a partial
+label, 1.5 times larger than the crop (`cache_context`, room for box jitter), with its mask:
 `<data.dir>/crops_margin<m>_size<s>_context<c>/<split>/<annotation id>.jpg|.png` plus
-`index_<split>.csv` (class, EPPO code, size in mm, dataset). Changing margin, size or context
-makes a new cache folder next to the old one.
+`index_<split>.csv` (class, EPPO code, size in mm, dataset, and the allowed classes of a
+partial label). Changing margin, size or context makes a new cache folder next to the old
+one. A split whose index no longer matches the data (re-combined, a dataset added or
+re-converted) is cut again; one that matches is skipped.
 
 **Training augmentation:** box jitter (crop side ±20%, centre ±10% of the box), so a model
 trained on labelled boxes copes with the detector's; flips and 90° rotations (top-down images
@@ -142,7 +144,59 @@ detector: accuracy and balanced accuracy, per class, confusion matrix, `taxonomi
 (compare with the species model's, which also counts only plants it found), accuracy by plant
 size (`accuracy_by_size.csv`, to see whether small plants suffer from their neighbours),
 accuracy per source dataset (`accuracy_by_dataset.csv`, for a split that combines several)
-and `predictions.csv`.
+and `predictions.csv`. Plants with partial labels are left out of all of these; they have
+their own files (next section).
+
+### Partial labels
+
+Up to run 2 (2026-10-23) the classifier saw only plants labelled with their class. That
+taught it a shortcut: PhenoBench labels only sugar beet with a species (its weeds are
+`1PLAK` ignore regions), so every PhenoBench-like crop it saw was a beet, and it called
+**all** 3,090 PhenoBench val weeds sugar beet, with the median probability of the real
+beets (0.91). Images that look like PhenoBench's would get the same answer in the field.
+
+Since 2026-10-26 (`data.partial_labels: true`), plants hidden by the choice of classes train
+the classifier with what their label still says ([data-format.md](data-format.md#partial-labels)):
+a PhenoBench weed is anything but sugar beet, a CropAndWeed *Poa* is `POAAN` or
+`other_plant`. The loss is minus the log of the probability the classifier gives to all the
+allowed classes together (`PartialLabelLoss`), which for one allowed class is the usual
+cross-entropy. So the classifier is pushed off the forbidden classes without being told
+which allowed class is right. Label smoothing applies to these plants as to the others.
+`false` leaves them out, as before.
+
+On the five datasets (2026-10-26, 68 species classes), the partial labels add 12,413
+training plants and 4,916 val plants (plants of at least 20 mm, val in brackets):
+
+| Dataset, label | Allowed classes | Train (val) |
+|---|---|---|
+| PhenoBench weeds | every class but `BEAVA` | 5,967 (3,090) |
+| OPPD dicots of unknown species (`PPPDD`) | every class but the 14 monocot ones (grasses, `CYPRO`, `ZEAMX`) | 2,732 (926) |
+| CropAndWeed *Poa* (genus only) | `POAAN`, `other_plant` | 1,645 (254) |
+| OPPD monocots of unknown species (`PPPMM`) | the 14 monocot classes, `other_plant` | 1,130 (295) |
+| CropAndWeed *Geranium* | `GERMO`, `GERPU`, `other_plant` | 438 (24) |
+| ACRE plants without a name, class "weed" | every class but ACRE's crops (`PHSVX`, `ZEAMX`, `VICFX`, `PIBSX`) | 361 (216) |
+| OPPD Asteraceae (family only) | the 10 Asteraceae classes, `other_plant` | 95 (71) |
+| ACRE plants without a name, class "crop" | `PHSVX`, `ZEAMX`, `VICFX`, `PIBSX` | 16 (7) |
+| CropAndWeed *Veronica*, *Sisymbrium*; ACRE *Digitaria*, *Setaria* | the genus's classes, `other_plant` | 29 (8) |
+| CropAndWeed crop poppy (*Papaver*) | `other_plant` (a crop, so not the weed `PAPRH`) | 0 (25) |
+
+The CropAndWeed *Poa* and *Geranium* plants trained as `other_plant` in run 1
+(CropAndWeed+ACRE); OPPD made `POAAN` and `GERMO` classes, which turned them into ignore
+regions (rule 3), so run 2 learnt *Poa annua* almost only from OPPD's greenhouse trays.
+Plants whose label allows every class stay out: GROUNDBASED_WEED's `NR` (472 training
+plants) and ACRE's "unknow" plants.
+
+**Scoring.** These plants can't be right or wrong, but the predicted class can fit the label
+or not. The share that fits is `val_partial_label_fit` in `metrics.jsonl` during training,
+and `partial_label_fit` in the evaluation's `metrics.json`. `partial_labels.csv` gives it per
+dataset and label, with the classes most often predicted (run 2: 0% of the PhenoBench weeds
+fit, 100% called `BEAVA`); `partial_predictions.csv` has one row per crop. The export's
+README shows the same table. The best epoch is still chosen by val accuracy alone.
+
+What this doesn't fix: species seen in a single dataset can still be told apart by the
+dataset's look rather than the plant, e.g. *Setaria verticillata* (GROUNDBASED_WEED only)
+and *Setaria viridis* (CropAndWeed only). Only more sources of those species help there;
+`accuracy_by_dataset.csv` and the confusion matrix show it.
 
 ## Prediction
 

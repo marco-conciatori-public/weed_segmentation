@@ -87,6 +87,8 @@ Standard COCO fields, plus these extras:
 | annotation | `source_label` | The label as written in the source dataset. |
 | annotation | `iscrowd` | 1 = **ignore region**, see below. |
 | annotation | `hidden_plant` | Set by combining on plants that are ignore regions only because of the choice of classes (rule 3 below); the two-stage detector learns them as plants. |
+| annotation | `one_of`, `none_of` | From the label map: EPPO codes of taxa the plant belongs to one of, or to none of (see below). |
+| annotation | `allowed_classes` | Set by combining on hidden plants whose label rules out some classes: the classes they may belong to, a [partial label](#partial-labels) for the species classifier. |
 | category | `supercategory` | `crop`, `weed`, `mixed` or `ignore`. |
 | category | `source_labels`, `common_names`, `scientific_names` | What the category was built from. |
 
@@ -112,11 +114,23 @@ Standard COCO fields, plus these extras:
   Choosing a coarser grouping only takes a re-conversion, never relabelling.
 - **Plants of unknown species** use the code of the plant kingdom, `1PLAK` (*Plantae*), e.g.
   PhenoBench's weeds, which are labelled one plant at a time but only as "weed". They
-  can't train the species classes (they become ignore regions there, rule 3 below), but
-  the plant detector of the two-stage pipeline learns from them ([twostage.md](twostage.md)).
-  Use `1PLAK` only when each label is one whole plant. Its role may be `unknown` (e.g.
-  ACRE's "unknown" plants, some of which the annotators called crops). Unclear areas
-  (e.g. CropAndWeed's "Vegetation") get no code and stay ignore regions everywhere.
+  have no class of their own (they become ignore regions in the species files, rule 3
+  below), but the plant detector of the two-stage pipeline learns from them
+  ([twostage.md](twostage.md)), and so does the species classifier when their label rules
+  out some classes ([partial labels](#partial-labels)). Use `1PLAK` only when each label is
+  one whole plant. Its role may be `unknown` (e.g. ACRE's "unknown" plants, some of which
+  the annotators called crops). Unclear areas (e.g. CropAndWeed's "Vegetation") get no code
+  and stay ignore regions everywhere.
+- **What a coarse label still says** goes into the optional columns `one_of` and `none_of`:
+  EPPO codes separated by spaces, of rank species to order (the taxa table records which
+  species those hold). The plant belongs to one of the `one_of` taxa and to none of the
+  `none_of` taxa. PhenoBench's weeds are `1PLAK` with `none_of` `BEAVA`: whatever they are,
+  not sugar beet. OPPD's monocots of unknown species are `one_of` the 11 monocot orders, its
+  dicots `none_of` them (EPPO has no single monocot taxon: its monocots are two clades,
+  Commelinids and Basal monocotyledons). ACRE's plants without a name keep the annotators'
+  class in their source label, e.g. `inconnu (weed)`, which is `none_of` the dataset's
+  crops. A genus or family label needs neither column: the taxonomy says which classes it
+  holds. The converter copies the columns into each annotation of that label.
 
 ## Combining datasets and choosing the classes
 
@@ -139,6 +153,28 @@ The decisions are printed and saved to `classes.txt`. The output goes to
 own EPPO code in an `eppo` field, whatever class it ends up in; image file names become
 paths from the project root (`info.image_dir` is "."), and `info.licences` lists the
 licences of all the datasets, since the most restrictive one applies to the combination.
+
+### Partial labels
+
+A plant hidden by rule 3 has no class, but its label may still rule out some classes.
+Combining then gives it `allowed_classes`, the classes it may belong to, and the species
+classifier learns from it that it is one of those, without being told which
+([twostage.md](twostage.md#partial-labels); added 2026-10-26 after the classifier had
+learnt to call every PhenoBench-like plant sugar beet):
+
+- A genus, family or order code allows the classes in that taxon: CropAndWeed's *Poa* can
+  be `POAAN` or `other_plant`. When the label is a crop or a weed, only classes of the same
+  role: CropAndWeed's crop poppy (*Papaver*, genus only) is not the weed *Papaver rhoeas*,
+  so it can only be `other_plant`.
+- A code above order allows every class, narrowed down by `one_of` and `none_of`.
+- `other_plant` is always allowed (a species without a class of its own), unless `one_of`
+  lists only species that are all classes.
+- A plant whose label allows every class (ACRE's "unknow", GROUNDBASED_WEED's `NR`) gets no
+  partial label: it stays a plain ignore region for the classifier.
+
+The partial labels of the training split are listed at the end of `classes.txt`, and
+`info.partial_labels` counts them in each split. Mask R-CNN and every evaluation of
+detections still treat these plants as ignore regions.
 
 ## Datasets labelled with boxes only
 
@@ -165,7 +201,8 @@ and evaluation with an error, so a converter that forgets the mark is noticed.
 With per-species classes, species too rare to learn and labels coarser than species (e.g.
 genus only) share one `other_plant` category (supercategory `other`). It is a normal class:
 the model learns to find these plants, and at inference they go to a generic model. It is
-not for unidentified plants: those may belong to any class and stay ignore regions.
+not for unidentified plants: those may belong to any class and stay ignore regions (with a
+partial label for the classifier when their label rules out some classes).
 
 ## Ignore regions
 

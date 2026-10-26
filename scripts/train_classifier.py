@@ -1,6 +1,10 @@
 """Train the species classifier on cached plant crops. Settings: configs/classifier.yaml
 (all sections but `evaluate`). Run scripts/prepare_crops.py first.
 
+With `data.partial_labels`, plants whose label only rules out some classes (e.g.
+PhenoBench's weeds: not sugar beet) train as "one of the allowed classes" (PartialLabelLoss)
+and are scored on val by the share whose predicted class fits (`val_partial_label_fit`).
+
 Outputs go to <output_dir>/<run_name>/: last.pt (to resume), best.pt (best val accuracy),
 metrics.jsonl (one line per epoch) and tensorboard/ (`uv run tensorboard --logdir runs`).
 Re-running continues from last.pt, which is also saved every `train.checkpoint_every` steps
@@ -18,7 +22,13 @@ from torch.utils.tensorboard import SummaryWriter
 
 from weedseg.classifier.crops import cache_dir, read_index
 from weedseg.classifier.data import CropDataset, sample_weights
-from weedseg.classifier.engine import accuracy_metrics, predict_probs, train_one_epoch
+from weedseg.classifier.engine import (
+    PartialLabelLoss,
+    accuracy_metrics,
+    label_fit,
+    predict_probs,
+    train_one_epoch,
+)
 from weedseg.classifier.model import build_classifier, parameter_groups
 from weedseg.config import load_config
 from weedseg.maskrcnn.data import load_coco, model_categories
@@ -55,11 +65,13 @@ def main(config_path: str = CONFIG) -> None:
         if not index.exists():
             raise SystemExit(f"No crop cache {index}; run scripts/prepare_crops.py first")
         rows[split] = read_index(index)
+        if not data["partial_labels"]:
+            rows[split] = [row for row in rows[split] if not row["allowed"]]
         if limit is not None and limit < len(rows[split]):
             rows[split] = random.Random(config["seed"]).sample(rows[split], limit)
     train_set = CropDataset(rows["train"], folder / "train", classes, crops, config["augment"])
     val_set = CropDataset(rows["val"], folder / "val", classes, crops)
-    weights = sample_weights(train_set.labels, train["balance"])
+    weights = sample_weights(train_set.balance_keys(), train["balance"])
     sampler = EpochSampler(len(train_set), config["seed"], weights)
     loader_options = {"num_workers": data["num_workers"], "pin_memory": device.type == "cuda",
                       "persistent_workers": data["num_workers"] > 0}
@@ -67,7 +79,10 @@ def main(config_path: str = CONFIG) -> None:
                               **loader_options)
     steps_per_epoch = len(train_set) // train["batch_size"]
     val_loader = DataLoader(val_set, train["eval_batch_size"], **loader_options)
-    print(f"{len(train_set)} train / {len(val_set)} val crops, {len(classes)} classes: "
+    partial_counts = {name: sum(label < 0 for label in dataset.labels)
+               for name, dataset in (("train", train_set), ("val", val_set))}
+    print(f"{len(train_set)} train / {len(val_set)} val crops (with partial labels: "
+          f"{partial_counts['train']} / {partial_counts['val']}), {len(classes)} classes: "
           f"{', '.join(classes)}")
 
     model = build_classifier(len(classes), config["model"], crops["input_size"]).to(device)
@@ -76,7 +91,7 @@ def main(config_path: str = CONFIG) -> None:
     scheduler = torch.optim.lr_scheduler.LambdaLR(
         optimizer, warmup_cosine(train["epochs"] * steps_per_epoch, train["warmup_steps"]))
     scaler = torch.amp.GradScaler(device.type, enabled=amp)
-    criterion = torch.nn.CrossEntropyLoss(label_smoothing=train["label_smoothing"])
+    criterion = PartialLabelLoss(train["label_smoothing"])
 
     start_epoch, step, best, partial = 0, 0, -1.0, None
     last_path, best_path = run_dir / "last.pt", run_dir / "best.pt"
@@ -123,7 +138,11 @@ def main(config_path: str = CONFIG) -> None:
         partial = None
         record = {"epoch": epoch, "step": step} | {f"train_{k}": v for k, v in result.items()}
         probs, labels = predict_probs(model, val_loader, device, amp)
-        for name, value in accuracy_metrics(probs, labels, len(classes)).items():
+        metrics = accuracy_metrics(probs, labels, len(classes))
+        if partial_counts["val"]:
+            metrics["partial_label_fit"] = label_fit(
+                probs[labels < 0].argmax(1), [a for a in val_set.allowed if a])
+        for name, value in metrics.items():
             record[f"val_{name}"] = value
             writer.add_scalar(f"val/{name}", value, step)
         if record["val_accuracy"] > best:

@@ -1,53 +1,53 @@
-source_label,common_name,scientific_name,name_source,eppo,eppo_note,role,species
-1COMF,Daisy family,Asteraceae,eppo,1COMF,,weed,1COMF
-1PLAK,Plant of unknown species,Plantae,eppo,1PLAK,One plant of unknown species,weed,1PLAK
-3UNCLK,Unclassified,,eppo,,EPPO 3UNCLK (Unclassified) is not a plant taxon,unknown,
-ALOMY,Blackgrass,Alopecurus myosuroides,dataset,ALOMY,,weed,ALOMY
-ANGAR,Scarlet pimpernel,Anagallis arvensis,dataset,ANGAR,,weed,ANGAR
-APESV,Loose silky-bent,Apera spica-venti,dataset,APESV,,weed,APESV
-ARTVU,Common mugwort,Artemisia vulgaris,dataset,ARTVU,,weed,ARTVU
-AVEFA,Common wild oat,Avena fatua,dataset,AVEFA,,weed,AVEFA
-BROST,Barren brome,Bromus sterilis,dataset,BROST,,weed,BROST
-BRSNN,Rapeseed,Brassica napus,dataset,BRSNN,,weed,BRSNN
-CAPBP,Shepherd's purse,Capsella bursa-pastoris,dataset,CAPBP,,weed,CAPBP
-CENCY,Cornflower,Cyanus segetum,dataset,CENCY,,weed,CENCY
-CHEAL,Fat-hen,Chenopodium album,dataset,CHEAL,,weed,CHEAL
-CHYSE,Corn marigold,Glebionis segetum,dataset,CHYSE,,weed,CHYSE
-CIRAR,Creeping thistle,Cirsium arvense,dataset,CIRAR,,weed,CIRAR
-CONAR,Field bindweed,Convolvulus arvensis,dataset,CONAR,,weed,CONAR
-EPHHE,Umbrella milkweed,Euphorbia helioscopia,dataset,EPHHE,,weed,EPHHE
-EPHPE,Stinging milkweed,Euphorbia peplus,dataset,EPHPE,,weed,EPHPE
-EROCI,Common stork's-bill,Erodium cicutarium,dataset,EROCI,,weed,EROCI
-FUMOF,Common fumitory,Fumaria officinalis,dataset,FUMOF,,weed,FUMOF
-GALAP,Cleavers,Galium aparine,dataset,GALAP,,weed,GALAP
-GERMO,Dove's-foot crane's-bill,Geranium molle,dataset,GERMO,,weed,GERMO
-LAPCO,Nipplewort,Lapsana communis,dataset,LAPCO,,weed,LAPCO
-LOLMU,Italian ryegrass,Lolium multiflorum,dataset,LOLMU,,weed,LOLMU
-LYCAR,Common bugloss,Anchusa arvensis,dataset,LYCAR,,weed,LYCAR
-MATCH,Scented mayweed,Matricaria chamomilla,dataset,MATCH,,weed,MATCH
-MATIN,Scentless mayweed,Tripleurospermum inodorum,dataset,MATIN,,weed,MATIN
-MELNO,Night-flowering catchfly,Silene noctiflora,dataset,MELNO,,weed,MELNO
-MYOAR,Field forget-me-not,Myosotis arvensis,dataset,MYOAR,,weed,MYOAR
-PAPRH,Common poppy,Papaver rhoeas,dataset,PAPRH,,weed,PAPRH
-PLALA,Narrowleaf plantain,Plantago lanceolata,dataset,PLALA,,weed,PLALA
-PLAMA,Broadleaf plantain,Plantago major,dataset,PLAMA,,weed,PLAMA
-POAAN,Annual bluegrass,Poa annua,dataset,POAAN,,weed,POAAN
-POLAV,Prostrate knotweed,Polygonum aviculare,dataset,POLAV,,weed,POLAV
-POLCO,Black bindweed,Fallopia convolvulus,dataset,POLCO,,weed,POLCO
-POLLA,Pale smartweed,Persicaria lapathifolia,dataset,POLLA,,weed,POLLA
-POLPE,Redshank,Persicaria maculosa,dataset,POLPE,,weed,POLPE
-PPPDD,Dicot of unknown species,Plantae,eppo,1PLAK,OPPD's PPPDD (EPPO: dicotyledonous plants); one plant not identified to species,weed,1PLAK
-PPPMM,Monocot of unknown species,Plantae,eppo,1PLAK,OPPD's PPPMM (EPPO: monocotyledonous plants); one plant not identified to species,weed,1PLAK
-RUMCR,Curly dock,Rumex crispus,dataset,RUMCR,,weed,RUMCR
-SENVU,Common groundsel,Senecio vulgaris,dataset,SENVU,,weed,SENVU
-SINAR,Charlock,Sinapis arvensis,eppo,SINAR,,weed,SINAR
-SOLNI,Black nightshade,Solanum nigrum,dataset,SOLNI,,weed,SOLNI
-SONAS,Spiny sowthistle,Sonchus asper,eppo,SONAS,,weed,SONAS
-SONOL,Common sowthistle,Sonchus oleraceus,dataset,SONOL,,weed,SONOL
-STEME,Common chickweed,Stellaria media,dataset,STEME,,weed,STEME
-THLAR,Field penny-cress,Thlaspi arvense,dataset,THLAR,,weed,THLAR
-URTUR,Small nettle,Urtica urens,dataset,URTUR,,weed,URTUR
-VERAR,Corn speedwell,Veronica arvensis,dataset,VERAR,,weed,VERAR
-VERPE,Common field speedwell,Veronica persica,dataset,VERPE,,weed,VERPE
-VICHI,Common hairy tare,Vicia hirsuta,dataset,VICHI,,weed,VICHI
-VIOAR,Field pansy,Viola arvensis,dataset,VIOAR,,weed,VIOAR
+source_label,common_name,scientific_name,name_source,eppo,eppo_note,role,species,one_of,none_of
+1COMF,Daisy family,Asteraceae,eppo,1COMF,,weed,1COMF,,
+1PLAK,Plant of unknown species,Plantae,eppo,1PLAK,One plant of unknown species,weed,1PLAK,,
+3UNCLK,Unclassified,,eppo,,EPPO 3UNCLK (Unclassified) is not a plant taxon,unknown,,,
+ALOMY,Blackgrass,Alopecurus myosuroides,dataset,ALOMY,,weed,ALOMY,,
+ANGAR,Scarlet pimpernel,Anagallis arvensis,dataset,ANGAR,,weed,ANGAR,,
+APESV,Loose silky-bent,Apera spica-venti,dataset,APESV,,weed,APESV,,
+ARTVU,Common mugwort,Artemisia vulgaris,dataset,ARTVU,,weed,ARTVU,,
+AVEFA,Common wild oat,Avena fatua,dataset,AVEFA,,weed,AVEFA,,
+BROST,Barren brome,Bromus sterilis,dataset,BROST,,weed,BROST,,
+BRSNN,Rapeseed,Brassica napus,dataset,BRSNN,,weed,BRSNN,,
+CAPBP,Shepherd's purse,Capsella bursa-pastoris,dataset,CAPBP,,weed,CAPBP,,
+CENCY,Cornflower,Cyanus segetum,dataset,CENCY,,weed,CENCY,,
+CHEAL,Fat-hen,Chenopodium album,dataset,CHEAL,,weed,CHEAL,,
+CHYSE,Corn marigold,Glebionis segetum,dataset,CHYSE,,weed,CHYSE,,
+CIRAR,Creeping thistle,Cirsium arvense,dataset,CIRAR,,weed,CIRAR,,
+CONAR,Field bindweed,Convolvulus arvensis,dataset,CONAR,,weed,CONAR,,
+EPHHE,Umbrella milkweed,Euphorbia helioscopia,dataset,EPHHE,,weed,EPHHE,,
+EPHPE,Stinging milkweed,Euphorbia peplus,dataset,EPHPE,,weed,EPHPE,,
+EROCI,Common stork's-bill,Erodium cicutarium,dataset,EROCI,,weed,EROCI,,
+FUMOF,Common fumitory,Fumaria officinalis,dataset,FUMOF,,weed,FUMOF,,
+GALAP,Cleavers,Galium aparine,dataset,GALAP,,weed,GALAP,,
+GERMO,Dove's-foot crane's-bill,Geranium molle,dataset,GERMO,,weed,GERMO,,
+LAPCO,Nipplewort,Lapsana communis,dataset,LAPCO,,weed,LAPCO,,
+LOLMU,Italian ryegrass,Lolium multiflorum,dataset,LOLMU,,weed,LOLMU,,
+LYCAR,Common bugloss,Anchusa arvensis,dataset,LYCAR,,weed,LYCAR,,
+MATCH,Scented mayweed,Matricaria chamomilla,dataset,MATCH,,weed,MATCH,,
+MATIN,Scentless mayweed,Tripleurospermum inodorum,dataset,MATIN,,weed,MATIN,,
+MELNO,Night-flowering catchfly,Silene noctiflora,dataset,MELNO,,weed,MELNO,,
+MYOAR,Field forget-me-not,Myosotis arvensis,dataset,MYOAR,,weed,MYOAR,,
+PAPRH,Common poppy,Papaver rhoeas,dataset,PAPRH,,weed,PAPRH,,
+PLALA,Narrowleaf plantain,Plantago lanceolata,dataset,PLALA,,weed,PLALA,,
+PLAMA,Broadleaf plantain,Plantago major,dataset,PLAMA,,weed,PLAMA,,
+POAAN,Annual bluegrass,Poa annua,dataset,POAAN,,weed,POAAN,,
+POLAV,Prostrate knotweed,Polygonum aviculare,dataset,POLAV,,weed,POLAV,,
+POLCO,Black bindweed,Fallopia convolvulus,dataset,POLCO,,weed,POLCO,,
+POLLA,Pale smartweed,Persicaria lapathifolia,dataset,POLLA,,weed,POLLA,,
+POLPE,Redshank,Persicaria maculosa,dataset,POLPE,,weed,POLPE,,
+PPPDD,Dicot of unknown species,Plantae,eppo,1PLAK,OPPD's PPPDD (EPPO: dicotyledonous plants); one plant not identified to species; none_of = the monocot orders,weed,1PLAK,,1ACOO 1ALIO 1AREO 1ASGO 1CMMO 1DIOO 1LILO 1PANO 1PESO 1POAO 1ZINO
+PPPMM,Monocot of unknown species,Plantae,eppo,1PLAK,OPPD's PPPMM (EPPO: monocotyledonous plants); one plant not identified to species; one_of = the monocot orders,weed,1PLAK,1ACOO 1ALIO 1AREO 1ASGO 1CMMO 1DIOO 1LILO 1PANO 1PESO 1POAO 1ZINO,
+RUMCR,Curly dock,Rumex crispus,dataset,RUMCR,,weed,RUMCR,,
+SENVU,Common groundsel,Senecio vulgaris,dataset,SENVU,,weed,SENVU,,
+SINAR,Charlock,Sinapis arvensis,eppo,SINAR,,weed,SINAR,,
+SOLNI,Black nightshade,Solanum nigrum,dataset,SOLNI,,weed,SOLNI,,
+SONAS,Spiny sowthistle,Sonchus asper,eppo,SONAS,,weed,SONAS,,
+SONOL,Common sowthistle,Sonchus oleraceus,dataset,SONOL,,weed,SONOL,,
+STEME,Common chickweed,Stellaria media,dataset,STEME,,weed,STEME,,
+THLAR,Field penny-cress,Thlaspi arvense,dataset,THLAR,,weed,THLAR,,
+URTUR,Small nettle,Urtica urens,dataset,URTUR,,weed,URTUR,,
+VERAR,Corn speedwell,Veronica arvensis,dataset,VERAR,,weed,VERAR,,
+VERPE,Common field speedwell,Veronica persica,dataset,VERPE,,weed,VERPE,,
+VICHI,Common hairy tare,Vicia hirsuta,dataset,VICHI,,weed,VICHI,,
+VIOAR,Field pansy,Viola arvensis,dataset,VIOAR,,weed,VIOAR,,

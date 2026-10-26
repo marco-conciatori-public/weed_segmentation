@@ -14,7 +14,9 @@ datasets:
 # A species needs at least this many training images, over all datasets, to be a class.
 # Rarer species become one "other_plant" class (handed to a generic model at inference).
 # Genus-only labels also go to other_plant, or become ignore regions when one of their
-# species is a class. Decisions are printed and saved to classes.txt.
+# species is a class; the classifier still learns those as "one of the classes the label
+# allows" (partial labels, docs/data-format.md). Decisions are printed and saved to
+# classes.txt.
 min_train_images: 50
 eppo_taxa: configs/eppo_taxa.csv
 # Output: <output_dir>/<dataset names joined by +>/species_min<N>img[_min<size>mm], e.g.

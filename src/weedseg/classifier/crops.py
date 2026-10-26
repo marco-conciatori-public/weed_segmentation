@@ -4,10 +4,12 @@ A plant's crop is a square centred on its box, with `margin` times the box's lon
 context on each side. The same geometry serves training (cut from the cache) and the
 two-stage prediction (cut from the full image around each detection).
 
-The cache holds every labelled plant of a species split, cut once from the full images
+The cache holds every labelled plant of a species split, and every hidden plant with a
+partial label (`allowed_classes`, see weedseg.data.combine), cut once from the full images
 with `cache_context` times the crop's side (room for box jitter in training) and resized to
 `input_size * cache_context` px: <cache dir>/<split>/<annotation id>.jpg, the plant's mask
-as <annotation id>.png, and index_<split>.csv.
+as <annotation id>.png, and index_<split>.csv. A partly labelled plant has the category
+`ignore` there and its classes in the `allowed` column (separated by spaces).
 """
 
 import csv
@@ -26,7 +28,8 @@ from weedseg.data.coco import IGNORE_CATEGORY, decode_mask
 # DINOv2's normalisation maps to 0.
 FILL_RGB = (124, 116, 104)
 BACKGROUNDS = ("keep", "dim", "blank")
-INDEX_COLUMNS = ["annotation_id", "image_id", "category", "eppo", "size_mm", "dataset"]
+INDEX_COLUMNS = ["annotation_id", "image_id", "category", "eppo", "size_mm", "dataset",
+                 "allowed"]
 
 
 def square_window(box: list[float], margin: float, scale: float = 1.0,
@@ -90,13 +93,40 @@ def cache_size(settings: dict[str, Any]) -> int:
 
 
 def plants_to_cache(coco: dict[str, Any]) -> dict[int, list[dict[str, Any]]]:
-    """Labelled plants (not ignore regions) per image id."""
+    """Labelled plants (not ignore regions) and plants with a partial label, per image id."""
     ignore_ids = {c["id"] for c in coco["categories"] if c["name"] == IGNORE_CATEGORY}
     plants = defaultdict(list)
     for annotation in coco["annotations"]:
-        if not annotation.get("iscrowd") and annotation["category_id"] not in ignore_ids:
+        labelled = not annotation.get("iscrowd") and annotation["category_id"] not in ignore_ids
+        if labelled or annotation.get("allowed_classes"):
             plants[annotation["image_id"]].append(annotation)
     return plants
+
+
+def index_row(annotation: dict[str, Any], info: dict[str, Any],
+              names: dict[int, str]) -> dict[str, Any]:
+    """The index row of a cached plant; `info` is its image."""
+    mm_per_px = info.get("mm_per_px")
+    return {
+        "annotation_id": annotation["id"], "image_id": info["id"],
+        "category": names[annotation["category_id"]], "eppo": annotation.get("eppo", ""),
+        "size_mm": round(max(annotation["bbox"][2:]) * mm_per_px, 1) if mm_per_px else "",
+        "dataset": info.get("dataset", ""),
+        "allowed": " ".join(annotation.get("allowed_classes", [])),
+    }
+
+
+def index_is_current(path: Path, coco: dict[str, Any]) -> bool:
+    """Whether the index at `path` lists exactly the plants `coco` has to cache, with the
+    same class, code, size and dataset. An index made from another version of the data (e.g.
+    before a dataset was added or re-converted) is not."""
+    images = {info["id"]: info for info in coco["images"]}
+    names = {c["id"]: c["name"] for c in coco["categories"]}
+    expected = [{key: str(value) for key, value in index_row(a, images[image_id], names).items()}
+                for image_id, annotations in plants_to_cache(coco).items() for a in annotations]
+    expected.sort(key=lambda row: int(row["annotation_id"]))
+    with open(path, newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f)) == expected
 
 
 def _cache_image(job: tuple) -> list[dict[str, Any]]:
@@ -122,21 +152,14 @@ def _cache_image(job: tuple) -> list[dict[str, Any]]:
         stem = out_dir / str(annotation["id"])
         cv2.imwrite(f"{stem}.jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, settings["cache_quality"]])
         cv2.imwrite(f"{stem}.png", crop_mask)
-        mm_per_px = info.get("mm_per_px")
-        rows.append({
-            "annotation_id": annotation["id"], "image_id": info["id"],
-            "category": names[annotation["category_id"]], "eppo": annotation.get("eppo", ""),
-            "size_mm": (round(max(annotation["bbox"][2:]) * mm_per_px, 1)
-                        if mm_per_px else ""),
-            "dataset": info.get("dataset", ""),
-        })
+        rows.append(index_row(annotation, info, names))
     return rows
 
 
 def write_cache(coco: dict[str, Any], image_dir: Path, out_dir: Path, settings: dict[str, Any],
                 num_workers: int = 0) -> Path:
-    """Cut every labelled plant of `coco` into `out_dir`; returns the index CSV path
-    (`out_dir`'s parent / index_<out_dir name>.csv)."""
+    """Cut every plant of `coco` to cache (`plants_to_cache`) into `out_dir`; returns the
+    index CSV path (`out_dir`'s parent / index_<out_dir name>.csv)."""
     out_dir.mkdir(parents=True, exist_ok=True)
     names = {c["id"]: c["name"] for c in coco["categories"]}
     plants = plants_to_cache(coco)
@@ -162,9 +185,11 @@ def write_cache(coco: dict[str, Any], image_dir: Path, out_dir: Path, settings: 
 
 
 def read_index(path: Path) -> list[dict[str, Any]]:
+    """Index rows, `allowed` as a list (empty for a plant labelled with its class)."""
     with open(path, newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     for row in rows:
         row["annotation_id"], row["image_id"] = int(row["annotation_id"]), int(row["image_id"])
         row["size_mm"] = float(row["size_mm"]) if row["size_mm"] else None
+        row["allowed"] = (row.get("allowed") or "").split()
     return rows
