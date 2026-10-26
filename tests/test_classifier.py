@@ -1,5 +1,7 @@
 import copy
 import csv
+import random
+from collections import Counter
 
 import cv2
 import numpy as np
@@ -16,10 +18,11 @@ from weedseg.classifier.crops import (
     square_window,
     write_cache,
 )
-from weedseg.classifier.data import CropDataset, jitter_mask, sample_weights
+from weedseg.classifier.data import CropDataset, jitter_mask, lower_detail, sample_weights
 from weedseg.classifier.engine import (
     PartialLabelLoss,
     accuracy_metrics,
+    class_by_dataset,
     label_fit,
     train_one_epoch,
 )
@@ -30,7 +33,9 @@ from weedseg.maskrcnn.engine import EpochSampler
 CROPS = {"margin": 0.25, "input_size": 28, "cache_context": 1.5, "cache_quality": 95,
          "background": "keep", "dim_factor": 0.3}
 AUGMENT = {"flips": True, "rotate90": True, "color_jitter": {"brightness": 0.2},
-           "box_scale": 0.2, "box_shift": 0.1, "mask_jitter_px": 2}
+           "box_scale": 0.2, "box_shift": 0.1, "mask_jitter_px": 2,
+           "detail_p": 1.0, "max_mm_per_px": 1.2, "blur_p": 0.5, "blur_sigma": [0.3, 1.0],
+           "jpeg_p": 0.5, "jpeg_quality": [40, 90]}
 # A tiny ViT with DINOv2's layout (patch 14, register-free), randomly initialised.
 TINY_MODEL = {"backbone": "vit_small_patch14_dinov2.lvd142m", "pretrained": False,
               "pretrained_path": None, "freeze_blocks": 0, "drop_path": 0.0}
@@ -139,6 +144,65 @@ def test_crop_dataset_samples(cache, background):
         CropDataset(rows, folder / "train", ["SETVI", "other_plant"], CROPS)
     with pytest.raises(ValueError, match="other_plant"):
         CropDataset(rows, folder / "train", ["SETVI", "ZEAMX"], CROPS)
+
+
+def test_crop_detail_is_the_coarser_of_source_cache_and_input(cache):
+    folder, rows, _, _ = cache
+    dataset = CropDataset(rows, folder / "train", ["SETVI", "ZEAMX", "other_plant"], CROPS)
+    # Plant 5: 15 mm at 0.5 mm/px; its 22.5 mm crop has 45 source px but 28 at input_size.
+    window_mm, mm_per_px = dataset.detail(0, 28.0, 1.0)
+    assert window_mm == pytest.approx(22.5) and mm_per_px == pytest.approx(22.5 / 28)
+    rows[0]["mm_per_px"] = 2.0  # a coarse source: its own detail counts
+    assert dataset.detail(0, 28.0, 1.0)[1] == pytest.approx(2.0)
+    rows[0]["mm_per_px"] = None
+    assert dataset.detail(0, 28.0, 1.0) == (None, None)
+
+
+def test_lower_detail():
+    random.seed(0)
+    crop = np.random.default_rng(0).integers(0, 256, (64, 64, 3), np.uint8)
+
+    def sharpness(image):
+        return cv2.Laplacian(cv2.cvtColor(image, cv2.COLOR_RGB2GRAY), cv2.CV_64F).var()
+
+    off = {"detail_p": 0.0, "blur_p": 0.0, "jpeg_p": 0.0}
+    assert np.array_equal(lower_detail(crop, off, 30.0, 0.15), crop)
+    assert np.array_equal(lower_detail(crop, {}, 30.0, 0.15), crop)  # configs from before
+    detail = {**off, "detail_p": 1.0, "max_mm_per_px": 1.2}
+    coarser = lower_detail(crop, detail, 30.0, 1.0)  # to 25-30 px of detail
+    assert coarser.shape == crop.shape and coarser.dtype == np.uint8
+    assert sharpness(coarser) < sharpness(crop) / 2
+    assert np.array_equal(lower_detail(crop, detail, 30.0, 1.5), crop)  # already coarser
+    # 64 px across 30 mm hold 0.47 mm/px at best, whatever the source's
+    assert np.array_equal(lower_detail(crop, {**detail, "max_mm_per_px": 0.4}, 30.0, 0.15),
+                          crop)
+    assert np.array_equal(lower_detail(crop, detail, None, None), crop)  # resolution unknown
+    blurred = lower_detail(crop, {**off, "blur_p": 1.0, "blur_sigma": [1.0, 1.0]}, None, None)
+    assert sharpness(blurred) < sharpness(crop) / 2
+    compressed = lower_detail(crop[:, ::-1], {**off, "jpeg_p": 1.0, "jpeg_quality": [40, 40]},
+                              None, None)  # a flipped view, as after flip_rotate
+    assert compressed.shape == crop.shape and not np.array_equal(compressed, crop[:, ::-1])
+
+
+def test_accuracy_by_class_and_dataset():
+    true = ["CHEAL"] * 4 + ["POLCO"] * 3 + ["ZEAMX"] * 2 + ["other_plant"] * 2
+    predicted = (["CHEAL", "CHEAL", "CHEAL", "MATCH"] + ["POLCO", "STEME", "STEME"]
+                 + ["ZEAMX", "ZEAMX"] + ["CHEAL", "CHEAL"])
+    datasets = (["acre", "acre", "oppd", "oppd"] + ["cropandweed"] * 3 + ["cropandweed"] * 2
+                + ["oppd", "acre"])
+    train = Counter({("CHEAL", "acre"): 80, ("CHEAL", "oppd"): 20, ("POLCO", "oppd"): 90,
+                     ("POLCO", "cropandweed"): 10, ("ZEAMX", "cropandweed"): 50,
+                     ("other_plant", "oppd"): 5, ("other_plant", "acre"): 5})
+    rows, summary = class_by_dataset(true, predicted, datasets, train, "other_plant", 0.5)
+    cells = {(r["category"], r["dataset"]): r for r in rows}
+    assert ("ZEAMX", "cropandweed") not in cells  # one dataset only
+    assert cells["CHEAL", "oppd"] == {
+        "category": "CHEAL", "dataset": "oppd", "crops": 2, "accuracy": 0.5, "train_crops": 20,
+        "train_share": 0.2, "most_wrong": "MATCH 50%"}
+    assert cells["POLCO", "cropandweed"]["most_wrong"] == "STEME 67%"
+    # cross-dataset: CHEAL in oppd (2 crops, 1 right) and POLCO in cropandweed (3, 1 right);
+    # other_plant is left out
+    assert summary == {"cross_dataset_crops": 5, "cross_dataset_accuracy": pytest.approx(0.4)}
 
 
 def test_partial_label_loss():

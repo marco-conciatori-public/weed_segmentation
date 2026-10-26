@@ -1,0 +1,19 @@
+# Classifier runs side by side: used by scripts/compare_runs.py. Relative paths are resolved
+# against the project root. See docs/twostage.md (Comparing runs).
+
+# The runs, in this order (columns A, B, ...): a classifier config, for its run, or a run
+# folder, e.g. runs/classifier/cropandweed+acre+phenobench+oppd_species_min50img_min20mm_dinov2b
+# for an older run.
+runs:
+  - configs/classifier.yaml
+  - configs/classifier_seed1.yaml
+  - configs/classifier_detail.yaml
+  - configs/classifier_colour.yaml
+# The evaluation compared: <run>/eval/<split>_<checkpoint> (scripts/evaluate_classifier.py),
+# and the two-stage one made with each run, <twostage_dir>/<detector run>__<run>/eval/<split>
+# (scripts/predict_twostage.py; the newest when several detectors were used).
+split: val
+checkpoint: best
+twostage_dir: runs/twostage
+# Output: <output_dir>/compare_<date>_<time>.md and .csv.
+output_dir: runs/compare

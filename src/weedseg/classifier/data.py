@@ -1,5 +1,6 @@
 """Crop cache -> classifier samples (normalised image tensor, class index, allowed classes)."""
 
+import math
 import random
 from collections import Counter
 from pathlib import Path
@@ -23,6 +24,8 @@ from weedseg.classifier.crops import (
 MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
 STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
 BALANCE = ("none", "sqrt", "inverse")
+# The coarsest detail the detail augmentation goes to, in px across the crop.
+MIN_DETAIL_PX = 8
 
 
 def to_input(crop: np.ndarray, mask: np.ndarray | None, crops: dict[str, Any],
@@ -47,8 +50,9 @@ class CropDataset(Dataset):
     (bool, one per class), its own class alone for a labelled plant.
 
     With `augment` (training): random box jitter (`box_scale`, `box_shift`), flips, 90-degree
-    rotations, colour jitter and, unless the background is kept, mask jitter
-    (`mask_jitter_px`). Without: the plain crop, as at prediction.
+    rotations, less detail (`detail_p`, `blur_p`, `jpeg_p`, see `lower_detail`), colour
+    jitter and, unless the background is kept, mask jitter (`mask_jitter_px`). Without: the
+    plain crop, as at prediction.
     """
 
     def __init__(self, rows: list[dict[str, Any]], folder: Path, classes: list[str],
@@ -107,8 +111,20 @@ class CropDataset(Dataset):
                                                         augment["mask_jitter_px"]))
         if augment:
             crop, mask = flip_rotate(crop, mask, augment)
+            crop = lower_detail(crop, augment, *self.detail(i, window[2], scale))
         return (to_input(crop, mask, self.crops, self.color_jitter), self.labels[i],
                 self.allowed_mask(i))
+
+    def detail(self, i: int, window_px: float, scale: float) -> tuple[float | None, float | None]:
+        """The ground the training crop covers (mm) and the mm/px of the detail it holds: the
+        source image's, or coarser when the cache or the resizing to input_size kept fewer
+        pixels than the source had. (None, None) without a known size or resolution."""
+        row = self.rows[i]
+        if not row.get("size_mm") or not row.get("mm_per_px"):
+            return None, None
+        window_mm = row["size_mm"] * (1 + 2 * self.crops["margin"]) * scale
+        pixels = min(window_mm / row["mm_per_px"], window_px, self.crops["input_size"])
+        return window_mm, window_mm / pixels
 
 
 def flip_rotate(crop: np.ndarray, mask: np.ndarray | None,
@@ -123,6 +139,39 @@ def flip_rotate(crop: np.ndarray, mask: np.ndarray | None,
         k = random.randrange(4)
         crop, mask = both(lambda a: np.rot90(a, k))
     return crop, mask
+
+
+def lower_detail(crop: np.ndarray, augment: dict[str, Any], window_mm: float | None,
+                 own_mm_per_px: float | None) -> np.ndarray:
+    """Random loss of detail, as from a coarser or worse camera, so the classifier can't tell
+    the source dataset by its sharpness (OPPD's 0.15 mm/px against PhenoBench's 1 mm/px):
+
+    - with probability `detail_p`, the crop (covering `window_mm` of ground, with detail of
+      `own_mm_per_px`) is shrunk to the detail of a random mm/px between its own and
+      `max_mm_per_px` (log-uniform) and enlarged back; skipped without a known resolution;
+    - with probability `blur_p`, a Gaussian blur of sigma drawn from `blur_sigma` (px);
+    - with probability `jpeg_p`, JPEG compression at a quality drawn from `jpeg_quality`.
+    """
+    size = crop.shape[0]
+    crop = np.ascontiguousarray(crop)
+    if window_mm and own_mm_per_px:  # the crop holds no more detail than its pixels
+        own_mm_per_px = max(own_mm_per_px, window_mm / size)
+    if (window_mm and own_mm_per_px and own_mm_per_px < augment.get("max_mm_per_px", 0)
+            and random.random() < augment.get("detail_p", 0)):
+        target = math.exp(random.uniform(math.log(own_mm_per_px),
+                                         math.log(augment["max_mm_per_px"])))
+        pixels = max(MIN_DETAIL_PX, round(window_mm / target))
+        if pixels < size:
+            small = cv2.resize(crop, (pixels, pixels), interpolation=cv2.INTER_AREA)
+            crop = cv2.resize(small, (size, size), interpolation=cv2.INTER_LINEAR)
+    if random.random() < augment.get("blur_p", 0):
+        crop = cv2.GaussianBlur(crop, (0, 0), random.uniform(*augment["blur_sigma"]))
+    if random.random() < augment.get("jpeg_p", 0):
+        quality = random.randint(*augment["jpeg_quality"])
+        _, encoded = cv2.imencode(".jpg", cv2.cvtColor(crop, cv2.COLOR_RGB2BGR),
+                                  [cv2.IMWRITE_JPEG_QUALITY, quality])
+        crop = cv2.cvtColor(cv2.imdecode(encoded, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
+    return crop
 
 
 def jitter_mask(mask: np.ndarray, pixels: int) -> np.ndarray:

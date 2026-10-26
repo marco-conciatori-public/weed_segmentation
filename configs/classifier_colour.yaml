@@ -1,0 +1,9 @@
+# Classifier variant: configs/classifier.yaml with twice the colour jitter (brightness,
+# contrast and saturation +-40%, hue +-0.05), so the camera's and light's colours (e.g. OPPD's
+# greenhouse) tell the dataset less. Colour is also a real species cue (reddish stems), so
+# this may cost accuracy too. Trained after the base run by scripts/run_twostage.py
+# (classifier_variants in configs/run_twostage.yaml).
+base: configs/classifier.yaml
+run_name: "{dataset}_{taxonomy}_dinov2b_colour"
+augment:
+  color_jitter: {brightness: 0.4, contrast: 0.4, saturation: 0.4, hue: 0.05}

@@ -28,8 +28,8 @@ from weedseg.data.coco import IGNORE_CATEGORY, decode_mask
 # DINOv2's normalisation maps to 0.
 FILL_RGB = (124, 116, 104)
 BACKGROUNDS = ("keep", "dim", "blank")
-INDEX_COLUMNS = ["annotation_id", "image_id", "category", "eppo", "size_mm", "dataset",
-                 "allowed"]
+INDEX_COLUMNS = ["annotation_id", "image_id", "category", "eppo", "size_mm", "mm_per_px",
+                 "dataset", "allowed"]
 
 
 def square_window(box: list[float], margin: float, scale: float = 1.0,
@@ -111,6 +111,7 @@ def index_row(annotation: dict[str, Any], info: dict[str, Any],
         "annotation_id": annotation["id"], "image_id": info["id"],
         "category": names[annotation["category_id"]], "eppo": annotation.get("eppo", ""),
         "size_mm": round(max(annotation["bbox"][2:]) * mm_per_px, 1) if mm_per_px else "",
+        "mm_per_px": mm_per_px or "",
         "dataset": info.get("dataset", ""),
         "allowed": " ".join(annotation.get("allowed_classes", [])),
     }
@@ -118,8 +119,8 @@ def index_row(annotation: dict[str, Any], info: dict[str, Any],
 
 def index_is_current(path: Path, coco: dict[str, Any]) -> bool:
     """Whether the index at `path` lists exactly the plants `coco` has to cache, with the
-    same class, code, size and dataset. An index made from another version of the data (e.g.
-    before a dataset was added or re-converted) is not."""
+    same class, code, size, resolution and dataset. An index made from another version of
+    the data (e.g. before a dataset was added or re-converted) is not."""
     images = {info["id"]: info for info in coco["images"]}
     names = {c["id"]: c["name"] for c in coco["categories"]}
     expected = [{key: str(value) for key, value in index_row(a, images[image_id], names).items()}
@@ -185,11 +186,13 @@ def write_cache(coco: dict[str, Any], image_dir: Path, out_dir: Path, settings: 
 
 
 def read_index(path: Path) -> list[dict[str, Any]]:
-    """Index rows, `allowed` as a list (empty for a plant labelled with its class)."""
+    """Index rows, `allowed` as a list (empty for a plant labelled with its class); sizes
+    and resolutions as floats or None."""
     with open(path, newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     for row in rows:
         row["annotation_id"], row["image_id"] = int(row["annotation_id"]), int(row["image_id"])
-        row["size_mm"] = float(row["size_mm"]) if row["size_mm"] else None
+        for key in ("size_mm", "mm_per_px"):
+            row[key] = float(row[key]) if row.get(key) else None
         row["allowed"] = (row.get("allowed") or "").split()
     return rows

@@ -9,6 +9,13 @@ accuracy_by_dataset.csv (for splits that combine several datasets) and predictio
 (one row per crop). Compare taxonomic_levels.csv with the Mask R-CNN's: both
 count the plants that were found, here all of them.
 
+For a split that combines several datasets, accuracy_by_class_and_dataset.csv gives the
+accuracy of each class in each dataset, for the classes found in more than one, with the
+share of the class's training crops that came from that dataset (from the train crop
+index). It shows how well a species learnt mostly from one dataset is recognised in another;
+metrics.json gets the accuracy over such cross-dataset crops (`cross_dataset_accuracy`,
+threshold `evaluate.cross_dataset_share`).
+
 Plants with a partial label (e.g. PhenoBench's weeds: not sugar beet) have no class to be
 right about, so they are left out of all of these. partial_labels.csv gives instead, per
 dataset and label, the share whose predicted class is one the label allows (`label_fit`)
@@ -25,7 +32,12 @@ from torch.utils.data import DataLoader
 
 from weedseg.classifier.crops import cache_dir, read_index
 from weedseg.classifier.data import CropDataset
-from weedseg.classifier.engine import accuracy_metrics, label_fit, predict_probs
+from weedseg.classifier.engine import (
+    accuracy_metrics,
+    class_by_dataset,
+    label_fit,
+    predict_probs,
+)
 from weedseg.classifier.model import load_classifier
 from weedseg.config import load_config
 from weedseg.data.coco import OTHER_CATEGORY
@@ -74,6 +86,18 @@ def main(config_path: str = CONFIG) -> None:
     if partial_rows:
         metrics |= {"partial_crops": len(partial_rows),
                     "partial_label_fit": label_fit(partial_probs.argmax(1), partial_allowed)}
+    sources = [row["dataset"] for row in rows]
+    train_index = folder / "index_train.csv"
+    by_class = None
+    if len(set(sources)) > 1 and train_index.exists():
+        train_counts = Counter((row["category"], row["dataset"])
+                               for row in read_index(train_index) if not row["allowed"])
+        by_class, summary = class_by_dataset(
+            [classes[label] for label in labels], [classes[guess] for guess in predicted],
+            sources, train_counts, OTHER_CATEGORY, settings["cross_dataset_share"])
+        metrics |= summary
+    elif len(set(sources)) > 1:
+        print(f"No {train_index}: accuracy_by_class_and_dataset.csv left out")
     with open(out_dir / "metrics.json", "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
 
@@ -145,6 +169,8 @@ def main(config_path: str = CONFIG) -> None:
                 print(f"dataset {name or '(none)'}: {int(inside.sum())} crops, accuracy "
                       f"{values['accuracy']:.1%}, balanced accuracy "
                       f"{values['balanced_accuracy']:.1%}")
+    if by_class is not None:
+        write_class_by_dataset(out_dir, by_class, metrics, settings["cross_dataset_share"])
 
     with open(out_dir / "predictions.csv", "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -158,6 +184,29 @@ def main(config_path: str = CONFIG) -> None:
         write_partial(out_dir, partial_rows, partial_probs, classes)
     print(f"accuracy {metrics['accuracy']:.1%}, balanced accuracy "
           f"{metrics['balanced_accuracy']:.1%} on {len(labels)} crops -> {out_dir}")
+
+
+def write_class_by_dataset(out_dir, rows: list[dict], metrics: dict, cross_share: float) -> None:
+    """accuracy_by_class_and_dataset.csv, and the cross-dataset accuracy with the worst
+    cross-dataset cells (at least 10 crops) on screen."""
+    columns = ["category", "dataset", "crops", "accuracy", "train_crops", "train_share",
+               "most_wrong"]
+    with open(out_dir / "accuracy_by_class_and_dataset.csv", "w", newline="",
+              encoding="utf-8") as f:
+        writer = csv.DictWriter(f, columns)
+        writer.writeheader()
+        writer.writerows(rows)
+    if metrics["cross_dataset_accuracy"] is None:
+        return
+    print(f"cross-dataset crops (species learnt mostly from other datasets, under "
+          f"{cross_share:.0%} of its training crops from their own): "
+          f"{metrics['cross_dataset_crops']}, accuracy {metrics['cross_dataset_accuracy']:.1%}")
+    cross = [r for r in rows if r["category"] != OTHER_CATEGORY
+             and r["train_share"] < cross_share and r["crops"] >= 10]
+    for r in sorted(cross, key=lambda r: r["accuracy"])[:8]:
+        print(f"  {r['category']} in {r['dataset']}: {r['accuracy']:.0%} of {r['crops']} "
+              f"({r['train_share']:.0%} of its training crops from there); most often "
+              f"wrong: {r['most_wrong'] or '-'}")
 
 
 def write_partial(out_dir, rows: list[dict], probs: np.ndarray, classes: list[str]) -> None:

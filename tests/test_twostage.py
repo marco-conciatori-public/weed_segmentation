@@ -10,6 +10,7 @@ from weedseg.twostage import (
     classify_detections,
     config_problems,
     detection_input,
+    shared_run_dirs,
     with_species,
 )
 
@@ -72,6 +73,30 @@ def test_config_problems_catch_mismatched_data():
 
 def test_shipped_configs_fit_together():
     twostage = load_config("configs/twostage.yaml")
-    assert config_problems(load_config("configs/plant_dataset.yaml"),
-                           load_config(twostage["detector"]["config"]),
-                           load_config(twostage["classifier"]["config"]), twostage) == []
+    plant = load_config("configs/plant_dataset.yaml")
+    detector = load_config(twostage["detector"]["config"])
+    classifier_path = twostage["classifier"]["config"]
+    classifiers = {classifier_path: load_config(classifier_path)}
+    classifiers |= {path: load_config(path)
+                    for path in load_config("configs/run_twostage.yaml")["classifier_variants"]}
+    for classifier in classifiers.values():
+        assert config_problems(plant, detector, classifier, twostage) == []
+    assert shared_run_dirs(classifiers) == []
+
+
+def test_variants_change_only_what_they_name():
+    base = load_config("configs/classifier.yaml")
+    detail = load_config("configs/classifier_detail.yaml")
+    assert detail["augment"]["detail_p"] == 0.5 and base["augment"]["detail_p"] == 0.0
+    assert {**detail["augment"], "detail_p": 0.0, "blur_p": 0.0, "jpeg_p": 0.0} == base["augment"]
+    assert {k: v for k, v in load_config("configs/classifier_seed1.yaml").items()
+            if k not in ("seed", "run_name")} == {
+        k: v for k, v in base.items() if k not in ("seed", "run_name")}
+
+
+def test_shared_run_dirs():
+    config = {"run_name": "{dataset}_a", "output_dir": "runs/x",
+              "data": {"dir": "data/processed/d/species"}}
+    assert shared_run_dirs({"a.yaml": config, "b.yaml": {**config, "run_name": "{dataset}_b"}}) == []
+    (problem,) = shared_run_dirs({"a.yaml": config, "b.yaml": dict(config)})
+    assert problem.startswith("a.yaml and b.yaml train the same run")

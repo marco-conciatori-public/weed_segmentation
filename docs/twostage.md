@@ -37,6 +37,26 @@ card.
 `runs/twostage/logs/run_twostage_<date>_<time>.log` (`log_dir`), one file per start, with
 the Python lines where a step crashed. Progress bars appear once, in their final state.
 
+**Classifier variants** (`classifier_variants`, added 2026-10-26). A classifier run takes about
+an hour, so one session can train several, one after the other, to compare settings. Each
+variant is a config holding only what differs from `classifier.yaml` (`base:`), with its own
+`run_name`, e.g. `configs/classifier_detail.yaml`. After the steps, each variant repeats the
+classifier steps of the list (`prepare_crops`, which skips a cache already cut,
+`train_classifier`, `evaluate_classifier`, `predict_twostage` with the same detector) with
+its config. Before anything starts, the runner checks that every variant has its own run
+folder (a variant that kept the base `run_name` would resume the base's finished run instead
+of training anew) and the same species data. A variant that fails with a Python error is
+reported and the next one starts; an error in the main steps still stops the runner. At the
+end, `compare_<date>_<time>.md` and `.csv` in `log_dir` set all classifier runs side by side
+(see [Comparing runs](#training)); `scripts/compare_runs.py` (`configs/compare_runs.yaml`)
+does the same for any runs, older ones included. The shipped variants:
+
+| Config | Changes | Why |
+|---|---|---|
+| `classifier_seed1.yaml` | `seed: 1` | Run-to-run noise: a change must beat the gap between these two runs |
+| `classifier_detail.yaml` | `detail_p` 0.5, `blur_p` 0.2, `jpeg_p` 0.3 | [Less detail](#crops) |
+| `classifier_colour.yaml` | colour jitter doubled (±40%, hue ±0.05) | Camera and light colours (OPPD's greenhouse) tell the dataset less |
+
 | Step | Script | Config | Where |
 |---|---|---|---|
 | 1. Plant-only copy of the species data | `make_plant_dataset.py` | `plant_dataset.yaml` | any machine |
@@ -112,7 +132,7 @@ padded with the ImageNet mean grey.
 **Cache.** `prepare_crops.py` cuts every labelled plant once, and every plant with a partial
 label, 1.5 times larger than the crop (`cache_context`, room for box jitter), with its mask:
 `<data.dir>/crops_margin<m>_size<s>_context<c>/<split>/<annotation id>.jpg|.png` plus
-`index_<split>.csv` (class, EPPO code, size in mm, dataset, and the allowed classes of a
+`index_<split>.csv` (class, EPPO code, size in mm, mm/px, dataset, and the allowed classes of a
 partial label). Changing margin, size or context makes a new cache folder next to the old
 one. A split whose index no longer matches the data (re-combined, a dataset added or
 re-converted) is cut again; one that matches is skipped.
@@ -120,6 +140,20 @@ re-converted) is cut again; one that matches is skipped.
 **Training augmentation:** box jitter (crop side ±20%, centre ±10% of the box), so a model
 trained on labelled boxes copes with the detector's; flips and 90° rotations (top-down images
 have no "up"); colour jitter.
+
+**Less detail** (`augment.detail_p`, `blur_p`, `jpeg_p`; off by default, added 2026-10-26).
+Every crop is resized to 224 px, so the classifier doesn't see a plant's size, but it does
+see how much detail the source camera caught: a 40 mm plant's crop spans ~400 px in OPPD
+(0.15 mm/px, capped at 224 by the resizing), 146 in CropAndWeed, 120 in ACRE and 60 in
+PhenoBench (1 mm/px). Sharpness thus tells the dataset, and a species learnt from sharp
+crops may not be recognised in coarse ones. `detail_p` is the share of training crops shrunk
+to the detail of a coarser camera, a random mm/px between their own and `max_mm_per_px`
+(1.2), and enlarged back; `blur_p` and `jpeg_p` add Gaussian blur and JPEG compression. The
+crop's own detail is the coarser of the source's mm/px (index column `mm_per_px`) and what
+224 px can hold. Like any augmentation it can also cost accuracy (fine detail is a real
+species cue), so it is worth a classifier run of its own, compared with one without.
+Resampling all images to one fixed mm/px instead would throw away OPPD's detail and build
+the estimated mm/px of three datasets into the data.
 
 **Background** (`crops.background`). Neighbouring plants can share a crop, e.g. a small weed
 next to maize. `keep` (default) leaves the crop as it is; the classifier learns that the label
@@ -146,6 +180,31 @@ size (`accuracy_by_size.csv`, to see whether small plants suffer from their neig
 accuracy per source dataset (`accuracy_by_dataset.csv`, for a split that combines several)
 and `predictions.csv`. Plants with partial labels are left out of all of these; they have
 their own files (next section).
+
+`accuracy_by_class_and_dataset.csv` (for a split that combines several datasets) gives the
+accuracy of each class in each dataset, for the classes found in more than one, with the
+share of the class's training crops that came from that dataset and its most frequent wrong
+answer. It shows how well a species learnt mostly from one dataset is recognised in another,
+e.g. run 2 recognised none of 18 CropAndWeed black-bindweeds (`POLCO`), learnt mostly from
+OPPD. `cross_dataset_accuracy` in `metrics.json` is the accuracy over such crops (under
+`evaluate.cross_dataset_share`, 50%, of the class's training crops from their own dataset;
+`other_plant` left out, since it holds different species in each dataset).
+
+**Comparing runs.** The aim is a better classifier overall. Judge a change first on
+accuracy and balanced accuracy, per dataset (`accuracy_by_dataset.csv`), and on the
+decisions of both stages (`by_dataset.csv` of step 7); then on `cross_dataset_accuracy` and
+the partial labels' fit, which show whether it relies less on the dataset's look. A change
+that raises the latter while the former drop is not an improvement by itself. A gap is only
+worth something if it is larger than the gap between two runs that differ by their seed
+alone (`classifier_seed1.yaml`).
+
+`weedseg.compare` lays this out (after classifier variants, or with `scripts/compare_runs.py`):
+one column per run (A, B, ... named above the table), and rows in that order: the settings in
+which the runs differ (from each run's `config.yaml`), the classifier's best epoch and
+accuracy overall and per dataset, both stages' plants found, species right, crops removed and
+harmful weeds removed and left, per dataset, then cross-dataset accuracy and the partial
+labels' fit. Runs that differ only in `seed` are pointed out. The two-stage numbers come from
+the newest `runs/twostage/<detector>__<classifier run>/eval/<split>/`.
 
 ### Partial labels
 

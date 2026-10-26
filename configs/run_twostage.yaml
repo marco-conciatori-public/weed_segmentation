@@ -10,7 +10,7 @@ plant_dataset: configs/plant_dataset.yaml
 log_dir: runs/twostage/logs
 
 # Steps to run, in this order; remove those you don't need. Re-running is safe: crops already
-# cut are skipped, and trainings resume from their last.pt (a finished one does nothing), so
+# cut for the same data are skipped, and trainings resume from their last.pt (a finished one does nothing), so
 # after a failure, fix the cause and start again.
 #   make_plant_dataset   plant-only copy of the species data (scripts/make_plant_dataset.py)
 #   prepare_crops        crop cache for the classifier (CPU only)
@@ -27,6 +27,19 @@ steps:
   - train_classifier
   - evaluate_classifier
   - predict_twostage
+
+# Classifier variants, trained after the steps above. Each config holds only what differs
+# from configs/classifier.yaml (base:) and needs its own run_name (checked before the start).
+# Each variant repeats the classifier steps of the list above (prepare_crops,
+# train_classifier, evaluate_classifier, predict_twostage: those listed) with its config; its
+# prediction uses the detector of configs/twostage.yaml. A variant that fails with a Python
+# error is reported and the next one starts. At the end, <log_dir>/compare_<date>_<time>.md
+# sets all classifier runs side by side (scripts/compare_runs.py does it for any runs).
+# Each variant adds about an hour. [] = none.
+classifier_variants:
+  - configs/classifier_seed1.yaml
+  - configs/classifier_detail.yaml
+  - configs/classifier_colour.yaml
 
 # Each step runs in a process of its own. When it crashes (e.g. the GPU driver resets), the
 # step is started again after restart_wait_s seconds, up to max_restarts times in all (0 = stop

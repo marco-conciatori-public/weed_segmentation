@@ -28,8 +28,12 @@ from weedseg.twostage import classify_detections
 CONFIG = "configs/twostage.yaml"
 
 
-def main(config_path: str = CONFIG) -> None:
+def main(config_path: str = CONFIG, classifier_config: str | None = None) -> None:
+    """`classifier_config` replaces the config's classifier.config: scripts/run_twostage.py
+    pairs each classifier variant with the same detector this way."""
     config = load_config(config_path)
+    if classifier_config is not None:
+        config["classifier"]["config"] = classifier_config
     settings, data = config["evaluate"], config["data"]
     device = select_device(config["device"])
     amp = config["amp"] and device.type == "cuda"

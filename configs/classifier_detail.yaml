@@ -1,0 +1,10 @@
+# Classifier variant: configs/classifier.yaml with less detail in some training crops (shrunk
+# to a coarser camera's mm/px, blurred, JPEG-compressed), so sharpness stops telling the
+# dataset (docs/twostage.md, Less detail). Trained after the base run by
+# scripts/run_twostage.py (classifier_variants in configs/run_twostage.yaml).
+base: configs/classifier.yaml
+run_name: "{dataset}_{taxonomy}_dinov2b_detail"
+augment:
+  detail_p: 0.5
+  blur_p: 0.2
+  jpeg_p: 0.3

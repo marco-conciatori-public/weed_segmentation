@@ -30,6 +30,7 @@ from weedseg.classifier.crops import FILL_RGB, cut_square, square_window
 from weedseg.classifier.data import to_input
 from weedseg.data.coco import decode_mask
 from weedseg.maskrcnn.engine import CLASS_SCORE_MIN
+from weedseg.maskrcnn.run import resolve_run_dir
 from weedseg.paths import resolve
 
 
@@ -122,3 +123,14 @@ def config_problems(plant: dict[str, Any], detector: dict[str, Any], classifier:
         problems.append(f"data.dir of the detector config ({detector['data']['dir']}) is not "
                         f"a plant folder next to {plant['source_dir']}")
     return problems
+
+
+def shared_run_dirs(classifiers: dict[str, dict[str, Any]]) -> list[str]:
+    """Classifier configs ({path: config}) that would train the same run folder, e.g. a
+    variant that kept its base config's run_name: its training would resume the other's
+    finished run (and do nothing) instead of training anew. Empty if each has its own."""
+    by_dir = defaultdict(list)
+    for path, config in classifiers.items():
+        by_dir[resolve_run_dir(config)].append(path)
+    return [f"{' and '.join(paths)} train the same run, {run_dir}; give each its own run_name"
+            for run_dir, paths in by_dir.items() if len(paths) > 1]

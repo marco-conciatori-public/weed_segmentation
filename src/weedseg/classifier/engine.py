@@ -1,5 +1,6 @@
 """Training and prediction loops for the species classifier."""
 
+from collections import Counter, defaultdict
 from collections.abc import Callable
 from typing import Any
 
@@ -111,6 +112,51 @@ def accuracy_metrics(probs: np.ndarray, labels: np.ndarray, num_classes: int) ->
                for k in range(num_classes) if (labels == k).any()]
     return {"accuracy": float((predicted == labels).mean()) if len(labels) else 0.0,
             "balanced_accuracy": float(np.mean(recalls)) if recalls else 0.0}
+
+
+def class_by_dataset(true: list[str], predicted: list[str], datasets: list[str],
+                     train_counts: Counter, other: str, cross_share: float
+                     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Accuracy per class and dataset, for the classes found in more than one dataset (in
+    training or in these crops), and the accuracy on cross-dataset crops.
+
+    `train_counts` counts the training crops per (class, dataset). Each row: the class, the
+    dataset, its crops, their accuracy, the class's training crops from that dataset and
+    their share of all its training crops, and its most frequent wrong answer. A crop is
+    cross-dataset when under `cross_share` of its class's training crops come from its own
+    dataset: its species was learnt mostly from other datasets. `other` (other_plant) is
+    left out of that, since it holds different species in each dataset.
+    """
+    cells = defaultdict(list)  # (class, dataset) -> predictions
+    for label, guess, dataset in zip(true, predicted, datasets):
+        cells[label, dataset].append(guess)
+    class_total = Counter()
+    sources = defaultdict(set)
+    for (label, dataset), count in train_counts.items():
+        class_total[label] += count
+        sources[label].add(dataset)
+    for label, dataset in cells:
+        sources[label].add(dataset)
+
+    def share(label: str, dataset: str) -> float:
+        return train_counts[label, dataset] / class_total[label] if class_total[label] else 0.0
+
+    rows = []
+    for (label, dataset), guesses in sorted(cells.items()):
+        if len(sources[label]) < 2:
+            continue
+        wrong = Counter(g for g in guesses if g != label).most_common(1)
+        rows.append({"category": label, "dataset": dataset, "crops": len(guesses),
+                     "accuracy": sum(g == label for g in guesses) / len(guesses),
+                     "train_crops": train_counts[label, dataset],
+                     "train_share": round(share(label, dataset), 4),
+                     "most_wrong": (f"{wrong[0][0]} {wrong[0][1] / len(guesses):.0%}"
+                                    if wrong else "")})
+    cross = [label == guess for label, guess, dataset in zip(true, predicted, datasets)
+             if label != other and share(label, dataset) < cross_share]
+    summary = {"cross_dataset_crops": len(cross),
+               "cross_dataset_accuracy": sum(cross) / len(cross) if cross else None}
+    return rows, summary
 
 
 def label_fit(predicted: np.ndarray, allowed: list[list[int]]) -> float | None:
