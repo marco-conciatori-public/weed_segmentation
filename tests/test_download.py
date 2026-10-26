@@ -6,6 +6,7 @@ import tarfile
 import threading
 import time
 import zipfile
+from urllib.parse import quote, unquote, urlparse
 
 import pytest
 import requests
@@ -83,12 +84,56 @@ class FakeRoutes:
         return self.servers[url].respond(headers)
 
 
+SHARE = "https://cloud/s/tok"
+DAV_ROOT = "https://cloud/public.php/dav/files/tok/"
+
+
+class FakeShare(FakeRoutes):
+    """A Nextcloud public share holding `files` (path: bytes): lists its folders by
+    PROPFIND, and serves each file with a FakeServer (`servers` replaces some, by path)."""
+
+    def __init__(self, files, servers=None):
+        servers = servers or {}
+        super().__init__({DAV_ROOT + quote(path): servers.get(path) or FakeServer(data)
+                          for path, data in files.items()})
+        self.files = files
+
+    def served(self):
+        return sum(server.served for server in self.servers.values())
+
+    def list(self, url, headers):
+        if headers.get("X-Requested-With") != "XMLHttpRequest" or headers.get("Depth") != "1":
+            return FakeResponse(self, b"", 401, {}, None)
+        root = urlparse(DAV_ROOT).path
+        folder = unquote(urlparse(url).path)[len(root):]
+        entries = {root + folder: None}  # the folder itself comes first
+        for path, data in self.files.items():
+            if path.startswith(folder):
+                first, *rest = path[len(folder):].split("/", 1)
+                entries[root + folder + first + ("/" if rest else "")] = (
+                    None if rest else len(data))
+        if len(entries) == 1:
+            return FakeResponse(self, b"", 404, {}, None)
+        body = "".join(
+            f"<d:response><d:href>{quote(href)}</d:href><d:propstat><d:prop><d:resourcetype>"
+            + ("<d:collection/></d:resourcetype>" if size is None else
+               f"</d:resourcetype><d:getcontentlength>{size}</d:getcontentlength>")
+            + "</d:prop></d:propstat></d:response>" for href, size in entries.items())
+        body = f'<?xml version="1.0"?><d:multistatus xmlns:d="DAV:">{body}</d:multistatus>'
+        return FakeResponse(self, body.encode(), 207,
+                            {"Content-Type": "application/xml; charset=utf-8"}, None)
+
+
 class FakeSession:
     def __init__(self, server):
         self.server, self.proxies = server, {}
 
     def get(self, url, headers=None, stream=True, timeout=None):
         return self.server.respond(headers or {}, url)
+
+    def request(self, method, url, headers=None, data=None, timeout=None):
+        assert method == "PROPFIND"
+        return self.server.list(url, headers or {})
 
     def close(self):
         pass
@@ -104,6 +149,10 @@ class FakeResponse:
 
     def __exit__(self, *exc):
         return False
+
+    @property
+    def content(self):
+        return self.body
 
     def raise_for_status(self):
         if self.status_code >= 400:
@@ -303,6 +352,74 @@ def test_set_aside_files_get_passes_only_while_something_comes_in(tmp_path, monk
     assert len(passes) == 2
     assert len(servers["https://x/c.zip"].requests) == 1  # a 404 is not retried
     assert (tmp_path / "b.zip").exists()
+
+
+FOLDER = {"F/Annotations/a.xml": b"<a/>" * 10, "F/Images/a b.jpg": DATA,
+          "F/Images/c.jpg": DATA[::-1], "F/empty.txt": b""}
+
+
+def test_a_share_folder_is_copied_file_by_file(tmp_path, monkeypatch):
+    share = serve(monkeypatch, FakeShare({**FOLDER, "G/other.jpg": DATA}))
+    download.fetch_share(SHARE, "F", tmp_path / "F", settings())
+    for path, data in FOLDER.items():
+        assert (tmp_path / path).read_bytes() == data
+    assert not list(tmp_path.rglob("*.part")) and not (tmp_path / "G").exists()
+    served = share.served()
+    download.fetch_share(SHARE, "F", tmp_path / "F", settings())  # all there: only listed
+    assert share.served() == served == sum(map(len, FOLDER.values()))
+
+
+def test_share_files_continue_after_drops_and_from_unfinished_files(tmp_path, monkeypatch):
+    dropping = FakeServer(DATA[::-1], drop_after=BLOCK, drops=3)
+    share = serve(monkeypatch, FakeShare(FOLDER, servers={"F/Images/c.jpg": dropping}))
+    (tmp_path / "F" / "Images").mkdir(parents=True)
+    (tmp_path / "F" / "Images" / "a b.jpg.part").write_bytes(DATA[:3000])
+    download.fetch_share(SHARE, "F", tmp_path / "F", settings())
+    for path, data in FOLDER.items():
+        assert (tmp_path / path).read_bytes() == data
+    assert share.served() == sum(map(len, FOLDER.values())) - 3000
+    assert dropping.requests[1:] == [(BLOCK, len(DATA) - 1), (2 * BLOCK, len(DATA) - 1),
+                                     (3 * BLOCK, len(DATA) - 1)]
+
+
+def test_a_failing_share_file_doesnt_stop_the_others(tmp_path, monkeypatch):
+    broken = FakeServer(DATA, status=404, honour_range=False)
+    serve(monkeypatch, FakeShare(FOLDER, servers={"F/Images/a b.jpg": broken}))
+    with pytest.raises(DownloadError, match=r"1 of 4 files failed, e\.g\. Images/a b\.jpg"):
+        download.fetch_share(SHARE, "F", tmp_path / "F", settings())
+    assert (tmp_path / "F" / "Images" / "c.jpg").read_bytes() == DATA[::-1]
+    assert len(broken.requests) == 1  # a 404 is not retried
+
+
+def test_a_share_folder_without_progress_is_set_aside(tmp_path, monkeypatch, short_sleep):
+    dead = FakeServer(DATA, dead_from=0)
+    serve(monkeypatch, FakeShare(FOLDER, servers={"F/Images/a b.jpg": dead}))
+    with pytest.raises(NoProgress, match="no new byte") as caught:
+        download.fetch_share(SHARE, "F", tmp_path / "F", settings(**QUICK_GIVE_UP))
+    assert caught.value.gained == len(DATA) + 40  # c.jpg and a.xml came in
+    assert not (tmp_path / "F" / "Images" / "a b.jpg").exists()
+
+
+@pytest.mark.parametrize("share, folder, size, error", [
+    (SHARE, "F", 123, "changed"),
+    (SHARE, "missing", None, "404"),
+    ("https://cloud/index.php/f/tok", "F", None, "not a Nextcloud share link"),
+])
+def test_share_errors_a_retry_cannot_fix(tmp_path, monkeypatch, share, folder, size, error):
+    serve(monkeypatch, FakeShare(FOLDER))
+    with pytest.raises((DownloadError, requests.HTTPError), match=error):
+        download.fetch_share(share, folder, tmp_path / folder, settings(), size=size)
+
+
+def test_fetch_files_copies_share_folders_and_skips_finished_ones(tmp_path, monkeypatch):
+    share = serve(monkeypatch, FakeShare(FOLDER))
+    files = [{"share": SHARE, "path": "F", "size": sum(map(len, FOLDER.values()))}]
+    assert download.fetch_files(files, tmp_path, settings()) == (True, [])
+    assert (tmp_path / "F" / "Images" / "c.jpg").read_bytes() == DATA[::-1]
+    assert (tmp_path / ".downloaded" / "F").exists()
+    monkeypatch.setattr(download, "_list_share", None)  # a finished folder isn't even listed
+    assert download.fetch_files(files, tmp_path, settings()) == (False, [])
+    assert share.served() == sum(map(len, FOLDER.values()))
 
 
 def test_unknown_transfer_settings_are_refused():

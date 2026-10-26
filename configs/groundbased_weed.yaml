@@ -17,11 +17,16 @@ download:
     - url: https://digital.csic.es/bitstream/10261/396144/8/Annotations_extra.zip
       size: 1514337
       extract: true
-    - url: https://digital.csic.es/bitstream/10261/396144/7/TOMATO_2.zip
-      size: 2133932772
-      extract: true
-    - url: https://digital.csic.es/bitstream/10261/396144/6/TOMATO_1.zip
-      size: 6183520296
-      extract: true
+    # The images and their Pascal VOC boxes. DIGITAL.CSIC served only the first 512 MiB of
+    # its TOMATO_1.zip and TOMATO_2.zip, so they come from the authors' Nextcloud share
+    # (link sent 2026-10-26), which holds the same folders unpacked: copied file by file
+    # into <raw_dir>/TOMATO_n/{Annotations,Images}/. Sizes (all files of the folder) as
+    # listed on 2026-10-26; the share gives no checksums.
+    - share: https://saco.csic.es/s/rArggziCjyQf7kC
+      path: TOMATO_2
+      size: 2133847362
+    - share: https://saco.csic.es/s/rArggziCjyQf7kC
+      path: TOMATO_1
+      size: 6183096122
   # Keep the archives in <raw_dir>/.archives/ after unpacking them.
   keep_archives: false

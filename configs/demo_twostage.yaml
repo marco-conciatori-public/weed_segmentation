@@ -21,7 +21,7 @@ amp: true
 # handoff.min_plant_score). The zero-shot thresholds are in the package's model.json.
 min_plant_score: null
 # Open each drawn image in the default viewer once it is saved. For a few images.
-open_results: false
+open_results: true
 
 draw:
   # Label text: code (EPPO code, e.g. ZEAMX) or name (scientific name, e.g. Zea mays).

@@ -29,7 +29,8 @@ project root.
 
 `scripts/download_datasets.py` fetches the datasets listed in `configs/download.yaml`; each
 dataset config's `download` section lists its files (URL, size, checksum when published,
-whether to unpack). It is built for the slow, unstable connection we have in China (VPN):
+whether to unpack), or folders of a Nextcloud public share (`share` link, folder `path`,
+total size). It is built for the slow, unstable connection we have in China (VPN):
 
 - Each file comes in pieces over several connections at once (`transfer.connections`). On
   2026-10-21 one connection to phenobench.org gave ~0.66 MB/s, six gave ~3 MB/s.
@@ -47,6 +48,11 @@ whether to unpack). It is built for the slow, unstable connection we have in Chi
 - Finished files are skipped (markers in `<raw_dir>/.downloaded/`). An unfinished download
   from elsewhere (e.g. a browser) can be renamed to `<raw_dir>/.archives/<name>.part` and is
   continued.
+- A share folder is listed through the share's WebDAV address and copied into
+  `<raw_dir>/<path>` file by file, several files at once (one connection each); a file
+  continues from its `<file>.part` after a break. Files already there with the listed size
+  are skipped. The share's own "download" button would build a zip on the fly, which can't be
+  continued after a break.
 
 Server quirks found on 2026-10-21: digital.csic.es (GROUNDBASED_WEED) sits behind a bot check
 that challenges browsers but lets scripts through, and takes ~30 s before each answer starts,
@@ -60,7 +66,11 @@ GROUNDBASED_WEED's `TOMATO_2.zip` stopped at 512 MiB (25% of 2.1 GB) on 2026-10-
 browser and this script alike, on two computers. The script's pieces starting at 512 MiB or
 later got no byte at all, so the server seems unable to serve the rest of the file. Not
 confirmed yet: on 2026-10-22 digital.csic.es stopped answering altogether, from China and
-from elsewhere.
+from elsewhere. `TOMATO_1.zip` stopped at 512 MiB too. On 2026-10-26 the authors sent a
+Nextcloud share (saco.csic.es) with both folders unpacked, so these now come from there, file
+by file. Its WebDAV listing answers only requests marked as coming from its web page
+(`X-Requested-With`); the files themselves have no such check. Each request took ~1.3 s to
+start, and one connection gave ~1.7 MB/s.
 
 ## COCO fields
 

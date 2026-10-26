@@ -18,6 +18,12 @@ progress kept, so the next files get their turn. Set-aside files get another pas
 others, as long as the previous pass brought anything new; a file that fails for a reason a
 retry won't fix doesn't stop the others either. The unfinished files are listed at the end.
 
+`fetch_share` copies a folder of a Nextcloud public share (a https://<server>/s/<token>
+link) file by file, through the share's WebDAV address: the folder is listed, and the files
+not there yet are fetched whole, several at once (one connection each), each continuing from
+its `<file>.part` after a break. Meant for folders of many small files; the share's own
+"download" button builds a zip on the fly, which can't be continued after a break.
+
 Requests keep the `python-requests` user agent: digital.csic.es's bot check (Anubis)
 challenges browser user agents, not scripts.
 """
@@ -33,9 +39,10 @@ import threading
 import time
 import zipfile
 from dataclasses import dataclass, fields
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import quote, unquote, urljoin, urlparse
+from xml.etree import ElementTree
 
 import requests
 from tqdm import tqdm
@@ -44,6 +51,9 @@ READ_SIZE = 1 << 16  # bytes per read from a connection: small, so slow links sh
 HASH_BLOCK = 1 << 23  # bytes per read when checking a checksum
 MAX_WAIT_S = 120  # longest wait between two attempts
 SAVE_EVERY_S = 5  # how often the progress file is rewritten
+DAV = "{DAV:}"  # WebDAV's XML namespace
+SHARE_LISTING = ('<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/>'
+                 '<d:getcontentlength/></d:prop></d:propfind>')  # what a listing asks for
 
 
 @dataclass
@@ -135,28 +145,39 @@ def fetch_files(files: list[dict[str, Any]], raw_dir: Path, settings: TransferSe
 
     Each entry has a `url` and optionally `name` (default: from the URL), `size` (bytes),
     `md5` or `sha256`, and `extract` (unpack a .zip or .tar into `raw_dir`; the archive is
-    kept in `raw_dir/.archives/` until then, and afterwards with `keep_archives`). A file
-    finished in an earlier run (its marker in `raw_dir/.downloaded/`) is skipped, and so are
-    the download paths in `skip`. A file that fails, or brings no new byte for
-    `give_up_after_min`, is left for later and the next one starts.
+    kept in `raw_dir/.archives/` until then, and afterwards with `keep_archives`). An entry
+    can instead be a folder of a Nextcloud public share: `share` (the link) and `path` (the
+    folder), copied into `raw_dir/<path>` by `fetch_share`, optionally with `name` (default:
+    the folder's) and `size` (all its files together). A file finished in an earlier run (its
+    marker in `raw_dir/.downloaded/`) is skipped, and so are the download paths in `skip`. A
+    file that fails, or brings no new byte for `give_up_after_min`, is left for later and the
+    next one starts.
 
     Returns whether anything new came in, and the files left unfinished.
     """
     progress, unfinished = False, []
     for entry in files:
-        name = entry.get("name") or file_name(entry["url"])
+        share = entry.get("share")
+        name = entry.get("name") or (PurePosixPath(entry["path"]).name if share
+                                     else file_name(entry["url"]))
         marker = raw_dir / ".downloaded" / Path(name).stem
         if marker.exists():
             print(f"{name}: already downloaded, skipping")
             continue
-        extract = entry.get("extract", False)
-        target = raw_dir / ".archives" / name if extract else raw_dir / name
+        extract = not share and entry.get("extract", False)
+        if share:
+            target = raw_dir / entry["path"]
+        else:
+            target = raw_dir / ".archives" / name if extract else raw_dir / name
         if target in skip:
             continue
         try:
-            download_file(entry["url"], target, settings, size=entry.get("size"),
-                          md5=entry.get("md5"), sha256=entry.get("sha256"),
-                          extract_after=extract)
+            if share:
+                fetch_share(share, entry["path"], target, settings, size=entry.get("size"))
+            else:
+                download_file(entry["url"], target, settings, size=entry.get("size"),
+                              md5=entry.get("md5"), sha256=entry.get("sha256"),
+                              extract_after=extract)
             if extract:
                 extract_archive(target, raw_dir)
                 if not keep_archives:
@@ -229,6 +250,86 @@ def download_file(url: str, path: Path, settings: TransferSettings | None = None
         _download_stream(url, partial, total, settings)
     _verify(partial, total, md5, sha256)
     partial.replace(path)
+
+
+def fetch_share(share: str, folder: str, dest: Path, settings: TransferSettings | None = None,
+                size: int | None = None) -> None:
+    """Copy `folder` of the Nextcloud public share at link `share` into `dest`, file by file
+    (see the module doc). Files already in `dest` with the size the server lists are skipped.
+
+    `size`, when given, must match the folder's total on the server, so a changed folder is
+    noticed.
+    """
+    settings = settings or TransferSettings()
+    root = _share_dav(share)
+    session = _session(settings)
+    try:
+        files = _with_retries(lambda: _list_share(session, root, folder, settings), settings,
+                              folder)
+    finally:
+        session.close()
+    if not files:
+        raise DownloadError(f"{share}: no files in {folder!r}")
+    total = sum(file.size for file in files)
+    if size is not None and total != size:
+        raise DownloadError(f"{folder}: the server lists {total} bytes, the config says {size}. "
+                            "The folder may have changed: check it, then fix the config")
+    _ShareFolder(files, dest, PurePosixPath(folder).name, settings).run()
+
+
+@dataclass
+class _ShareFile:
+    """A file in a share folder: its path in the folder, URL and size."""
+
+    path: str
+    url: str
+    size: int
+
+
+def _share_dav(share: str) -> str:
+    """The WebDAV address of a Nextcloud public share link."""
+    parts = urlparse(share)
+    prefix, found, token = parts.path.rstrip("/").rpartition("/s/")
+    if not found or not token or "/" in token:
+        raise DownloadError(f"{share} is not a Nextcloud share link (https://<server>/s/<token>)")
+    return f"{parts.scheme}://{parts.netloc}{prefix}/public.php/dav/files/{token}/"
+
+
+def _list_share(session: requests.Session, root: str, folder: str,
+                settings: TransferSettings) -> list[_ShareFile]:
+    """The files in `folder` of the share at WebDAV address `root`, subfolders included."""
+    start = root + quote(folder.strip("/")) + "/"
+    prefix = unquote(urlparse(start).path)
+    todo, found = [start], []
+    while todo:
+        url = todo.pop()
+        # Nextcloud lists a public share only to requests marked as coming from its own web
+        # page; others get 401 Unauthorized.
+        response = session.request("PROPFIND", url, data=SHARE_LISTING,
+                                   timeout=settings.timeout_s,
+                                   headers={"Depth": "1", "Content-Type": "application/xml",
+                                            "X-Requested-With": "XMLHttpRequest"})
+        _check_response(response, url)
+        try:
+            entries = list(ElementTree.fromstring(response.content).iter(f"{DAV}response"))
+        except ElementTree.ParseError as error:
+            raise DownloadError(f"{url}: the answer is not a folder listing") from error
+        for entry in entries:
+            href = urljoin(url, entry.findtext(f"{DAV}href", ""))
+            path = unquote(urlparse(href).path)
+            if path.rstrip("/") == unquote(urlparse(url).path).rstrip("/"):
+                continue  # the folder itself
+            relative = PurePosixPath(path[len(prefix):])
+            if not path.startswith(prefix) or ".." in relative.parts:
+                raise DownloadError(f"{url}: unexpected entry {href}")
+            if entry.find(f".//{DAV}collection") is not None:
+                todo.append(href)
+                continue
+            length = entry.findtext(f".//{DAV}getcontentlength")
+            if length is None:
+                raise DownloadError(f"{href}: the server lists no size")
+            found.append(_ShareFile(str(relative), href, int(length)))
+    return sorted(found, key=lambda file: file.path)
 
 
 def _session(settings: TransferSettings) -> requests.Session:
@@ -320,10 +421,31 @@ def _with_retries(action, settings: TransferSettings, what: str):
 def _check_space(path: Path, needed: int) -> None:
     done = path.with_name(path.name + ".part")
     needed -= done.stat().st_size if done.exists() else 0
-    free = shutil.disk_usage(path.parent).free
+    _require_space(path.parent, needed, path.name)
+
+
+def _require_space(folder: Path, needed: int, what: str) -> None:
+    free = shutil.disk_usage(folder).free
     if free < needed:
-        raise DownloadError(f"{path.name}: needs {needed / 1e9:.1f} GB more, only "
-                            f"{free / 1e9:.1f} GB free on {path.anchor}")
+        raise DownloadError(f"{what}: needs {needed / 1e9:.1f} GB more, only "
+                            f"{free / 1e9:.1f} GB free on {folder.anchor}")
+
+
+def _run_workers(worker, count: int, settings: TransferSettings, last_byte_at) -> bool:
+    """Run `worker` in `count` threads until they end, or until no new byte came for
+    `give_up_after_min` (`last_byte_at()` says when the last one did): returns True then."""
+    give_up_s = _give_up_s(settings)
+    # Daemon threads: a stopped script, or a file set aside, must not wait for a connection
+    # to time out.
+    threads = [threading.Thread(target=worker, daemon=True) for _ in range(count)]
+    for thread in threads:
+        thread.start()
+    while any(thread.is_alive() for thread in threads):
+        for thread in threads:
+            thread.join(0.5)
+        if give_up_s is not None and _clock() - last_byte_at() >= give_up_s:
+            return True
+    return False
 
 
 class _Segmented:
@@ -391,19 +513,11 @@ class _Segmented:
                    f"pieces, {todo.qsize()} to fetch over {connections} connections")
         self.bar = tqdm(total=self.total, initial=sum(self.done), unit="B", unit_scale=True,
                         desc=self.partial.name[:-5], smoothing=0.05)
-        initial, give_up_s, stuck = sum(self.done), _give_up_s(self.settings), False
+        initial = sum(self.done)
         self.progress_at = _clock()
-        # Daemon threads: a stopped script, or a file set aside, must not wait for a
-        # connection to time out.
-        workers = [threading.Thread(target=self._worker, args=(todo,), daemon=True)
-                   for _ in range(connections)]
         try:
-            for worker in workers:
-                worker.start()
-            while any(worker.is_alive() for worker in workers) and not stuck:
-                for worker in workers:
-                    worker.join(0.5)
-                stuck = give_up_s is not None and _clock() - self.progress_at >= give_up_s
+            stuck = _run_workers(lambda: self._worker(todo), connections, self.settings,
+                                 lambda: self.progress_at)
         finally:
             self.stop.set()
             with self.lock:
@@ -490,6 +604,142 @@ class _Segmented:
                         if speed < settings.min_speed_kbs:
                             raise Stalled(f"{speed:.1f} kB/s over {settings.stall_s:g} s")
                         window_start, window_bytes = now, 0
+
+
+class _ShareFolder:
+    """The missing files of a share folder, fetched whole by several connections at once,
+    one file each; see the module doc."""
+
+    def __init__(self, files: list[_ShareFile], dest: Path, name: str,
+                 settings: TransferSettings):
+        self.files, self.dest, self.name, self.settings = files, dest, name, settings
+        self.lock = threading.Lock()
+        self.stop = threading.Event()
+        self.errors: list[BaseException] = []  # these stop all connections
+        self.failed: list[str] = []  # these stop only their own file
+
+    def run(self) -> None:
+        todo: queue.Queue[_ShareFile] = queue.Queue()
+        total = have = 0
+        for file in self.files:
+            path = self.dest / file.path
+            partial = path.with_name(path.name + ".part")
+            total += file.size
+            if path.exists() and path.stat().st_size == file.size:
+                have += file.size
+                continue
+            if partial.exists() and partial.stat().st_size > file.size:
+                partial.unlink()  # the file changed on the server
+            have += partial.stat().st_size if partial.exists() else 0
+            todo.put(file)
+        if todo.empty():
+            return
+        self.dest.mkdir(parents=True, exist_ok=True)
+        _require_space(self.dest, total - have, self.name)
+        connections = max(1, min(self.settings.connections, todo.qsize()))
+        tqdm.write(f"{self.name}: {len(self.files)} files, {total / 1e9:.2f} GB; "
+                   f"{todo.qsize()} to fetch over {connections} connections")
+        self.bar = tqdm(total=total, initial=have, unit="B", unit_scale=True, desc=self.name,
+                        smoothing=0.05)
+        self.progress_at = _clock()
+        try:
+            stuck = _run_workers(lambda: self._worker(todo), connections, self.settings,
+                                 lambda: self.progress_at)
+        finally:
+            self.stop.set()
+            self.bar.close()
+        if self.errors:
+            raise self.errors[0]
+        if stuck:
+            got = self.bar.n
+            raise NoProgress(f"no new byte in {self.settings.give_up_after_min:g} min; "
+                             f"stopped at {got / 1e6:.1f} of {total / 1e6:.1f} MB "
+                             f"({got / total:.1%})", gained=got - have)
+        if self.failed:
+            raise DownloadError(f"{len(self.failed)} of {len(self.files)} files failed, e.g. "
+                                + "; ".join(self.failed[:3]))
+
+    def _worker(self, todo: "queue.Queue[_ShareFile]") -> None:
+        session = _session(self.settings)
+        try:
+            while not self.stop.is_set():
+                try:
+                    file = todo.get_nowait()
+                except queue.Empty:
+                    return
+                try:
+                    self._fetch(session, file)
+                except (DownloadError, requests.RequestException) as error:
+                    problem = f"{file.path}: {type(error).__name__}: {error}"
+                    tqdm.write(f"{self.name}/{problem}")
+                    self.failed.append(problem)
+        except BaseException as error:  # noqa: BLE001 - handed to the main thread
+            self.errors.append(error)
+            self.stop.set()
+        finally:
+            session.close()
+
+    def _fetch(self, session: requests.Session, file: _ShareFile) -> None:
+        path = self.dest / file.path
+        partial = path.with_name(path.name + ".part")
+        partial.parent.mkdir(parents=True, exist_ok=True)
+        done = partial.stat().st_size if partial.exists() else 0
+        failures = 0
+        while done < file.size and not self.stop.is_set():
+            offset = done
+            try:
+                done = self._stream(session, file, partial, offset)
+                if done < file.size and not self.stop.is_set():
+                    raise requests.ConnectionError("connection closed early")
+            except Exception as error:  # sorted out below
+                if _fatal(error) or not isinstance(error, requests.RequestException):
+                    raise
+                done = partial.stat().st_size if partial.exists() else 0
+                failures = 0 if done > offset else failures
+                failures += 1
+                _wait(failures, self.settings, f"{self.name}/{file.path}", error, self.stop)
+        if done == file.size:
+            partial.touch()  # an empty file is never opened
+            partial.replace(path)
+
+    def _stream(self, session: requests.Session, file: _ShareFile, partial: Path,
+                offset: int) -> int:
+        """Add to `partial` from byte `offset` on; returns how far it got."""
+        settings = self.settings
+        headers = {"Range": f"bytes={offset}-"} if offset else {}
+        with session.get(file.url, headers=headers, stream=True,
+                         timeout=settings.timeout_s) as response:
+            _check_response(response, file.url)
+            got = response.headers.get("Content-Range", "")
+            if response.status_code == 206 and not got.startswith(f"bytes {offset}-"):
+                raise DownloadError(f"{file.url}: asked for bytes {offset}-, got {got!r}")
+            if offset and response.status_code != 206:  # the whole file came: start over
+                with self.lock:
+                    self.bar.update(-offset)
+                offset = 0
+            # Unbuffered: what the progress bar counts is already with the OS, so `partial`
+            # holds it after a crash of this script.
+            with open(partial, "ab" if offset else "wb", buffering=0) as f:
+                window_start, window_bytes = _clock(), 0
+                for block in response.iter_content(READ_SIZE):
+                    if self.stop.is_set():
+                        break
+                    block = block[:file.size - offset]
+                    f.write(block)
+                    offset += len(block)
+                    window_bytes += len(block)
+                    now = _clock()
+                    with self.lock:
+                        self.progress_at = now
+                        self.bar.update(len(block))
+                    if offset >= file.size:
+                        break
+                    if now - window_start >= settings.stall_s:
+                        speed = window_bytes / (now - window_start) / 1000
+                        if speed < settings.min_speed_kbs:
+                            raise Stalled(f"{speed:.1f} kB/s over {settings.stall_s:g} s")
+                        window_start, window_bytes = now, 0
+        return offset
 
 
 def _download_stream(url: str, partial: Path, total: int | None,
