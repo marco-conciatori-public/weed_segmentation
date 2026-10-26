@@ -1,7 +1,7 @@
 # GROUNDBASED_WEED (Moreno, Rivera and Andújar, CSIC; Data in Brief 2025): commercial tomato
 # fields in Badajoz, Spain, 2021-22, boxes for tomato and 5 weed species. Used by
-# scripts/download_datasets.py (see configs/download.yaml). Relative paths are resolved
-# against the project root. Licence: ODbL 1.0, per the DIGITAL.CSIC record
+# scripts/download_datasets.py (see configs/download.yaml) and
+# scripts/convert_groundbased_weed.py. Relative paths are resolved against the project root. Licence: ODbL 1.0, per the DIGITAL.CSIC record
 # (https://doi.org/10.20350/digitalCSIC/17475).
 
 # Where the download is unpacked.
@@ -30,3 +30,41 @@ download:
       size: 6183096122
   # Keep the archives in <raw_dir>/.archives/ after unpacking them.
   keep_archives: false
+
+# Conversion to COCO (scripts/convert_groundbased_weed.py). See
+# docs/datasets/groundbased_weed.md. Boxes only: the images are marked box_only and reach the
+# species classifier, not Mask R-CNN.
+convert:
+  output_dir: data/processed/groundbased_weed
+  label_map: configs/label_maps/groundbased_weed.csv
+  eppo_taxa: configs/eppo_taxa.csv
+  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  taxonomy: species
+  # Plants whose box is shorter than this on its longer side (mm, via mm_per_px_estimate)
+  # become ignore regions. Must match the other datasets to combine them.
+  min_plant_size_mm: 20
+  # Images without plants (or with only plants under min_plant_size_mm) are negative
+  # samples. false drops them: box-only images reach only the species classifier, which
+  # learns nothing from an image without plants. (Every image has boxes.)
+  keep_negative_images: false
+  # The images carry no field or date (TOMATO_1 has no EXIF at all), so they are grouped in
+  # blocks of this many consecutive camera numbers (IMG_<number>), stretches of a walk
+  # through a field. Consecutive photos rarely overlap (16 of 1,215 pairs, by feature
+  # matching), so small blocks leak little; larger ones unbalance the split: with 50, ECHCG
+  # got 2% of its plants in val. Changing it changes the split.
+  group_block: 10
+  # Split by group, never by image, balanced over species. The balancing counts images, and
+  # most ECHCG grow in dense TOMATO_2 photos (~40 boxes each), so the plant fractions depend
+  # on the seed: seed 0 put 34% of the ECHCG plants in val. Seed 5, the best of 0-9, keeps
+  # every species within 5 points of the fractions.
+  split:
+    seed: 5
+    fractions: {train: 0.70, val: 0.15, test: 0.15}
+  # The paper gives "approximately 0.05 cm/px" (0.5 mm/px) at 1-1.5 m above the canopy, but
+  # the camera (Canon PowerShot SX540 HS, 1.19 um pixels; TOMATO_2's EXIF says 4.3 mm, its
+  # widest zoom) gives 0.29-0.43 mm/px at 1-1.5 m. The quadrat cut-outs measure 0.29: their
+  # frame spans ~3,500 px and its pipe ~110 px, which fits a 1 m frame of 32 mm pipe (the
+  # only standard pair with that ratio). Plants not recognised (NR) have the same median box
+  # (~85 px) in the quadrats and the other photos. 0.5 would put 190 boxes under 20 mm
+  # instead of 1,406.
+  mm_per_px_estimate: 0.3

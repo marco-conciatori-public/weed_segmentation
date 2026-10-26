@@ -86,9 +86,11 @@ plants.
 
 ## In the combination
 
-Since 2026-10-22 OPPD is in `configs/combine.yaml` with CropAndWeed, ACRE and PhenoBench:
-`data/processed/cropandweed+acre+phenobench+oppd/species_min50img_min20mm`, the data of the
-two-stage configs. Its box-only images are 3,810 of 11,398 in train, 964 of 3,171 in val and
+Since 2026-10-22 OPPD is in `configs/combine.yaml` with CropAndWeed, ACRE and PhenoBench,
+and since 2026-10-26 with GROUNDBASED_WEED too ([groundbased_weed.md](groundbased_weed.md)).
+The numbers below are for the four datasets without GROUNDBASED_WEED
+(`data/processed/cropandweed+acre+phenobench+oppd/species_min50img_min20mm`). Its box-only
+images are 3,810 of 11,398 in train, 964 of 3,171 in val and
 959 of 2,377 in test. Compared with the same combination without OPPD
 (`min_train_images: 50`):
 

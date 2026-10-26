@@ -1,0 +1,8 @@
+source_label,common_name,scientific_name,name_source,eppo,eppo_note,role,species
+CYPRO,Purple nutsedge,Cyperus rotundus,readme,CYPRO,,weed,CYPRO
+ECHCG,Barnyard grass,Echinochloa crus-galli,readme,ECHCG,,weed,ECHCG
+LYPES,Tomato,Solanum lycopersicum,readme,LYPES,,crop,LYPES
+NR,Plant of unknown species,Plantae,readme,1PLAK,The dataset's NR (not recognised: image not clear enough or plant too small); one plant not identified to species,weed,1PLAK
+POROL,Common purslane,Portulaca oleracea,readme,POROL,,weed,POROL
+SETVE,Bristly foxtail,Setaria verticillata,readme,SETVE,,weed,SETVE
+SOLNI,Black nightshade,Solanum nigrum,readme,SOLNI,,weed,SOLNI

@@ -144,6 +144,10 @@ Species seen only in OPPD were photographed in trays in a greenhouse, in a daily
 series of the same few trays. How well the model recognises them in real fields is not
 known.
 
+Tomato, purple nutsedge (*Cyperus rotundus*) and bristly foxtail (*Setaria verticillata*)
+were seen only in GROUNDBASED_WEED: tomato fields at one site in Spain, photographed with
+one camera. How well the model recognises them elsewhere is not known.
+
 ## Accuracy
 
 These are the numbers on the validation split, images held out from training, per source
@@ -166,7 +170,8 @@ How to read these numbers:
   any model. Its validation fields are bean fields full of fat-hen (*Chenopodium album*).
 - **PhenoBench** gives a species only for sugar beet. Its weeds trained the detector, not
   the classifier.
-- **OPPD** has boxes, not outlines, so only the classifier is scored on it.
+- **OPPD** and **GROUNDBASED_WEED** have boxes, not outlines, so only the classifier is
+  scored on them.
 
 ## Training data
 

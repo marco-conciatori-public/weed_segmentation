@@ -15,7 +15,7 @@ data:
   # Species folder (train.json, val.json, test.json); the classes come from the train file.
   # The species Mask R-CNN stays on cropandweed+acre (the frozen reference): compare the two
   # pipelines in the CropAndWeed and ACRE rows of by_dataset.csv (docs/twostage.md).
-  dir: data/processed/cropandweed+acre+phenobench+oppd/species_min50img_min20mm
+  dir: data/processed/cropandweed+acre+phenobench+oppd+groundbased_weed/species_min50img_min20mm
   # Data-loading processes, for training and for prepare_crops.py. 0 = main process.
   num_workers: 6
   # Use a random subset of N crops (null = all). For a quick smoke test.

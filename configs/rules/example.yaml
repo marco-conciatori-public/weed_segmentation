@@ -25,10 +25,11 @@ plant_defer_below: 0.8
 defer_below: 0.9
 rules:
   # Crops: every CropAndWeed crop, since its val and test splits mix fields of all of them,
-  # and ACRE's bean (its val fields are bean fields).
+  # ACRE's bean (its val fields are bean fields) and GROUNDBASED_WEED's tomato.
   BEAVA: crop    # sugar beet
   GLXMA: crop    # soybean
   HELAN: crop    # sunflower
+  LYPES: crop    # tomato
   PHSVX: crop    # common bean
   PIBSX: crop    # pea
   SOLTU: crop    # potato

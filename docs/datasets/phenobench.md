@@ -54,8 +54,10 @@
   combination with CropAndWeed and ACRE (2026-10-21) gave the detector 14,646 more train
   plants (+26%) and the classifier 8,679 more sugar beet crops.
 - Its weeds reach only the detector.
-- Since 2026-10-22 in `configs/combine.yaml` with CropAndWeed, ACRE and OPPD:
-  `data/processed/cropandweed+acre+phenobench+oppd`, the data of the two-stage configs.
+- Since 2026-10-22 in `configs/combine.yaml` with CropAndWeed, ACRE and OPPD, and since
+  2026-10-26 with GROUNDBASED_WEED too:
+  `data/processed/cropandweed+acre+phenobench+oppd+groundbased_weed`, the data of the
+  two-stage configs.
 
 ## Known limitations
 

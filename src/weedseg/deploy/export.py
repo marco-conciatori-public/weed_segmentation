@@ -43,6 +43,8 @@ PAPERS = {
                   "Image Interpretation in the Agricultural Domain\", IEEE TPAMI 2024",
     "oppd": "Madsen et al., \"Open Plant Phenotyping Database of Common Weeds in Denmark\", "
             "Remote Sensing 2020",
+    "groundbased_weed": "Moreno, Rivera Cárdenas and Andújar, \"Ground-based imagery dataset "
+                        "for early weed classification in tomato crops\", Data in Brief 2025",
 }
 
 
