@@ -107,11 +107,18 @@ train:
   # Also save last.pt every N training steps (null = only after each epoch), so a crash
   # (e.g. of the GPU driver) loses a few minutes rather than the epoch under way.
   checkpoint_every: 200
+  # At the end, warn when the last epoch's val accuracy is more than this below the best
+  # epoch's (0.005 = half a point), e.g. from overfitting: then compare best.pt before
+  # relying on last.pt, which evaluate.checkpoint uses by default.
+  warn_last_below_best: 0.005
 
 evaluate:
   # scripts/evaluate_classifier.py: accuracy on the cached crops of a split (labelled boxes,
-  # no detector). Checkpoint of this run: best, last, or a path to a .pt file.
-  checkpoint: best
+  # no detector). Checkpoint of this run: last (the final epoch), best (the epoch with the
+  # best val accuracy) or a path to a .pt file. Both are kept. last since 2026-10-27: the
+  # learning rate has decayed to almost zero by then, while best picked chance peaks (one
+  # run kept a half-trained epoch 4, 0.1 point above its last; see docs/twostage.md).
+  checkpoint: last
   split: val
   eppo_taxa: configs/eppo_taxa.csv
   # Decision rules, for the role level of taxonomic_levels.csv (null = skip that level).

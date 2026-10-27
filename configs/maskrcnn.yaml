@@ -107,7 +107,7 @@ review:
   # and uses that evaluation's thresholds and rule file (read as it is now). Errors shown per
   # type.
   # Evaluation folder to review; null = this config's evaluate checkpoint and split. E.g.
-  # runs/twostage/<run>/eval/val for the two-stage pipeline (scripts/predict_twostage.py).
+  # runs/twostage/<run>/eval/val_last for the two-stage pipeline (scripts/predict_twostage.py).
   eval_dir: null
   per_type: 25
   # Smallest crop around a plant, in px of the original image (more context for small plants).

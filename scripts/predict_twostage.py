@@ -1,7 +1,8 @@
 """Two-stage prediction and evaluation on a split: the plant detector finds the plants, the
 species classifier names them (see weedseg.twostage). Settings: configs/twostage.yaml.
 
-Writes to <output_dir>/<run_name>/eval/<split>/ the same outputs as
+Writes to <output_dir>/<run_name>/eval/<split>_<classifier checkpoint>/ (e.g. val_last; up
+to 2026-10-26 <split>/, always made with best.pt) the same outputs as
 scripts/evaluate_maskrcnn.py (weedseg.report.write_evaluation), so the two pipelines can be
 compared file by file; scripts/review_errors.py reviews them with `review.eval_dir`.
 Images labelled with boxes only are left out: scripts/evaluate_classifier.py scores the
@@ -73,7 +74,7 @@ def main(config_path: str = CONFIG, classifier_config: str | None = None) -> Non
 
     name = config["run_name"].format(detector=detector_file.parent.name,
                                      classifier=classifier_file.parent.name)
-    out_dir = resolve(config["output_dir"]) / name / "eval" / split
+    out_dir = resolve(config["output_dir"]) / name / "eval" / f"{split}_{classifier_file.stem}"
     write_evaluation(coco, results, settings, out_dir, name,
                      detector_config["detections_per_image"], dataset.image_dir,
                      split_file(config, split), config["seed"])

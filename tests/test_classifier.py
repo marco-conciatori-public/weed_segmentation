@@ -24,6 +24,7 @@ from weedseg.classifier.engine import (
     accuracy_metrics,
     class_by_dataset,
     label_fit,
+    last_below_best,
     train_one_epoch,
 )
 from weedseg.classifier.model import build_classifier, parameter_groups
@@ -203,6 +204,16 @@ def test_accuracy_by_class_and_dataset():
     # cross-dataset: CHEAL in oppd (2 crops, 1 right) and POLCO in cropandweed (3, 1 right);
     # other_plant is left out
     assert summary == {"cross_dataset_crops": 5, "cross_dataset_accuracy": pytest.approx(0.4)}
+
+
+def test_warning_when_the_last_epoch_is_clearly_below_the_best():
+    records = [{"epoch": 0, "val_accuracy": 0.90}, {"epoch": 1, "val_accuracy": 0.937},
+               {"epoch": 2, "val_accuracy": 0.936}]
+    assert last_below_best(records, 0.005) is None  # 0.1 point: chance
+    records.append({"epoch": 3, "val_accuracy": 0.925})
+    warning = last_below_best(records, 0.005)
+    assert warning.startswith("Warning: the last epoch (3)") and "best (epoch 1" in warning
+    assert last_below_best([], 0.005) is None
 
 
 def test_partial_label_loss():

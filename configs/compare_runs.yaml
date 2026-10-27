@@ -10,10 +10,11 @@ runs:
   - configs/classifier_detail.yaml
   - configs/classifier_colour.yaml
 # The evaluation compared: <run>/eval/<split>_<checkpoint> (scripts/evaluate_classifier.py),
-# and the two-stage one made with each run, <twostage_dir>/<detector run>__<run>/eval/<split>
-# (scripts/predict_twostage.py; the newest when several detectors were used).
+# and the two-stage one made with the same checkpoint of each run,
+# <twostage_dir>/<detector run>__<run>/eval/<split>_<checkpoint> (scripts/predict_twostage.py;
+# the newest when several detectors were used).
 split: val
-checkpoint: best
+checkpoint: last
 twostage_dir: runs/twostage
 # Output: <output_dir>/compare_<date>_<time>.md and .csv.
 output_dir: runs/compare

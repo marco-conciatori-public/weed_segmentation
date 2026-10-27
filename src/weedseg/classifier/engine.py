@@ -159,6 +159,21 @@ def class_by_dataset(true: list[str], predicted: list[str], datasets: list[str],
     return rows, summary
 
 
+def last_below_best(records: list[dict[str, Any]], tolerance: float) -> str | None:
+    """A warning when the last epoch's val accuracy (metrics.jsonl records) is more than
+    `tolerance` below the best epoch's, e.g. from overfitting; None otherwise."""
+    if not records:
+        return None
+    best, last = max(records, key=lambda r: r["val_accuracy"]), records[-1]
+    gap = best["val_accuracy"] - last["val_accuracy"]
+    if gap <= tolerance:
+        return None
+    return (f"Warning: the last epoch ({last['epoch']}) has val accuracy "
+            f"{last['val_accuracy']:.3f}, {gap:.1%} below the best (epoch {best['epoch']}, "
+            f"{best['val_accuracy']:.3f}). Evaluation and prediction use last.pt by default; "
+            "evaluate best.pt too (evaluate.checkpoint: best) before relying on it.")
+
+
 def label_fit(predicted: np.ndarray, allowed: list[list[int]]) -> float | None:
     """Share of partly labelled samples whose predicted class is one of their allowed classes
     (e.g. of PhenoBench's weeds, those not called sugar beet); None without any."""

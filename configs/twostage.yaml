@@ -2,8 +2,8 @@
 # classifier names them. Used by scripts/predict_twostage.py. Relative paths are resolved
 # against the project root. See docs/twostage.md.
 
-# Outputs go to <output_dir>/<run_name>/eval/<split>/. Placeholders: {detector} and
-# {classifier} = the run folders of the two checkpoints.
+# Outputs go to <output_dir>/<run_name>/eval/<split>_<classifier checkpoint>/, e.g. val_last.
+# Placeholders: {detector} and {classifier} = the run folders of the two checkpoints.
 run_name: "{detector}__{classifier}"
 output_dir: runs/twostage
 seed: 0
@@ -27,10 +27,11 @@ detector:
   batch_size: 2
 
 classifier:
-  # The classifier's config (scripts/train_classifier.py) and its checkpoint, as above. The
-  # crop settings (margin, size, background) come from the checkpoint.
+  # The classifier's config (scripts/train_classifier.py) and its checkpoint, as above
+  # (last, like evaluate.checkpoint of configs/classifier.yaml). The crop settings (margin,
+  # size, background) come from the checkpoint.
   config: configs/classifier.yaml
-  checkpoint: best
+  checkpoint: last
   batch_size: 128
   # Only detections with at least this plant score are classified (the others are dropped).
   # The detector's own score_threshold (0.05) keeps the whole precision curve for AP; raise

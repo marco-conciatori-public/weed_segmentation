@@ -118,7 +118,7 @@ def export_package(config: dict[str, Any]) -> Path:
     twostage_eval = (resolve(twostage["output_dir"])
                      / twostage["run_name"].format(detector=detector_file.parent.name,
                                                    classifier=classifier_file.parent.name)
-                     / "eval" / twostage["evaluate"]["split"])
+                     / "eval" / f"{twostage['evaluate']['split']}_{classifier_file.stem}")
     # as evaluate_classifier.py names it (weedseg.maskrcnn.run.eval_dir), next to the checkpoint
     classifier_eval = (classifier_file.parent / "eval"
                        / f"{classifier_config['evaluate']['split']}_{classifier_file.stem}")

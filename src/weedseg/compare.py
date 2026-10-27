@@ -36,10 +36,15 @@ def run_dir(entry: str) -> Path:
     return resolve(entry)
 
 
-def twostage_eval(twostage_dir: Path, run: Path, split: str) -> Path | None:
-    """The newest two-stage evaluation made with the classifier run, as predict_twostage.py
-    names it with the default run_name: <twostage_dir>/<detector run>__<run>/eval/<split>."""
-    found = [path for path in twostage_dir.glob(f"*__{run.name}/eval/{split}")
+def twostage_eval(twostage_dir: Path, run: Path, split: str, checkpoint: str) -> Path | None:
+    """The newest two-stage evaluation made with that checkpoint of the classifier run, as
+    predict_twostage.py names it with the default run_name:
+    <twostage_dir>/<detector run>__<run>/eval/<split>_<checkpoint>. Folders made up to
+    2026-10-26 are named <split> and were always made with best.pt."""
+    patterns = [f"*__{run.name}/eval/{split}_{checkpoint}"]
+    if checkpoint == "best":
+        patterns.append(f"*__{run.name}/eval/{split}")
+    found = [path for pattern in patterns for path in twostage_dir.glob(pattern)
              if (path / "by_dataset.csv").exists()]
     return max(found, key=lambda path: (path / "by_dataset.csv").stat().st_mtime, default=None)
 
@@ -63,13 +68,14 @@ def comparison(runs: list[Path], split: str, checkpoint: str,
     notes = []
     settings, classifier, twostage = [], [], []
     for letter, run in zip(letters, runs):
-        found = twostage_eval(twostage_dir, run, split)
+        found = twostage_eval(twostage_dir, run, split, checkpoint)
         notes.append(f"{letter}: {run.name}" + (f" (both stages: {found.parent.parent.name})"
                                                  if found else " (no two-stage evaluation)"))
         config = run / "config.yaml"
         settings.append(flatten(yaml.safe_load(config.read_text(encoding="utf-8")) or {})
                         if config.exists() else {})
-        classifier.append(read_classifier_eval(run, run / "eval" / f"{split}_{checkpoint}"))
+        classifier.append(read_classifier_eval(run, run / "eval" / f"{split}_{checkpoint}",
+                                               checkpoint))
         twostage.append(read_csv_by(found / "by_dataset.csv", "dataset") if found else {})
 
     rows = []
@@ -85,8 +91,10 @@ def comparison(runs: list[Path], split: str, checkpoint: str,
                          "how much results vary by chance")
 
     rows.append([f"**Classifier alone, {split} crops**", *[""] * len(runs)])
-    rows.append(["best epoch", *(str(c["epoch"]) if c["epoch"] is not None else "-"
-                                 for c in classifier)])
+    rows.append([f"epoch evaluated ({checkpoint})",
+                 *(str(c["epoch"]) if c["epoch"] is not None else "-" for c in classifier)])
+    rows.append(["val accuracy, best epoch minus last",
+                 *(share(c["last_below_best"]) for c in classifier)])
     for key, name in (("accuracy", "accuracy"), ("balanced_accuracy", "balanced accuracy")):
         rows.append([name, *(share(c["metrics"].get(key)) for c in classifier)])
     for dataset in sorted(set().union(*(c["by_dataset"] for c in classifier))):
@@ -111,15 +119,18 @@ def comparison(runs: list[Path], split: str, checkpoint: str,
     return notes, [["", *letters], *rows]
 
 
-def read_classifier_eval(run: Path, folder: Path) -> dict[str, Any]:
-    """What `comparison` shows of a classifier run: its best epoch, metrics.json,
+def read_classifier_eval(run: Path, folder: Path, checkpoint: str) -> dict[str, Any]:
+    """What `comparison` shows of a classifier run: the epoch of `checkpoint` (best or
+    last), how far the last epoch's val accuracy is below the best's, metrics.json,
     accuracy_by_dataset.csv and the partial labels' fit per dataset."""
-    epoch = None
+    epoch = last_below_best = None
     if (run / "metrics.jsonl").exists():
-        for line in (run / "metrics.jsonl").read_text(encoding="utf-8").splitlines():
-            record = json.loads(line)
-            if record.get("best"):
-                epoch = record["epoch"]
+        records = [json.loads(line) for line
+                   in (run / "metrics.jsonl").read_text(encoding="utf-8").splitlines() if line]
+        if records:
+            best = max(records, key=lambda r: r["val_accuracy"])
+            epoch = {"best": best["epoch"], "last": records[-1]["epoch"]}.get(checkpoint)
+            last_below_best = best["val_accuracy"] - records[-1]["val_accuracy"]
     metrics = (json.loads((folder / "metrics.json").read_text(encoding="utf-8"))
                if (folder / "metrics.json").exists() else {})
     crops, fitting = {}, {}
@@ -127,7 +138,7 @@ def read_classifier_eval(run: Path, folder: Path) -> dict[str, Any]:
         crops[row["dataset"]] = crops.get(row["dataset"], 0) + int(row["crops"])
         fitting[row["dataset"]] = (fitting.get(row["dataset"], 0)
                                    + float(row["label_fit"]) * int(row["crops"]))
-    return {"epoch": epoch, "metrics": metrics,
+    return {"epoch": epoch, "last_below_best": last_below_best, "metrics": metrics,
             "by_dataset": read_csv_by(folder / "accuracy_by_dataset.csv", "dataset"),
             "partial_fit": {name: fitting[name] / crops[name] for name in crops}}
 

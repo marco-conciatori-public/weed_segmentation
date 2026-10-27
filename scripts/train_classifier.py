@@ -5,8 +5,10 @@ With `data.partial_labels`, plants whose label only rules out some classes (e.g.
 PhenoBench's weeds: not sugar beet) train as "one of the allowed classes" (PartialLabelLoss)
 and are scored on val by the share whose predicted class fits (`val_partial_label_fit`).
 
-Outputs go to <output_dir>/<run_name>/: last.pt (to resume), best.pt (best val accuracy),
-metrics.jsonl (one line per epoch) and tensorboard/ (`uv run tensorboard --logdir runs`).
+Outputs go to <output_dir>/<run_name>/: last.pt (the final epoch, also to resume), best.pt
+(best val accuracy), metrics.jsonl (one line per epoch) and tensorboard/ (`uv run tensorboard
+--logdir runs`). The evaluation uses last.pt by default; at the end, a warning shows when the
+last epoch is more than `train.warn_last_below_best` below the best.
 Re-running continues from last.pt, which is also saved every `train.checkpoint_every` steps
 (so a crash loses minutes, not an epoch); to start over, change run_name.
 """
@@ -26,6 +28,7 @@ from weedseg.classifier.engine import (
     PartialLabelLoss,
     accuracy_metrics,
     label_fit,
+    last_below_best,
     predict_probs,
     train_one_epoch,
 )
@@ -158,6 +161,12 @@ def main(config_path: str = CONFIG) -> None:
                        for k, v in record.items()))
     writer.close()
     print(f"Done. Best val accuracy {best:.3f} -> {best_path}")
+    metrics_path = run_dir / "metrics.jsonl"
+    records = ([json.loads(line) for line in metrics_path.read_text(encoding="utf-8").splitlines()
+                if line] if metrics_path.exists() else [])
+    warning = last_below_best(records, train["warn_last_below_best"])
+    if warning:
+        print(warning)
 
 
 if __name__ == "__main__":

@@ -76,8 +76,9 @@ Steps 1 and 2 need no GPU: they can run before a session on the training machine
 **Configs.** `detector.yaml` holds only what differs from `maskrcnn.yaml` (`base:`): the
 plant-only `data.dir`. Every other setting comes from `maskrcnn.yaml`, so the detector and the
 species model are always trained alike, and `maskrcnn.yaml` stays on the species model.
-`twostage.yaml` names the detector and classifier configs and takes `best` (or `last`) of
-their runs, so the prediction uses what was just trained. The runner checks that
+`twostage.yaml` names the detector and classifier configs and takes `best` or `last` of
+their runs (the classifier's `last`, see [Training](#training)), so the prediction uses what
+was just trained. The runner checks that
 `plant_dataset.yaml`, `classifier.yaml` and `twostage.yaml` use the same species `data.dir`
 and `detector.yaml` the plant folder made from it.
 
@@ -170,8 +171,22 @@ classifier run.
 AdamW with a low learning rate for the pretrained backbone (2e-5) and a high one for the new
 head (1e-3), warm-up and cosine decay, label smoothing 0.1, stochastic depth 0.1, mixed
 precision. `train.balance` can draw rare classes more often (`sqrt` or `inverse`); default
-`none`. The best epoch by val accuracy is kept (`best.pt`); runs resume from `last.pt` like
-the Mask R-CNN. Outputs: `runs/classifier/<run_name>/`.
+`none`. Two checkpoints are kept: `last.pt`, the final epoch (runs also resume from it, like
+the Mask R-CNN), and `best.pt`, the epoch with the best val accuracy. Outputs:
+`runs/classifier/<run_name>/`.
+
+**Which checkpoint.** Evaluation, prediction and the export use `last` (`evaluate.checkpoint`
+in `classifier.yaml`, `classifier.checkpoint` in `twostage.yaml`) since 2026-10-27. By the
+last epoch the learning rate has decayed to almost zero, and in the four runs of 2026-10-26
+it was within 0.15 point of the best epoch; `best` only picked chance peaks. Once that cost
+a lot: one run kept epoch 4, 0.1 point above its last, and that half-trained model was less
+sure of itself, so it removed 30% of the harmful weeds where the others removed about 50%
+(the decisions act only on probabilities of at least `defer_below`, 0.9, about where label
+smoothing caps them). `best` would matter if a longer training overfitted: training then ends
+with a warning when the last epoch is more than `train.warn_last_below_best` (half a point)
+below the best, and `best.pt` can be evaluated too. Each evaluation goes into a folder of its
+checkpoint (`eval/val_last`, `eval/val_best`, also for both stages), so they don't overwrite
+each other.
 
 `evaluate_classifier.py` scores the classifier on the labelled crops of a split, without the
 detector: accuracy and balanced accuracy, per class, confusion matrix, `taxonomic_levels.csv`
@@ -200,11 +215,12 @@ alone (`classifier_seed1.yaml`).
 
 `weedseg.compare` lays this out (after classifier variants, or with `scripts/compare_runs.py`):
 one column per run (A, B, ... named above the table), and rows in that order: the settings in
-which the runs differ (from each run's `config.yaml`), the classifier's best epoch and
-accuracy overall and per dataset, both stages' plants found, species right, crops removed and
+which the runs differ (from each run's `config.yaml`), the epoch evaluated, how far the last
+epoch's val accuracy is below the best's, the classifier's accuracy overall and per dataset, both stages' plants found, species right, crops removed and
 harmful weeds removed and left, per dataset, then cross-dataset accuracy and the partial
 labels' fit. Runs that differ only in `seed` are pointed out. The two-stage numbers come from
-the newest `runs/twostage/<detector>__<classifier run>/eval/<split>/`.
+the newest `runs/twostage/<detector>__<classifier run>/eval/<split>_<checkpoint>/`, made with
+the same checkpoint (folders named `<split>` were made up to 2026-10-26, with `best`).
 
 ### Partial labels
 
@@ -250,7 +266,7 @@ or not. The share that fits is `val_partial_label_fit` in `metrics.jsonl` during
 and `partial_label_fit` in the evaluation's `metrics.json`. `partial_labels.csv` gives it per
 dataset and label, with the classes most often predicted (run 2: 0% of the PhenoBench weeds
 fit, 100% called `BEAVA`); `partial_predictions.csv` has one row per crop. The export's
-README shows the same table. The best epoch is still chosen by val accuracy alone.
+README shows the same table. They don't decide which checkpoint is used.
 
 What this doesn't fix: species seen in a single dataset can still be told apart by the
 dataset's look rather than the plant, e.g. *Setaria verticillata* (GROUNDBASED_WEED only)
@@ -261,7 +277,9 @@ and *Setaria viridis* (CropAndWeed only). Only more sources of those species hel
 
 `predict_twostage.py` runs the detector on the split, classifies every detection with a plant
 score of at least `classifier.min_plant_score`, and writes the same outputs as
-`evaluate_maskrcnn.py` to `runs/twostage/<detector run>__<classifier run>/eval/<split>/`.
+`evaluate_maskrcnn.py` to
+`runs/twostage/<detector run>__<classifier run>/eval/<split>_<classifier checkpoint>/` (e.g.
+`val_last`; up to 2026-10-26 `<split>/`, always made with `best`).
 
 Each detection answers two questions separately: `score` (and `plant_score`) is the
 detector's plant score, how sure it is that there is a plant; `class_scores[c]` is the
