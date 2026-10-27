@@ -1,0 +1,13 @@
+# Classifier variant: configs/classifier.yaml with training batches drawn in proportion to the
+# square root of each class's size (train.balance: sqrt) instead of as in the data. Fat-hen
+# (CHEAL) is 83% of ACRE's plants, and the classifier leans towards it there: ACRE's charlock
+# 5% right, its chamomile 30%, and 14% of its val beans called fat-hen, so 6% of ACRE's beans
+# would be removed (2026-10-27). Drawing rare classes more often weakens that pull; it may
+# cost some accuracy on the common classes, so judge it on balanced accuracy, ACRE's crops
+# removed and the overall numbers together. Plants with a partial label are balanced as one
+# group per set of allowed classes. Trained after the base run by scripts/run_twostage.py
+# (classifier_variants in configs/run_twostage.yaml); see docs/twostage.md.
+base: configs/classifier.yaml
+run_name: "{dataset}_{taxonomy}_dinov2b_sqrt"
+train:
+  balance: sqrt

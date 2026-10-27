@@ -1,0 +1,12 @@
+# Classifier variant: configs/classifier.yaml with the whole DINOv2 backbone frozen, so only its
+# final normalisation and the classification head learn (a "linear probe", ~55,000 of 86
+# million parameters). It is not a candidate model but a reference: how far generic DINOv2
+# features get without fine-tuning (what fine-tuning adds), a check of data changes with
+# less run-to-run noise (the features stay fixed), and whether a confusion (e.g. ACRE's beans
+# called fat-hen) is already in the features. Trains faster than a full run: nothing flows
+# back through the backbone. Trained after the base run by scripts/run_twostage.py
+# (classifier_variants in configs/run_twostage.yaml); see docs/twostage.md.
+base: configs/classifier.yaml
+run_name: "{dataset}_{taxonomy}_dinov2b_frozen"
+model:
+  freeze_blocks: 12

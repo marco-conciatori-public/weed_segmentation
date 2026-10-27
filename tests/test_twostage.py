@@ -84,14 +84,30 @@ def test_shipped_configs_fit_together():
     assert shared_run_dirs(classifiers) == []
 
 
-def test_variants_change_only_what_they_name():
-    base = load_config("configs/classifier.yaml")
-    detail = load_config("configs/classifier_detail.yaml")
-    assert detail["augment"]["detail_p"] == 0.5 and base["augment"]["detail_p"] == 0.0
-    assert {**detail["augment"], "detail_p": 0.0, "blur_p": 0.0, "jpeg_p": 0.0} == base["augment"]
-    assert {k: v for k, v in load_config("configs/classifier_seed1.yaml").items()
-            if k not in ("seed", "run_name")} == {
-        k: v for k, v in base.items() if k not in ("seed", "run_name")}
+@pytest.mark.parametrize("path, changed", [
+    ("configs/classifier_seed1.yaml", {"seed": 1}),
+    ("configs/classifier_detail.yaml",
+     {"augment.detail_p": 0.5, "augment.blur_p": 0.2, "augment.jpeg_p": 0.3}),
+    ("configs/classifier_colour.yaml",
+     {f"augment.color_jitter.{k}": v for k, v in
+      {"brightness": 0.4, "contrast": 0.4, "saturation": 0.4, "hue": 0.05}.items()}),
+    ("configs/classifier_frozen.yaml", {"model.freeze_blocks": 12}),
+    ("configs/classifier_dinov3.yaml", {"model.backbone": "vit_base_patch16_dinov3.lvd1689m"}),
+    ("configs/classifier_balance.yaml", {"train.balance": "sqrt"}),
+])
+def test_variants_change_only_what_they_name(path, changed):
+    def flat(config, prefix=""):
+        items = {}
+        for key, value in config.items():
+            items |= (flat(value, f"{prefix}{key}.") if isinstance(value, dict)
+                      else {f"{prefix}{key}": value})
+        return items
+
+    base, variant = flat(load_config("configs/classifier.yaml")), flat(load_config(path))
+    differing = {key: variant.get(key) for key in base.keys() | variant.keys()
+                 if base.get(key) != variant.get(key)}
+    assert differing.pop("run_name") != base["run_name"]
+    assert differing == changed
 
 
 def test_shared_run_dirs():

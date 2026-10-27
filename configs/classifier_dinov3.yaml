@@ -1,0 +1,17 @@
+# Classifier variant: configs/classifier.yaml with DINOv3 ViT-B/16 instead of DINOv2 ViT-B/14,
+# everything else the same (224 px crops are a multiple of both patch sizes, the image
+# normalisation is the same, and the crop cache is shared). 196 tokens per crop instead of 256,
+# so it runs about a quarter faster. Trained after the base run by scripts/run_twostage.py
+# (classifier_variants in configs/run_twostage.yaml); see docs/twostage.md.
+#
+# Licence: the DINOv3 weights are under Meta's DINOv3 License, not Apache-2.0 like DINOv2's
+# (https://ai.meta.com/resources/models-and-libraries/dinov3-license): commercial use is
+# allowed, but a copy of the licence must go with the weights and any fine-tuned ones,
+# "Built with DINOv3" must be shown, and trade-control and military-use restrictions apply.
+# Fine for research and the demo; adopting it for the product is a licensing decision. If the
+# download asks for it, accept the terms on the model's Hugging Face page, or download the
+# weights elsewhere and set model.pretrained_path.
+base: configs/classifier.yaml
+run_name: "{dataset}_{taxonomy}_dinov3b"
+model:
+  backbone: vit_base_patch16_dinov3.lvd1689m

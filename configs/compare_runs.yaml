@@ -7,8 +7,9 @@
 runs:
   - configs/classifier.yaml
   - configs/classifier_seed1.yaml
-  - configs/classifier_detail.yaml
-  - configs/classifier_colour.yaml
+  - configs/classifier_frozen.yaml
+  - configs/classifier_dinov3.yaml
+  - configs/classifier_balance.yaml
 # The evaluation compared: <run>/eval/<split>_<checkpoint> (scripts/evaluate_classifier.py),
 # and the two-stage one made with the same checkpoint of each run,
 # <twostage_dir>/<detector run>__<run>/eval/<split>_<checkpoint> (scripts/predict_twostage.py;

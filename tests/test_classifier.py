@@ -240,6 +240,16 @@ def test_sample_weights_balance_classes():
         sample_weights(labels, "equal")
 
 
+def test_dinov3_builds_with_the_same_code():
+    # patch 16 (DINOv2: 14) and rotary position embeddings, through the same timm interface
+    model = build_classifier(3, {**TINY_MODEL, "backbone": "vit_small_patch16_dinov3"}, 32)
+    assert model(torch.rand(2, 3, 32, 32)).shape == (2, 3)
+    frozen = build_classifier(3, {**TINY_MODEL, "backbone": "vit_small_patch16_dinov3",
+                                  "freeze_blocks": 12}, 32)
+    assert {name for name, p in frozen.named_parameters() if p.requires_grad} == {
+        "norm.weight", "norm.bias", "head.weight", "head.bias"}
+
+
 def test_classifier_builds_freezes_and_groups_parameters():
     model = build_classifier(3, {**TINY_MODEL, "freeze_blocks": 2}, 28)
     assert model(torch.rand(2, 3, 28, 28)).shape == (2, 3)
