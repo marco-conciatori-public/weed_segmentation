@@ -51,11 +51,14 @@ end, `compare_<date>_<time>.md` and `.csv` in `log_dir` set all classifier runs 
 (see [Comparing runs](#training)); `scripts/compare_runs.py` (`configs/compare_runs.yaml`)
 does the same for any runs, older ones included. The shipped variants:
 
-| Config | Changes | Why |
-|---|---|---|
-| `classifier_seed1.yaml` | `seed: 1` | Run-to-run noise: a change must beat the gap between these two runs |
-| `classifier_detail.yaml` | `detail_p` 0.5, `blur_p` 0.2, `jpeg_p` 0.3 | [Less detail](#crops) |
-| `classifier_colour.yaml` | colour jitter doubled (±40%, hue ±0.05) | Camera and light colours (OPPD's greenhouse) tell the dataset less |
+| Config | Changes | Why | Result, 2026-10-26 |
+|---|---|---|---|
+| `classifier_seed1.yaml` | `seed: 1` | Run-to-run noise: a change must beat the gap between these two runs | Last-epoch val accuracy 93.99% against 93.65%: about 0.3 point of chance overall, far more for one class in one dataset |
+| `classifier_detail.yaml` | `detail_p` 0.5, `blur_p` 0.2, `jpeg_p` 0.3 | [Less detail](#crops) | Worse: 1.5 points lower overall, 4 on OPPD; no cross-dataset gain. Left off |
+| `classifier_colour.yaml` | colour jitter doubled (±40%, hue ±0.05) | Camera and light colours (OPPD's greenhouse) tell the dataset less | Within chance everywhere. Not adopted |
+
+The numbers of that session come from `best.pt`; the colour run's best epoch was 7 of 10,
+so its numbers will move a little with `last.pt`.
 
 | Step | Script | Config | Where |
 |---|---|---|---|
@@ -151,8 +154,12 @@ crops may not be recognised in coarse ones. `detail_p` is the share of training 
 to the detail of a coarser camera, a random mm/px between their own and `max_mm_per_px`
 (1.2), and enlarged back; `blur_p` and `jpeg_p` add Gaussian blur and JPEG compression. The
 crop's own detail is the coarser of the source's mm/px (index column `mm_per_px`) and what
-224 px can hold. Like any augmentation it can also cost accuracy (fine detail is a real
-species cue), so it is worth a classifier run of its own, compared with one without.
+224 px can hold. Like any augmentation it can also cost accuracy, since fine detail is a
+real species cue. **Tried on 2026-10-26** (`classifier_detail.yaml`: 0.5, 0.2, 0.3), it did:
+val accuracy 92.5% against 94.0% without, 87.6% against 91.7% on OPPD, whose tiny seedlings
+need the detail, and no gain on species learnt from other datasets (cross-dataset accuracy
+86.4% against 87.2%). So it stays off; a much milder setting could still be tried, but
+these numbers give little reason to expect a gain.
 Resampling all images to one fixed mm/px instead would throw away OPPD's detail and build
 the estimated mm/px of three datasets into the data.
 
@@ -265,7 +272,8 @@ plants) and ACRE's "unknow" plants.
 or not. The share that fits is `val_partial_label_fit` in `metrics.jsonl` during training,
 and `partial_label_fit` in the evaluation's `metrics.json`. `partial_labels.csv` gives it per
 dataset and label, with the classes most often predicted (run 2: 0% of the PhenoBench weeds
-fit, 100% called `BEAVA`); `partial_predictions.csv` has one row per crop. The export's
+fit, 100% called `BEAVA`; with partial labels, 2026-10-26: about 95% fit, while the
+PhenoBench beets stayed 99% right and no dataset shared with run 2 got worse); `partial_predictions.csv` has one row per crop. The export's
 README shows the same table. They don't decide which checkpoint is used.
 
 What this doesn't fix: species seen in a single dataset can still be told apart by the

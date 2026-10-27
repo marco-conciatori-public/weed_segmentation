@@ -3,6 +3,8 @@
 # greenhouse) tell the dataset less. Colour is also a real species cue (reddish stems), so
 # this may cost accuracy too. Trained after the base run by scripts/run_twostage.py
 # (classifier_variants in configs/run_twostage.yaml).
+# Result 2026-10-26: within chance everywhere (val accuracy 94.1% against 94.0% for seed1,
+# cross-dataset accuracy 86.7% against 87.2%), so the base config keeps the milder jitter.
 base: configs/classifier.yaml
 run_name: "{dataset}_{taxonomy}_dinov2b_colour"
 augment:

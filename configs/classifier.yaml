@@ -61,6 +61,7 @@ model:
 augment:
   flips: true
   rotate90: true
+  # Doubled on 2026-10-26 (configs/classifier_colour.yaml): no change beyond chance, so kept.
   color_jitter: {brightness: 0.2, contrast: 0.2, saturation: 0.2, hue: 0.02}
   # Box jitter, so a model trained on labelled boxes copes with the detector's: the crop's
   # side is scaled by up to +-box_scale and its centre moved by up to box_shift of the box.
@@ -74,8 +75,9 @@ augment:
   # rather than the species. detail_p: share of crops shrunk to the detail of a random mm/px
   # between their own and max_mm_per_px (log-uniform), then enlarged back. blur_p: share
   # blurred, Gaussian sigma in px (at input_size) from blur_sigma. jpeg_p: share compressed
-  # as JPEG at a quality from jpeg_quality. All 0 = off, as up to 2026-10-26; try e.g.
-  # detail_p 0.5, blur_p 0.2, jpeg_p 0.3 (docs/twostage.md, Training).
+  # as JPEG at a quality from jpeg_quality. All 0 = off. Tried on 2026-10-26 at 0.5, 0.2
+  # and 0.3 (configs/classifier_detail.yaml): 1.5 points lower val accuracy, 4 lower on
+  # OPPD, no gain across datasets, so left off (docs/twostage.md, Less detail).
   detail_p: 0.0
   max_mm_per_px: 1.2
   blur_p: 0.0

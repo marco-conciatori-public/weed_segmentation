@@ -2,6 +2,8 @@
 # the base run show how much results vary by chance, so a change is judged against that
 # (docs/twostage.md, Comparing runs). Trained after the base run by scripts/run_twostage.py
 # (classifier_variants in configs/run_twostage.yaml).
+# Result 2026-10-26: last-epoch val accuracy 93.99% against the base's 93.65%, so about
+# 0.3 point of chance overall; much more for a single class in a single dataset.
 base: configs/classifier.yaml
 run_name: "{dataset}_{taxonomy}_dinov2b_seed1"
 seed: 1
