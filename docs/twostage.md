@@ -53,12 +53,13 @@ does the same for any runs, older ones included. The shipped variants:
 
 | Config | Changes | Why | Result, 2026-10-26 |
 |---|---|---|---|
-| `classifier_seed1.yaml` | `seed: 1` | Run-to-run noise: a change must beat the gap between these two runs | Last-epoch val accuracy 93.99% against 93.65%: about 0.3 point of chance overall, far more for one class in one dataset |
+| `classifier_seed1.yaml` | `seed: 1` | Run-to-run noise: a change must beat the gap between these two runs | Val accuracy 94.0% against 93.7%: about 0.3 point of chance overall, 1 point on OPPD and in the decision shares, far more for a class with few val plants |
 | `classifier_detail.yaml` | `detail_p` 0.5, `blur_p` 0.2, `jpeg_p` 0.3 | [Less detail](#crops) | Worse: 1.5 points lower overall, 4 on OPPD; no cross-dataset gain. Left off |
 | `classifier_colour.yaml` | colour jitter doubled (±40%, hue ±0.05) | Camera and light colours (OPPD's greenhouse) tell the dataset less | Within chance everywhere. Not adopted |
 
-The numbers of that session come from `best.pt`; the colour run's best epoch was 7 of 10,
-so its numbers will move a little with `last.pt`.
+All from the last epoch (evaluated again on 2026-10-27). A per-dataset balanced accuracy can
+jump on a single plant: ACRE's val crops hold 4 maize plants, and getting one of them right
+raised the detail run's ACRE balanced accuracy by 3 points.
 
 | Step | Script | Config | Where |
 |---|---|---|---|
