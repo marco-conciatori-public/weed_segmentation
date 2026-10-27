@@ -19,11 +19,12 @@ log_dir: runs/twostage/logs
 #   train_classifier     DINOv2 on the crops
 #   evaluate_classifier  the classifier alone, on labelled crops
 #   predict_twostage     both stages on evaluate.split of configs/twostage.yaml
+# Since 2026-10-26 only the classifier steps: the detector is run 2's, fixed in
+# configs/twostage.yaml. The full list, for a new detector: make_plant_dataset,
+# prepare_crops, train_detector, evaluate_detector, train_classifier, evaluate_classifier,
+# predict_twostage.
 steps:
-  - make_plant_dataset
   - prepare_crops
-  - train_detector
-  - evaluate_detector
   - train_classifier
   - evaluate_classifier
   - predict_twostage
