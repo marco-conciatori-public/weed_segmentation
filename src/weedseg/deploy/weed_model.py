@@ -1,8 +1,8 @@
 """Weed species recognition in top-down field images: a two-stage model.
 
 1. A Mask R-CNN (torchvision, ResNet-50 FPN v2) finds and outlines every plant.
-2. A DINOv2 ViT-B/14 classifier (timm) names the species of each plant, from a square crop
-   around it.
+2. A vision-transformer classifier (timm; DINOv3 or DINOv2, as model.json names it) names
+   the species of each plant, from a square crop around it.
 
     from weed_model import WeedModel
 

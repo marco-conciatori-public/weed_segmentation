@@ -1,11 +1,11 @@
-# Species classifier on plant crops (DINOv2 via timm, Apache-2.0): the second stage of the
-# two-stage pipeline. Used by scripts/prepare_crops.py, scripts/train_classifier.py and
-# scripts/evaluate_classifier.py. Relative paths are resolved against the project root.
-# See docs/twostage.md.
+# Species classifier on plant crops (DINOv3 via timm; its weights are under Meta's DINOv3
+# License, see model below): the second stage of the two-stage pipeline. Used by
+# scripts/prepare_crops.py, scripts/train_classifier.py and scripts/evaluate_classifier.py.
+# Relative paths are resolved against the project root. See docs/twostage.md.
 
 # Outputs go to <output_dir>/<run_name>/. Placeholders: {dataset} and {taxonomy} = the last
 # two folders of data.dir, as in configs/maskrcnn.yaml.
-run_name: "{dataset}_{taxonomy}_dinov2b"
+run_name: "{dataset}_{taxonomy}_dinov3b"
 output_dir: runs/classifier
 seed: 0
 # auto = CUDA when available, else CPU (CPU is only good for a smoke test).
@@ -31,7 +31,8 @@ crops:
   # Context around each plant: this fraction of its box's longer side on each side. The same
   # crop is cut around each detection by scripts/predict_twostage.py.
   margin: 0.25
-  # Classifier input, px (a multiple of 14, DINOv2's patch size).
+  # Classifier input, px (a multiple of 16, DINOv3's patch size; 224 is also one of 14,
+  # DINOv2's, so both share the crop cache).
   input_size: 224
   # The cache keeps this many times the crop's side, for box jitter in training (see
   # augment). Cache folder: <data.dir>/crops_margin<m>_size<s>_context<c>/; prepare_crops.py
@@ -45,10 +46,21 @@ crops:
   dim_factor: 0.3
 
 model:
-  # timm model name. vit_small_patch14_dinov2.lvd142m (22M parameters) or
-  # vit_large_patch14_dinov2.lvd142m (300M) for a smaller or larger model.
-  backbone: vit_base_patch14_dinov2.lvd142m
-  # Start from the DINOv2 weights. false = random init.
+  # timm model name (timm 1.0.20 or newer). vit_small_patch16_dinov3.lvd1689m (22M
+  # parameters) or vit_large_patch16_dinov3.lvd1689m (300M) for a smaller or larger model.
+  # DINOv3 since 2026-10-28: in three seeds each it beat DINOv2 overall, in balanced
+  # accuracy, on OPPD and on CropAndWeed (docs/twostage.md). DINOv2 (Apache-2.0 weights,
+  # the classifier until then) is configs/classifier_dinov2.yaml.
+  # Licence: the DINOv3 weights are under Meta's DINOv3 License, not Apache-2.0
+  # (https://ai.meta.com/resources/models-and-libraries/dinov3-license; a copy is in
+  # src/weedseg/deploy/DINOv3_LICENSE.md). Commercial use is allowed, but a copy of the
+  # licence must go with the weights and any fine-tuned ones (the export adds it), "Built
+  # with DINOv3" must be shown prominently (the export's README does), publications must
+  # acknowledge it, and trade-control and military-use restrictions apply. If the download
+  # asks for it, accept the terms on the model's Hugging Face page, or download the weights
+  # elsewhere and set pretrained_path.
+  backbone: vit_base_patch16_dinov3.lvd1689m
+  # Start from the DINOv3 weights. false = random init.
   pretrained: true
   # Local weights file (timm's model.safetensors), for machines without internet access.
   # null = downloaded once from Hugging Face to its cache.

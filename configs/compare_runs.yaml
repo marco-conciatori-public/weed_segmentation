@@ -5,12 +5,13 @@
 # folder, e.g. runs/classifier/cropandweed+acre+phenobench+oppd_species_min50img_min20mm_dinov2b
 # for an older run.
 # Three seeds of each backbone fine-tuned, then both frozen (2026-10-28; the older variants
-# are in docs/twostage.md).
+# are in docs/twostage.md). DINOv2 is configs/classifier_dinov2.yaml since the switch to
+# DINOv3 (configs/classifier.yaml).
 runs:
-  - configs/classifier.yaml
+  - configs/classifier_dinov2.yaml
   - configs/classifier_seed1.yaml
   - configs/classifier_seed2.yaml
-  - configs/classifier_dinov3.yaml
+  - configs/classifier.yaml
   - configs/classifier_dinov3_seed1.yaml
   - configs/classifier_dinov3_seed2.yaml
   - configs/classifier_frozen.yaml

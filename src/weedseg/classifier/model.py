@@ -1,4 +1,5 @@
-"""DINOv2 species classifier (timm, Apache-2.0 code and weights)."""
+"""Species classifier: a DINOv3 or DINOv2 vision transformer (timm, Apache-2.0) with a linear
+head. DINOv2's weights are Apache-2.0 too, DINOv3's under Meta's DINOv3 License."""
 
 from typing import Any
 

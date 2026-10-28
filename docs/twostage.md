@@ -5,9 +5,11 @@ so the two can be compared file by file.
 
 1. **Detector:** the same Mask R-CNN, trained on one class, `plant`. It finds and outlines the
    plants, whatever their species.
-2. **Classifier:** DINOv2 ViT-B/14 (timm; Apache-2.0 code and weights) with a linear head,
-   fine-tuned on square crops around each plant. The classes of the combined species data,
-   `other_plant` included.
+2. **Classifier:** DINOv3 ViT-B/16 (timm, Apache-2.0 code; weights under Meta's DINOv3
+   License) with a linear head, fine-tuned on square crops around each plant. The classes of
+   the combined species data, `other_plant` included. DINOv2 ViT-B/14 (Apache-2.0 weights)
+   until 2026-10-28, now `classifier_dinov2.yaml`: DINOv3 was better in three seeds each (see
+   [Steps](#steps)).
 
 Why: the species model's weak point is finding plants, not naming them. A one-class detector
 doesn't split a plant's score over similar species (a plant at 0.4 / 0.3 / 0.2 over three
@@ -51,22 +53,49 @@ end, `compare_<date>_<time>.md` and `.csv` in `log_dir` set all classifier runs 
 (see [Comparing runs](#training)); `scripts/compare_runs.py` (`configs/compare_runs.yaml`)
 does the same for any runs, older ones included. The shipped variants:
 
-| Config | Changes | Why | Result, 2026-10-26/27 |
+| Config | Changes | Why | Result, 2026-10-26 to 28 |
 |---|---|---|---|
 | `classifier_seed1.yaml` | `seed: 1` | Run-to-run noise: a change must beat the gap between these two runs | Val accuracy 94.0% against 93.7%: about 0.3 point of chance overall, 1 point on OPPD and in the decision shares, far more for a class with few val plants |
 | `classifier_detail.yaml` | `detail_p` 0.5, `blur_p` 0.2, `jpeg_p` 0.3 | [Less detail](#crops) | Worse: 1.5 points lower overall, 4 on OPPD; no cross-dataset gain. Left off |
 | `classifier_colour.yaml` | colour jitter doubled (±40%, hue ±0.05) | Camera and light colours (OPPD's greenhouse) tell the dataset less | Within chance everywhere. Not adopted |
 | `classifier_frozen.yaml` | `freeze_blocks: 12`: only the final norm and the head learn (a linear probe) | A reference, not a candidate: what fine-tuning adds; data changes checked with less noise; whether a confusion is already in the generic features | Far below: 85.9% overall, balanced 64.2% against 79.8%, cross-dataset 70.5% against 87.2%. Fine-tuning adds 8 points, too much for it to stand in for the real model as a benchmark. ACRE's beans called fat-hen are already in the generic features (7.1% of them removed, as in the fine-tuned runs) |
-| `classifier_dinov3.yaml` | DINOv3 ViT-B/16 (`vit_base_patch16_dinov3.lvd1689m`) | Newer backbone. Its weights are under Meta's DINOv3 License, not Apache-2.0: a copy of the licence must go with the model and "Built with DINOv3" be shown; adopting it for the product is a licensing decision | Best so far, one run: 94.4% overall, balanced 81.3% against 79.8% for both DINOv2 runs, OPPD balanced 90.1% against 85%, CropAndWeed 91.8% against 90.9%; decisions as DINOv2's. Partial labels fit a little less (92.7% against 94.8%), a share that moves by several points between epochs. About as fast (5:15 against 5:43 per epoch: data loading sets the pace). A second seed should confirm it before a switch |
+| `classifier_dinov3.yaml` (the base `classifier.yaml` since 2026-10-28) | DINOv3 ViT-B/16 (`vit_base_patch16_dinov3.lvd1689m`) | Newer backbone. Its weights are under Meta's DINOv3 License, not Apache-2.0: a copy of the licence must go with the model and "Built with DINOv3" be shown; adopting it for the product is a licensing decision | Better, confirmed by three seeds (with `classifier_dinov3_seed1/2.yaml`): see below. About as fast (58 against 63 min per training: data loading sets the pace) |
 | `classifier_balance.yaml` | `train.balance: sqrt` | ACRE leans towards fat-hen (83% of its plants), and 6% of its beans would be removed | 93.2% overall (0.5 to 0.8 point lower), balanced 80.6% (0.8 higher), OPPD 1 to 2 lower. ACRE's beans removed fall to 2.3%, but its harmful weeds removed fall from 52% to 30% too: the model is less sure, so more is deferred. At the same share of beans removed, it removes as many weeds as the other runs (see below). Not adopted |
-| `classifier_seed2.yaml` | `seed: 2` | A third DINOv2 seed: each backbone judged against the spread of its own three runs | Pending |
-| `classifier_dinov3_seed1.yaml`, `classifier_dinov3_seed2.yaml` | DINOv3, `seed` 1 and 2 | Whether DINOv3's lead is beyond chance, before a switch | Pending |
-| `classifier_dinov3_frozen.yaml` | DINOv3 with `freeze_blocks: 12` | DINOv3's generic features next to DINOv2's (frozen: 85.9%), and what fine-tuning adds to each | Pending |
+| `classifier_seed2.yaml` | `seed: 2` | A third DINOv2 seed: each backbone judged against the spread of its own three runs | 93.7%, as the base. Over the three DINOv2 seeds, chance moves overall and balanced accuracy by 0.3 point, OPPD's balanced by 1.7, and both stages' CropAndWeed harmful removed by 1.6 |
+| `classifier_dinov3_seed1.yaml`, `classifier_dinov3_seed2.yaml` | DINOv3, `seed` 1 and 2 | Whether DINOv3's lead is beyond chance, before a switch | It is: see below |
+| `classifier_dinov3_frozen.yaml` | DINOv3 with `freeze_blocks: 12` | DINOv3's generic features next to DINOv2's (frozen: 85.9%), and what fine-tuning adds to each | 83.0% overall, balanced 57.8%, OPPD 71.0% (frozen DINOv2: 85.9%, 64.2%, 79.0%). Frozen, DINOv3 is the worse backbone; fine-tuned, the better (fine-tuning adds 11 points against 8). So a frozen run can't even rank backbones, let alone stand in for the real model |
 
-The first three ran on 2026-10-26, the next three on 2026-10-27, the last four are for the
-next session. Results from the last epoch (the first three evaluated again on 2026-10-27). A
+The first three ran on 2026-10-26, the next three on 2026-10-27, the last four on 2026-10-28.
+Results from the last epoch (the first three evaluated again on 2026-10-27). A
 per-dataset balanced accuracy can jump on a single plant: ACRE's val crops hold 4 maize plants, and getting one of them right
 raised the detail run's ACRE balanced accuracy by 3 points.
+
+**DINOv2 against DINOv3, three fine-tuned seeds each** (2026-10-28, val, last epoch; each
+cell gives the three seeds):
+
+| | DINOv2 | DINOv3 |
+|---|---|---|
+| Accuracy | 93.7 / 94.0 / 93.7 | 94.4 / 94.1 / 94.1 |
+| Balanced accuracy | 79.8 / 79.8 / 79.5 | 81.3 / 81.3 / 81.0 |
+| OPPD balanced | 85.1 / 84.9 / 86.6 | 90.1 / 88.7 / 88.2 |
+| CropAndWeed accuracy | 90.9 / 90.8 / 90.7 | 91.8 / 91.7 / 91.6 |
+| CropAndWeed balanced | 71.0 / 71.2 / 70.5 | 72.1 / 72.5 / 73.1 |
+| Both stages, CropAndWeed species right | 93.2 / 93.5 / 93.3 | 94.2 / 93.9 / 93.9 |
+| Both stages, harmful removed with up to 1% of crops, all | 49.5 / 51.3 / 51.0 | 51.8 / 52.4 / 52.1 |
+| Cross-dataset accuracy | 87.2 / 87.2 / 87.1 | 87.4 / 87.4 / 87.6 |
+| Partial labels fit | 94.8 / 94.8 / 94.9 | 92.7 / 93.5 / 93.2 |
+| Partial labels fit, PhenoBench | 94.9 / 94.7 / 94.7 | 91.8 / 92.8 / 92.5 |
+
+In every row each DINOv3 seed beats each DINOv2 seed, except the partial labels, where each
+is worse. The gain is general (all of OPPD, CropAndWeed and the hard classes), not a
+shortcut fix; ACRE and GROUNDBASED_WEED stay the same. ACRE's
+decisions too: both backbones remove as many of ACRE's weeds for a given share of its beans
+(e.g. 47 to 49% with up to 5%), since its beans called fat-hen limit both. Against that,
+DINOv3 calls about 7.5% of PhenoBench's unnamed weeds sugar beet (DINOv2: 5%) and fits
+CropAndWeed's genus labels 3 points less. So `classifier.yaml` switched to DINOv3 on
+2026-10-28 (the DINOv3 seed-0 run is its run), and DINOv2 became `classifier_dinov2.yaml`,
+which the DINOv2 variants now build on. The export ships the DINOv3 License with the weights
+and says "Built with DINOv3" (see [Deployment package](#deployment-package)).
 
 **Decisions at one `defer_below` compare confidence, not only skill.** With label
 smoothing 0.1, a class gets at most about 0.9, so the summed probability of an action
@@ -93,7 +122,7 @@ range is: for the base run, ACRE's beans removed go from 4.2% at 0.922 to 0.3% a
 | 8. Review the errors | `review_errors.py` | `maskrcnn.yaml`, `review.eval_dir` = the folder of step 7 | any machine |
 
 Steps 1 and 2 need no GPU: they can run before a session on the training machine (copy the
-`crops_*` folder along if the data is copied rather than re-made there). The DINOv2 weights
+`crops_*` folder along if the data is copied rather than re-made there). The DINOv3 weights
 (~350 MB) are downloaded from Hugging Face on the first run; for an offline machine set
 `model.pretrained_path` to the downloaded `model.safetensors`.
 
@@ -239,7 +268,8 @@ decisions of both stages (`by_dataset.csv` of step 7); then on `cross_dataset_ac
 the partial labels' fit, which show whether it relies less on the dataset's look. A change
 that raises the latter while the former drop is not an improvement by itself. A gap is only
 worth something if it is larger than the gap between two runs that differ by their seed
-alone (`classifier_seed1.yaml`).
+alone (`classifier_seed1.yaml`, `classifier_seed2.yaml`: see the spread of the three seeds
+under Classifier variants in [Steps](#steps)).
 
 `weedseg.compare` lays this out (after classifier variants, or with `scripts/compare_runs.py`):
 one column per run (A, B, ... named above the table), and rows in that order: the settings in
@@ -360,7 +390,8 @@ this repo, e.g. on a demo website. It writes `exports/weed_twostage_<date>/`:
 | `detector.safetensors`, `classifier.safetensors` | The weights only: plain tensors, no pickled code |
 | `model.json` | What `weed_model.py` needs (image size, anchors, crop margin, normalisation), the classes with their scientific and English names, the training datasets and their licences, and the hand-off thresholds |
 | `weed_model.py` | Self-contained inference, `WeedModel.predict(rgb_image)`: torch, torchvision, timm, safetensors, numpy and opencv, nothing from `weedseg` |
-| `requirements.txt` | Those packages |
+| `requirements.txt` | Those packages (timm 1.0.20 or newer, for DINOv3) |
+| `DINOv3_LICENSE.md` | With a DINOv3 classifier: the licence of its weights, which must go with them (a copy of Meta's, `src/weedseg/deploy/DINOv3_LICENSE.md`). The README then says "Built with DINOv3" and sums up the terms. Each backbone's licence is in `BACKBONES` of `weedseg.deploy.export`; an unknown one stops the export |
 | `splits.csv` | Every image of the detector's and the classifier's datasets: dataset, path inside the dataset's image folder, sha256 of the file, group, and the split of each stage (empty when the stage didn't use it). The sha256 finds an image under any name, e.g. in the NeutraWeed platform, which stores images by it |
 | `README.md` | For the person deploying it: install, input, output, hand-off, the species list, validation numbers, training data, splits and licences |
 

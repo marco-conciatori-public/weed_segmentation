@@ -1,7 +1,8 @@
-# Classifier variant: configs/classifier_dinov3.yaml (fine-tuned DINOv3) with a third seed and
+# Classifier variant: configs/classifier.yaml (fine-tuned DINOv3) with a third seed and
 # nothing else; see classifier_dinov3_seed1.yaml. Trained after the base run by
 # scripts/run_twostage.py (classifier_variants in configs/run_twostage.yaml); see
 # docs/twostage.md.
-base: configs/classifier_dinov3.yaml
+# Result 2026-10-28 (last epoch): val accuracy 94.1%, balanced 81.0%.
+base: configs/classifier.yaml
 run_name: "{dataset}_{taxonomy}_dinov3b_seed2"
 seed: 2

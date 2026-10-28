@@ -50,6 +50,26 @@ PAPERS = {
     "groundbased_weed": "Moreno, Rivera Cárdenas and Andújar, \"Ground-based imagery dataset "
                         "for early weed classification in tomato crops\", Data in Brief 2025",
 }
+# Classifier backbones by a part of their timm name: the name in the README, the licence of
+# the pretrained weights, the licence file that must go with them (and with the fine-tuned
+# ones; None: none) and the terms the README states. An unknown backbone stops the export,
+# so its licence is looked up first.
+BACKBONES = {
+    "dinov3": {
+        "name": "DINOv3", "licence": "Meta's DINOv3 License", "file": "DINOv3_LICENSE.md",
+        # the licence's section 1.b, as https://ai.meta.com/resources/models-and-libraries/
+        # dinov3-license states it (the model card of the weights links there)
+        "terms": "**Built with DINOv3.** The classifier is a fine-tuned DINOv3 model, so its "
+                 "weights (`classifier.safetensors`) come under the DINOv3 License, a copy of "
+                 "which is `DINOv3_LICENSE.md`; the licence itself is what counts. In short: "
+                 "pass the licence on with the weights, and the weights only under its terms; "
+                 "show \"Built with DINOv3\" prominently on a related website, user interface, "
+                 "blog post, about page or product documentation; acknowledge DINOv3 in "
+                 "publications; and don't use the model against trade controls or for military, "
+                 "warfare, nuclear, espionage or weapons purposes.",
+    },
+    "dinov2": {"name": "DINOv2", "licence": "Apache-2.0", "file": None, "terms": ""},
+}
 
 
 def export_package(config: dict[str, Any]) -> Path:
@@ -67,6 +87,7 @@ def export_package(config: dict[str, Any]) -> Path:
     if crops["background"] != "keep":
         raise SystemExit(f"weed_model.py only cuts crops with background 'keep', not "
                          f"{crops['background']!r}")
+    backbone = backbone_family(classifier["config"]["model"]["backbone"])
 
     created = date.today().isoformat()
     out_dir = resolve(config["output_dir"]) / config["name"].format(date=created)
@@ -96,6 +117,8 @@ def export_package(config: dict[str, Any]) -> Path:
         },
         "classifier": {
             "backbone": classifier["config"]["model"]["backbone"],
+            "backbone_licence": backbone["licence"] + (f" ({backbone['file']})"
+                                                       if backbone["file"] else ""),
             "input_size": crops["input_size"], "margin": crops["margin"],
             "fill_rgb": list(FILL_RGB), "mean": MEAN.flatten().tolist(),
             "std": STD.flatten().tolist(), "batch_size": twostage["classifier"]["batch_size"],
@@ -116,7 +139,7 @@ def export_package(config: dict[str, Any]) -> Path:
     for name, checkpoint in (("detector", detector), ("classifier", classifier)):
         save_file({k: v.contiguous() for k, v in checkpoint["model"].items()},
                   out_dir / f"{name}.safetensors", metadata={"run": info[name]["run"]})
-    for name in COPIED:
+    for name in COPIED + ((backbone["file"],) if backbone["file"] else ()):
         shutil.copyfile(HERE / name, out_dir / name)
     splits = write_splits(out_dir / "splits.csv",
                           {"detector": resolve(detector["config"]["data"]["dir"]),
@@ -137,6 +160,15 @@ def export_package(config: dict[str, Any]) -> Path:
     return out_dir
 
 
+def backbone_family(backbone: str) -> dict[str, Any]:
+    """The BACKBONES entry of a timm model name."""
+    for key, family in BACKBONES.items():
+        if key in backbone:
+            return family
+    raise SystemExit(f"No licence known for the backbone {backbone}: look it up and add it "
+                     f"to BACKBONES in {Path(__file__).name}")
+
+
 def describe_class(code: str, taxa: dict[str, dict[str, Any]]) -> dict[str, Any]:
     """Code, scientific name, English names (EPPO's, which marks none as preferred) and
     family of a class."""
@@ -154,12 +186,21 @@ def readme_text(info: dict[str, Any], train: dict[str, Any], classes: list[str],
                 thresholds: list[float], splits: list[dict[str, str]]) -> str:
     """README_template.md filled in; `splits`: the rows of splits.csv."""
     datasets = train["info"]["datasets"]
+    backbone = backbone_family(info["classifier"]["backbone"])
     values = {
         "name": info["name"], "created": info["created"],
         "detector_run": info["detector"]["run"], "detector_epoch": info["detector"]["epoch"],
         "classifier_run": info["classifier"]["run"],
         "classifier_epoch": info["classifier"]["epoch"],
         "backbone": info["classifier"]["backbone"],
+        "backbone_family": backbone["name"],
+        "backbone_licence": backbone["licence"],
+        # each placeholder below is empty for a backbone without licence terms
+        "built_with": (f"\n**Built with {backbone['name']}** (see [Licences](#licences)).\n"
+                       if backbone["terms"] else ""),
+        "licence_file_row": (f"\n| `{backbone['file']}` | The licence of the classifier's "
+                             f"weights, which must go with them |" if backbone["file"] else ""),
+        "backbone_terms": f"\n{backbone['terms']}\n" if backbone["terms"] else "",
         "num_species": len(classes) - (OTHER_CATEGORY in classes),
         "min_size": info["detector"]["min_size"], "max_size": info["detector"]["max_size"],
         "min_plant_size_mm": info["min_plant_size_mm"],

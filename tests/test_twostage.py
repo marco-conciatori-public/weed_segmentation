@@ -6,6 +6,7 @@ import torch
 from weedseg.classifier.model import build_classifier
 from weedseg.config import load_config
 from weedseg.data.coco import encode_mask
+from weedseg.paths import resolve
 from weedseg.twostage import (
     classify_detections,
     config_problems,
@@ -18,7 +19,8 @@ CROPS = {"margin": 0.25, "input_size": 28, "cache_context": 1.5, "background": "
          "dim_factor": 0.3}
 TINY_MODEL = {"backbone": "vit_small_patch14_dinov2.lvd142m", "pretrained": False,
               "pretrained_path": None, "freeze_blocks": 0, "drop_path": 0.0}
-DINOV3 = {"model.backbone": "vit_base_patch16_dinov3.lvd1689m"}
+# The DINOv2 variants, since the base classifier is DINOv3 (2026-10-28).
+DINOV2 = {"model.backbone": "vit_base_patch14_dinov2.lvd142m"}
 
 
 def test_species_scores_keep_plant_and_class_apart():
@@ -80,6 +82,9 @@ def test_shipped_configs_fit_together():
     classifiers = {classifier_path: load_config(classifier_path)}
     runner = load_config("configs/run_twostage.yaml")
     classifiers |= {path: load_config(path) for path in runner["classifier_variants"]}
+    # every classifier config, listed or not, trains a run of its own on the same data
+    classifiers |= {f"configs/{path.name}": load_config(path)
+                    for path in resolve("configs").glob("classifier*.yaml")}
     for classifier in classifiers.values():
         assert config_problems(plant, detector, classifier, twostage) == []
     assert shared_run_dirs(classifiers) == []
@@ -88,19 +93,20 @@ def test_shipped_configs_fit_together():
 
 
 @pytest.mark.parametrize("path, changed", [
-    ("configs/classifier_seed1.yaml", {"seed": 1}),
+    ("configs/classifier_dinov2.yaml", DINOV2),
+    ("configs/classifier_seed1.yaml", {**DINOV2, "seed": 1}),
     ("configs/classifier_detail.yaml",
-     {"augment.detail_p": 0.5, "augment.blur_p": 0.2, "augment.jpeg_p": 0.3}),
+     {**DINOV2, "augment.detail_p": 0.5, "augment.blur_p": 0.2, "augment.jpeg_p": 0.3}),
     ("configs/classifier_colour.yaml",
-     {f"augment.color_jitter.{k}": v for k, v in
-      {"brightness": 0.4, "contrast": 0.4, "saturation": 0.4, "hue": 0.05}.items()}),
-    ("configs/classifier_frozen.yaml", {"model.freeze_blocks": 12}),
-    ("configs/classifier_dinov3.yaml", DINOV3),
-    ("configs/classifier_balance.yaml", {"train.balance": "sqrt"}),
-    ("configs/classifier_seed2.yaml", {"seed": 2}),
-    ("configs/classifier_dinov3_seed1.yaml", {**DINOV3, "seed": 1}),
-    ("configs/classifier_dinov3_seed2.yaml", {**DINOV3, "seed": 2}),
-    ("configs/classifier_dinov3_frozen.yaml", {**DINOV3, "model.freeze_blocks": 12}),
+     {**DINOV2, **{f"augment.color_jitter.{k}": v for k, v in
+                   {"brightness": 0.4, "contrast": 0.4, "saturation": 0.4,
+                    "hue": 0.05}.items()}}),
+    ("configs/classifier_frozen.yaml", {**DINOV2, "model.freeze_blocks": 12}),
+    ("configs/classifier_balance.yaml", {**DINOV2, "train.balance": "sqrt"}),
+    ("configs/classifier_seed2.yaml", {**DINOV2, "seed": 2}),
+    ("configs/classifier_dinov3_seed1.yaml", {"seed": 1}),
+    ("configs/classifier_dinov3_seed2.yaml", {"seed": 2}),
+    ("configs/classifier_dinov3_frozen.yaml", {"model.freeze_blocks": 12}),
 ])
 def test_variants_change_only_what_they_name(path, changed):
     def flat(config, prefix=""):

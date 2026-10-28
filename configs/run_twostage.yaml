@@ -19,7 +19,7 @@ compare_runs: configs/compare_runs.yaml
 #   prepare_crops        crop cache for the classifier (CPU only)
 #   train_detector       Mask R-CNN on the plant-only data
 #   evaluate_detector    the detector alone: AP and recall of plants
-#   train_classifier     DINOv2 on the crops
+#   train_classifier     the classifier (DINOv3) on the crops
 #   evaluate_classifier  the classifier alone, on labelled crops
 #   predict_twostage     both stages on evaluate.split of configs/twostage.yaml
 # Since 2026-10-26 only the classifier steps: the detector is run 2's, fixed in
@@ -41,14 +41,11 @@ steps:
 # sets all classifier runs side by side (scripts/compare_runs.py does it for any runs).
 # Each variant adds about an hour. [] = none. Done on 2026-10-26: classifier_seed1.yaml,
 # classifier_detail.yaml, classifier_colour.yaml; on 2026-10-27: classifier_frozen.yaml,
-# classifier_dinov3.yaml, classifier_balance.yaml (results in docs/twostage.md).
-# Now: three seeds of each backbone fine-tuned (DINOv3 seeds 1 and 2, DINOv2 seed 2), and
-# DINOv3 frozen, about 4 h in all.
-classifier_variants:
-  - configs/classifier_dinov3_seed1.yaml
-  - configs/classifier_dinov3_seed2.yaml
-  - configs/classifier_seed2.yaml
-  - configs/classifier_dinov3_frozen.yaml
+# DINOv3 (now configs/classifier.yaml), classifier_balance.yaml; on 2026-10-28:
+# classifier_dinov3_seed1.yaml, classifier_dinov3_seed2.yaml, classifier_seed2.yaml,
+# classifier_dinov3_frozen.yaml (results in docs/twostage.md). Since then none: listing a
+# finished one only repeats its evaluation and prediction.
+classifier_variants: []
 
 # Each step runs in a process of its own. When it crashes (e.g. the GPU driver resets), the
 # step is started again after restart_wait_s seconds, up to max_restarts times in all (0 = stop

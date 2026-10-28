@@ -1,8 +1,10 @@
-# Classifier variant: configs/classifier_dinov3.yaml (fine-tuned DINOv3) with another seed and
+# Classifier variant: configs/classifier.yaml (fine-tuned DINOv3) with another seed and
 # nothing else. With it (seed 0) and classifier_dinov3_seed2.yaml it gives three DINOv3 runs,
 # to tell whether DINOv3's lead over DINOv2 is beyond chance before a switch. Licence: as
-# classifier_dinov3.yaml. Trained after the base run by scripts/run_twostage.py
+# configs/classifier.yaml. Trained after the base run by scripts/run_twostage.py
 # (classifier_variants in configs/run_twostage.yaml); see docs/twostage.md.
-base: configs/classifier_dinov3.yaml
+# Result 2026-10-28 (last epoch): val accuracy 94.1%, balanced 81.3%; with seeds 0 and 2,
+# every DINOv3 seed beats every DINOv2 seed (docs/twostage.md has the numbers).
+base: configs/classifier.yaml
 run_name: "{dataset}_{taxonomy}_dinov3b_seed1"
 seed: 1

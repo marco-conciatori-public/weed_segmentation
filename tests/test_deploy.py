@@ -14,7 +14,13 @@ from weedseg.classifier.crops import FILL_RGB
 from weedseg.classifier.data import MEAN, STD
 from weedseg.classifier.model import build_classifier
 from weedseg.deploy import weed_model
-from weedseg.deploy.export import describe_class, handoff_table, split_table, write_splits
+from weedseg.deploy.export import (
+    backbone_family,
+    describe_class,
+    handoff_table,
+    split_table,
+    write_splits,
+)
 from weedseg.deploy.inference import image_files, run_inference
 from weedseg.eppo import load_taxa
 from weedseg.maskrcnn.model import build_model
@@ -61,15 +67,29 @@ def test_detector_is_the_trained_architecture():
         assert torch.equal(result[key], expected[key])
 
 
-def test_classifier_is_the_trained_architecture():
-    model = {"backbone": SETTINGS["backbone"], "pretrained": False, "pretrained_path": None,
+@pytest.mark.parametrize("backbone, size", [("vit_small_patch14_dinov2.lvd142m", 28),
+                                            ("vit_small_patch16_dinov3.lvd1689m", 32)])
+def test_classifier_is_the_trained_architecture(backbone, size):
+    model = {"backbone": backbone, "pretrained": False, "pretrained_path": None,
              "freeze_blocks": 0, "drop_path": 0.1}
-    trained = build_classifier(5, model, SETTINGS["input_size"]).eval()
-    deployed = weed_model.build_classifier(SETTINGS, 5).eval()
+    settings = {**SETTINGS, "backbone": backbone, "input_size": size}
+    trained = build_classifier(5, model, size).eval()
+    deployed = weed_model.build_classifier(settings, 5).eval()
     deployed.load_state_dict(trained.state_dict())
-    inputs = torch.randn(2, 3, 28, 28)
+    inputs = torch.randn(2, 3, size, size)
     with torch.no_grad():
         assert torch.equal(deployed(inputs), trained(inputs))
+
+
+def test_each_backbone_ships_its_licence():
+    dinov3 = backbone_family("vit_base_patch16_dinov3.lvd1689m")
+    licence = resolve(f"src/weedseg/deploy/{dinov3['file']}").read_text(encoding="utf-8")
+    assert "provide a copy of this Agreement" in licence and "Built with DINOv3" in licence
+    assert "Built with DINOv3" in dinov3["terms"]
+    dinov2 = backbone_family("vit_base_patch14_dinov2.lvd142m")
+    assert (dinov2["licence"], dinov2["file"], dinov2["terms"]) == ("Apache-2.0", None, "")
+    with pytest.raises(SystemExit, match="No licence known"):
+        backbone_family("resnet50.a1_in1k")
 
 
 def test_plants_go_to_zero_shot_for_each_reason():

@@ -25,7 +25,7 @@ from tqdm import tqdm
 from weedseg.data.coco import IGNORE_CATEGORY, decode_mask
 
 # Fill for pixels outside the image (and blanked background): the ImageNet mean, which
-# DINOv2's normalisation maps to 0.
+# the normalisation of DINOv2 and DINOv3 maps to 0.
 FILL_RGB = (124, 116, 104)
 BACKGROUNDS = ("keep", "dim", "blank")
 INDEX_COLUMNS = ["annotation_id", "image_id", "category", "eppo", "size_mm", "mm_per_px",

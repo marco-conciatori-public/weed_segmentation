@@ -1,0 +1,9 @@
+# Classifier variant: configs/classifier.yaml with DINOv2 ViT-B/14 instead of DINOv3 ViT-B/16,
+# everything else the same: the classifier until 2026-10-28, when DINOv3 replaced it (three
+# seeds each, docs/twostage.md). Its weights are Apache-2.0, without the DINOv3 License's
+# terms. The DINOv2 variants (classifier_seed1/2, detail, colour, frozen, balance) build on
+# it, so they still name and resume their own runs.
+base: configs/classifier.yaml
+run_name: "{dataset}_{taxonomy}_dinov2b"
+model:
+  backbone: vit_base_patch14_dinov2.lvd142m

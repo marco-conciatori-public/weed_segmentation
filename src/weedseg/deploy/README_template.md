@@ -4,7 +4,7 @@ This model finds every plant in a top-down field image, outlines it, and names i
 It knows ${num_species} species; a plant of any other species should come out as `other_plant`.
 It was built in the NeutraWeed project for robotic precision weeding. This package is for
 non-commercial research and demonstration (see [Licences](#licences)).
-
+${built_with}
 Exported ${created} from these training runs:
 
 - detector: `${detector_run}`, epoch ${detector_epoch}
@@ -15,7 +15,7 @@ Exported ${created} from these training runs:
 1. **Detector**: a Mask R-CNN (torchvision `maskrcnn_resnet50_fpn_v2`) with a single class,
    `plant`. For each plant it gives a box, a mask, and a *plant score*: how sure it is that
    this is a plant.
-2. **Classifier**: a DINOv2 ViT-B/14 with a linear head (timm model
+2. **Classifier**: a ${backbone_family} vision transformer with a linear head (timm model
    `${backbone}`). It looks at a square crop around each plant the detector found and
    gives the probability of each species, assuming it is a plant.
 
@@ -31,7 +31,7 @@ certainly a plant but of an uncertain species, or the other way round.
 | `detector.safetensors` | Detector weights |
 | `classifier.safetensors` | Classifier weights |
 | `requirements.txt` | Python packages |
-| `splits.csv` | The training data's images and the split each model put them in (see [Splits](#splits)) |
+| `splits.csv` | The training data's images and the split each model put them in (see [Splits](#splits)) |${licence_file_row}
 
 ## Install
 
@@ -205,5 +205,6 @@ OPPD; see the table above). So **use it only for non-commercial research and
 demonstration**, and cite the datasets (papers above) when you present results. Commercial
 use would need a model retrained without those datasets.
 
-Code and pretrained weights: torchvision (BSD-3-Clause), timm and the DINOv2 weights
-(Apache-2.0).
+Code and pretrained weights: torchvision (BSD-3-Clause), timm (Apache-2.0) and the
+${backbone_family} weights (${backbone_licence}).
+${backbone_terms}

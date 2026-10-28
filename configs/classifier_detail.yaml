@@ -1,11 +1,11 @@
-# Classifier variant: configs/classifier.yaml with less detail in some training crops (shrunk
-# to a coarser camera's mm/px, blurred, JPEG-compressed), so sharpness stops telling the
-# dataset (docs/twostage.md, Less detail). Trained after the base run by
+# Classifier variant: configs/classifier_dinov2.yaml with less detail in some training crops
+# (shrunk to a coarser camera's mm/px, blurred, JPEG-compressed), so sharpness stops telling
+# the dataset (docs/twostage.md, Less detail). Trained after the base run by
 # scripts/run_twostage.py (classifier_variants in configs/run_twostage.yaml).
 # Result 2026-10-26/27 (last epoch): val accuracy 92.5% against 94.0% and 93.7% (seed1,
 # base), OPPD 87.6% against 91.7% and 90.7% (its tiny seedlings need the detail),
 # cross-dataset accuracy 86.4% against 87.2%: no gain, so the base config leaves it off.
-base: configs/classifier.yaml
+base: configs/classifier_dinov2.yaml
 run_name: "{dataset}_{taxonomy}_dinov2b_detail"
 augment:
   detail_p: 0.5
