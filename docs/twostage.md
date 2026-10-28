@@ -59,10 +59,13 @@ does the same for any runs, older ones included. The shipped variants:
 | `classifier_frozen.yaml` | `freeze_blocks: 12`: only the final norm and the head learn (a linear probe) | A reference, not a candidate: what fine-tuning adds; data changes checked with less noise; whether a confusion is already in the generic features | Far below: 85.9% overall, balanced 64.2% against 79.8%, cross-dataset 70.5% against 87.2%. Fine-tuning adds 8 points, too much for it to stand in for the real model as a benchmark. ACRE's beans called fat-hen are already in the generic features (7.1% of them removed, as in the fine-tuned runs) |
 | `classifier_dinov3.yaml` | DINOv3 ViT-B/16 (`vit_base_patch16_dinov3.lvd1689m`) | Newer backbone. Its weights are under Meta's DINOv3 License, not Apache-2.0: a copy of the licence must go with the model and "Built with DINOv3" be shown; adopting it for the product is a licensing decision | Best so far, one run: 94.4% overall, balanced 81.3% against 79.8% for both DINOv2 runs, OPPD balanced 90.1% against 85%, CropAndWeed 91.8% against 90.9%; decisions as DINOv2's. Partial labels fit a little less (92.7% against 94.8%), a share that moves by several points between epochs. About as fast (5:15 against 5:43 per epoch: data loading sets the pace). A second seed should confirm it before a switch |
 | `classifier_balance.yaml` | `train.balance: sqrt` | ACRE leans towards fat-hen (83% of its plants), and 6% of its beans would be removed | 93.2% overall (0.5 to 0.8 point lower), balanced 80.6% (0.8 higher), OPPD 1 to 2 lower. ACRE's beans removed fall to 2.3%, but its harmful weeds removed fall from 52% to 30% too: the model is less sure, so more is deferred. At the same share of beans removed, it removes as many weeds as the other runs (see below). Not adopted |
+| `classifier_seed2.yaml` | `seed: 2` | A third DINOv2 seed: each backbone judged against the spread of its own three runs | Pending |
+| `classifier_dinov3_seed1.yaml`, `classifier_dinov3_seed2.yaml` | DINOv3, `seed` 1 and 2 | Whether DINOv3's lead is beyond chance, before a switch | Pending |
+| `classifier_dinov3_frozen.yaml` | DINOv3 with `freeze_blocks: 12` | DINOv3's generic features next to DINOv2's (frozen: 85.9%), and what fine-tuning adds to each | Pending |
 
-The first three ran on 2026-10-26, the other three on 2026-10-27. Results from
-the last epoch (the first three evaluated again on 2026-10-27). A per-dataset balanced accuracy can
-jump on a single plant: ACRE's val crops hold 4 maize plants, and getting one of them right
+The first three ran on 2026-10-26, the next three on 2026-10-27, the last four are for the
+next session. Results from the last epoch (the first three evaluated again on 2026-10-27). A
+per-dataset balanced accuracy can jump on a single plant: ACRE's val crops hold 4 maize plants, and getting one of them right
 raised the detail run's ACRE balanced accuracy by 3 points.
 
 **Decisions at one `defer_below` compare confidence, not only skill.** With label

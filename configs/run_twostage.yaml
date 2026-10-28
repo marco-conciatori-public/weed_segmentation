@@ -37,11 +37,15 @@ steps:
 # error is reported and the next one starts. At the end, <log_dir>/compare_<date>_<time>.md
 # sets all classifier runs side by side (scripts/compare_runs.py does it for any runs).
 # Each variant adds about an hour. [] = none. Done on 2026-10-26: classifier_seed1.yaml,
-# classifier_detail.yaml, classifier_colour.yaml (results in docs/twostage.md).
+# classifier_detail.yaml, classifier_colour.yaml; on 2026-10-27: classifier_frozen.yaml,
+# classifier_dinov3.yaml, classifier_balance.yaml (results in docs/twostage.md).
+# Now: three seeds of each backbone fine-tuned (DINOv3 seeds 1 and 2, DINOv2 seed 2), and
+# DINOv3 frozen, about 4 h in all.
 classifier_variants:
-  - configs/classifier_frozen.yaml
-  - configs/classifier_dinov3.yaml
-  - configs/classifier_balance.yaml
+  - configs/classifier_dinov3_seed1.yaml
+  - configs/classifier_dinov3_seed2.yaml
+  - configs/classifier_seed2.yaml
+  - configs/classifier_dinov3_frozen.yaml
 
 # Each step runs in a process of its own. When it crashes (e.g. the GPU driver resets), the
 # step is started again after restart_wait_s seconds, up to max_restarts times in all (0 = stop

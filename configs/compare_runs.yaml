@@ -4,12 +4,17 @@
 # The runs, in this order (columns A, B, ...): a classifier config, for its run, or a run
 # folder, e.g. runs/classifier/cropandweed+acre+phenobench+oppd_species_min50img_min20mm_dinov2b
 # for an older run.
+# Three seeds of each backbone fine-tuned, then both frozen (2026-10-28; the older variants
+# are in docs/twostage.md).
 runs:
   - configs/classifier.yaml
   - configs/classifier_seed1.yaml
-  - configs/classifier_frozen.yaml
+  - configs/classifier_seed2.yaml
   - configs/classifier_dinov3.yaml
-  - configs/classifier_balance.yaml
+  - configs/classifier_dinov3_seed1.yaml
+  - configs/classifier_dinov3_seed2.yaml
+  - configs/classifier_frozen.yaml
+  - configs/classifier_dinov3_frozen.yaml
 # The evaluation compared: <run>/eval/<split>_<checkpoint> (scripts/evaluate_classifier.py),
 # and the two-stage one made with the same checkpoint of each run,
 # <twostage_dir>/<detector run>__<run>/eval/<split>_<checkpoint> (scripts/predict_twostage.py;

@@ -18,6 +18,7 @@ CROPS = {"margin": 0.25, "input_size": 28, "cache_context": 1.5, "background": "
          "dim_factor": 0.3}
 TINY_MODEL = {"backbone": "vit_small_patch14_dinov2.lvd142m", "pretrained": False,
               "pretrained_path": None, "freeze_blocks": 0, "drop_path": 0.0}
+DINOV3 = {"model.backbone": "vit_base_patch16_dinov3.lvd1689m"}
 
 
 def test_species_scores_keep_plant_and_class_apart():
@@ -92,8 +93,12 @@ def test_shipped_configs_fit_together():
      {f"augment.color_jitter.{k}": v for k, v in
       {"brightness": 0.4, "contrast": 0.4, "saturation": 0.4, "hue": 0.05}.items()}),
     ("configs/classifier_frozen.yaml", {"model.freeze_blocks": 12}),
-    ("configs/classifier_dinov3.yaml", {"model.backbone": "vit_base_patch16_dinov3.lvd1689m"}),
+    ("configs/classifier_dinov3.yaml", DINOV3),
     ("configs/classifier_balance.yaml", {"train.balance": "sqrt"}),
+    ("configs/classifier_seed2.yaml", {"seed": 2}),
+    ("configs/classifier_dinov3_seed1.yaml", {**DINOV3, "seed": 1}),
+    ("configs/classifier_dinov3_seed2.yaml", {**DINOV3, "seed": 2}),
+    ("configs/classifier_dinov3_frozen.yaml", {**DINOV3, "model.freeze_blocks": 12}),
 ])
 def test_variants_change_only_what_they_name(path, changed):
     def flat(config, prefix=""):

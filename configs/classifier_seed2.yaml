@@ -1,0 +1,8 @@
+# Classifier variant: configs/classifier.yaml with a third seed and nothing else. With the base
+# run (seed 0) and classifier_seed1.yaml it gives three DINOv2 runs, to see how far results
+# swing by chance, as classifier_dinov3_seed1/2.yaml do for DINOv3, so the two backbones are
+# compared against their own spread (docs/twostage.md, Comparing runs). Trained after the base
+# run by scripts/run_twostage.py (classifier_variants in configs/run_twostage.yaml).
+base: configs/classifier.yaml
+run_name: "{dataset}_{taxonomy}_dinov2b_seed2"
+seed: 2

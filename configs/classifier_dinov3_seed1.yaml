@@ -1,0 +1,8 @@
+# Classifier variant: configs/classifier_dinov3.yaml (fine-tuned DINOv3) with another seed and
+# nothing else. With it (seed 0) and classifier_dinov3_seed2.yaml it gives three DINOv3 runs,
+# to tell whether DINOv3's lead over DINOv2 is beyond chance before a switch. Licence: as
+# classifier_dinov3.yaml. Trained after the base run by scripts/run_twostage.py
+# (classifier_variants in configs/run_twostage.yaml); see docs/twostage.md.
+base: configs/classifier_dinov3.yaml
+run_name: "{dataset}_{taxonomy}_dinov3b_seed1"
+seed: 1

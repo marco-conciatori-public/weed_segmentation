@@ -1,0 +1,11 @@
+# Classifier variant: configs/classifier_dinov3.yaml with the whole DINOv3 backbone frozen, so
+# only its final normalisation and the classification head learn (a linear probe), as
+# classifier_frozen.yaml does for DINOv2 (85.9% against 93.7% fine-tuned). A reference, not a
+# candidate: how good DINOv3's generic features are next to DINOv2's, and how much
+# fine-tuning adds to each. Licence: as classifier_dinov3.yaml. Trained after the base run by
+# scripts/run_twostage.py (classifier_variants in configs/run_twostage.yaml); see
+# docs/twostage.md.
+base: configs/classifier_dinov3.yaml
+run_name: "{dataset}_{taxonomy}_dinov3b_frozen"
+model:
+  freeze_blocks: 12
