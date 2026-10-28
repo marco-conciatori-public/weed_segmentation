@@ -6,6 +6,10 @@
 # called fat-hen) is already in the features. Trains faster than a full run: nothing flows
 # back through the backbone. Trained after the base run by scripts/run_twostage.py
 # (classifier_variants in configs/run_twostage.yaml); see docs/twostage.md.
+# Result 2026-10-27 (last epoch): val accuracy 85.9% against 93.7% and 94.0% (base,
+# seed1), balanced 64.2% against 79.8%, cross-dataset 70.5% against 87.2%: fine-tuning
+# adds 8 points, too far from the real model to stand in for it as a benchmark. ACRE's
+# beans called fat-hen are already in the generic features (7.1% removed, as fine-tuned).
 base: configs/classifier.yaml
 run_name: "{dataset}_{taxonomy}_dinov2b_frozen"
 model:

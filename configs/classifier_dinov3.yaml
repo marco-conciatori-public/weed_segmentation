@@ -1,8 +1,12 @@
 # Classifier variant: configs/classifier.yaml with DINOv3 ViT-B/16 instead of DINOv2 ViT-B/14,
 # everything else the same (224 px crops are a multiple of both patch sizes, the image
 # normalisation is the same, and the crop cache is shared). 196 tokens per crop instead of 256,
-# so it runs about a quarter faster. Trained after the base run by scripts/run_twostage.py
-# (classifier_variants in configs/run_twostage.yaml); see docs/twostage.md.
+# yet about as fast in training (5:15 against 5:43 per epoch: data loading sets the pace).
+# Trained after the base run by scripts/run_twostage.py (classifier_variants in
+# configs/run_twostage.yaml); see docs/twostage.md.
+# Result 2026-10-27 (last epoch, one run): val accuracy 94.4% against 93.7% and 94.0%
+# (base, seed1), balanced 81.3% against 79.8% for both, OPPD balanced 90.1% against 85%;
+# decisions as DINOv2's. The best so far; a second seed should confirm it before a switch.
 #
 # Licence: the DINOv3 weights are under Meta's DINOv3 License, not Apache-2.0 like DINOv2's
 # (https://ai.meta.com/resources/models-and-libraries/dinov3-license): commercial use is
