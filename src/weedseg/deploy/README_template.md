@@ -31,6 +31,7 @@ certainly a plant but of an uncertain species, or the other way round.
 | `detector.safetensors` | Detector weights |
 | `classifier.safetensors` | Classifier weights |
 | `requirements.txt` | Python packages |
+| `splits.csv` | The training data's images and the split each model put them in (see [Splits](#splits)) |
 
 ## Install
 
@@ -98,6 +99,7 @@ lower `classifier.batch_size` in `model.json`.
 | `common_names` | Its English names, as EPPO lists them. EPPO marks none as preferred, so the first is not necessarily the usual one |
 | `species_probability` | 0 to 1: the classifier's probability of that species, assuming it is a plant |
 | `top5` | The five most probable species, each with its probability |
+| `probabilities` | The probability of every class (`code`: probability), in the order of `classes` in `model.json`: the ${num_species} species and `other_plant`. They add up to 1. Rounded to 4 significant digits, so small probabilities are not rounded to 0 |
 | `send_to_zero_shot` | `true` when the plant should go to the zero-shot model (next section) |
 | `zero_shot_reasons` | Why: any of `other_plant`, `low_species_probability`, `low_plant_score` |
 
@@ -176,6 +178,25 @@ ${partial_section}
 ## Training data
 
 ${dataset_table}
+
+### Splits
+
+`splits.csv` lists every image of the training data, one per row, with the split each
+model put it in, so results on photos neither model saw can be told apart:
+
+| Column | Meaning |
+|---|---|
+| `dataset` | The source dataset (table above) |
+| `image` | The image's path inside the dataset's image folder |
+| `sha256` | The SHA-256 of the image file as we downloaded it, to find it under any name (empty when the file was missing at export) |
+| `group` | Its session, field and day, or tray, as the dataset records them. A group's images are all in the same split |
+| `detector_split`, `classifier_split` | `train`, `val` or `test` for each model; empty when that model did not use the image |
+
+${split_table}
+
+`val` images were not trained on, but helped choose the models (checkpoints and settings)
+and the hand-off thresholds above. `test` images were used for none of that, so they give
+the fairest measure.
 
 ## Licences
 

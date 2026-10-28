@@ -1,4 +1,6 @@
 import ast
+import csv
+import hashlib
 import json
 import shutil
 
@@ -12,7 +14,7 @@ from weedseg.classifier.crops import FILL_RGB
 from weedseg.classifier.data import MEAN, STD
 from weedseg.classifier.model import build_classifier
 from weedseg.deploy import weed_model
-from weedseg.deploy.export import describe_class, handoff_table
+from weedseg.deploy.export import describe_class, handoff_table, split_table, write_splits
 from weedseg.deploy.inference import image_files, run_inference
 from weedseg.eppo import load_taxa
 from weedseg.maskrcnn.model import build_model
@@ -86,6 +88,9 @@ def test_plants_go_to_zero_shot_for_each_reason():
     assert (sure["species"], sure["send_to_zero_shot"], sure["zero_shot_reasons"]) == (
         "CHEAL", False, [])
     assert sure["top5"][0] == {"species": "CHEAL", "probability": 0.85}
+    assert sure["probabilities"] == {"CHEAL": 0.85, "ZEAMX": 0.1, "other_plant": 0.05}
+    assert plant(0.95, [0.9, 0.1 - 1.23456e-7, 1.23456e-7])["probabilities"]["other_plant"] == (
+        1.235e-7)  # significant digits: not rounded to 0
     assert sure["polygons"] and "mask" not in sure
     assert plant(0.95, [0.6, 0.3, 0.1])["zero_shot_reasons"] == ["low_species_probability"]
     assert plant(0.95, [0.1, 0.1, 0.8])["zero_shot_reasons"] == ["other_plant"]
@@ -107,6 +112,32 @@ def test_class_descriptions_and_handoff_table(tmp_path):
     table = handoff_table(folder, [0.5, 0.7, 0.95]).splitlines()
     assert table[2:] == ["| 0.5 | 100.0% | 66.7% |", "| 0.7 | 66.7% | 100.0% |",
                          "| 0.95 | 0% | - |"]
+
+
+def test_splits_list_each_image_once_with_both_stages(tmp_path):
+    raw = tmp_path / "raw" / "a"
+    (raw / "sub").mkdir(parents=True)
+    (raw / "sub" / "x.jpg").write_bytes(b"x")  # y.jpg is missing
+    images = {"train": ["sub/x.jpg"], "val": ["y.jpg"], "test": []}
+    for stage, stage_images in (("detector", {**images, "val": []}), ("classifier", images)):
+        folder = tmp_path / stage
+        folder.mkdir()
+        for split, names in stage_images.items():
+            coco = {"info": {"datasets": {"a": {"image_dir": f"{raw.as_posix()}/"}}},
+                    "images": [{"file_name": f"{raw.as_posix()}/{name}", "dataset": "a",
+                                "group": name[-5]} for name in names]}
+            (folder / f"{split}.json").write_text(json.dumps(coco), encoding="utf-8")
+
+    rows = write_splits(tmp_path / "splits.csv", {s: tmp_path / s for s in ("detector", "classifier")})
+    assert rows == [
+        {"dataset": "a", "image": "sub/x.jpg", "sha256": hashlib.sha256(b"x").hexdigest(),
+         "group": "x", "detector_split": "train", "classifier_split": "train"},
+        {"dataset": "a", "image": "y.jpg", "sha256": "", "group": "y", "detector_split": "",
+         "classifier_split": "val"}]
+    with open(tmp_path / "splits.csv", newline="", encoding="utf-8") as f:
+        assert list(csv.DictReader(f)) == rows
+    assert split_table(rows).splitlines()[2:] == ["| train | 1 | 1 |", "| val | 0 | 1 |",
+                                                  "| test | 0 | 0 |"]
 
 
 def test_image_files_takes_files_folders_and_lists(tmp_path):

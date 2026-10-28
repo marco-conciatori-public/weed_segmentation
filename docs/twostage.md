@@ -361,7 +361,8 @@ this repo, e.g. on a demo website. It writes `exports/weed_twostage_<date>/`:
 | `model.json` | What `weed_model.py` needs (image size, anchors, crop margin, normalisation), the classes with their scientific and English names, the training datasets and their licences, and the hand-off thresholds |
 | `weed_model.py` | Self-contained inference, `WeedModel.predict(rgb_image)`: torch, torchvision, timm, safetensors, numpy and opencv, nothing from `weedseg` |
 | `requirements.txt` | Those packages |
-| `README.md` | For the person deploying it: install, input, output, hand-off, the species list, validation numbers, training data and licences |
+| `splits.csv` | Every image of the detector's and the classifier's datasets: dataset, path inside the dataset's image folder, sha256 of the file, group, and the split of each stage (empty when the stage didn't use it). The sha256 finds an image under any name, e.g. in the NeutraWeed platform, which stores images by it |
+| `README.md` | For the person deploying it: install, input, output, hand-off, the species list, validation numbers, training data, splits and licences |
 
 The README is made from `src/weedseg/deploy/README_template.md`, with the species,
 training data and validation numbers of the runs read from their evaluation folders (run
@@ -370,7 +371,8 @@ steps 6 and 7 first). `weed_model.py` repeats the preprocessing of `predict_twos
 it against the training code, so a change there that the package misses makes the tests
 fail.
 
-Each plant comes out with its box, outline (polygons), plant score, species, top 5 and a
+Each plant comes out with its box, outline (polygons), plant score, species, top 5, the
+probabilities of all classes (4 significant digits, so small ones aren't rounded to 0) and a
 `send_to_zero_shot` flag for the generic model: set when the top class is `other_plant`, the
 plant score is under `zero_shot_below_plant_score` (0.8, as `plant_defer_below`) or the
 species probability is under `zero_shot_below_species_probability` (0.7: on the val crops of

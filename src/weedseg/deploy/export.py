@@ -2,12 +2,14 @@
 
 <output_dir>/<name>/ gets the weights of both stages as safetensors (plain tensors, no
 pickled code), model.json (the settings weed_model.py needs, the species list and the
-hand-off thresholds), weed_model.py and requirements.txt as they are, and README.md, made
-from README_template.md with the species, training data and validation numbers of the runs.
+hand-off thresholds), weed_model.py and requirements.txt as they are, splits.csv (every
+image of the training data and the split each model put it in), and README.md, made from
+README_template.md with the species, training data and validation numbers of the runs.
 See docs/twostage.md#deployment-package.
 """
 
 import csv
+import hashlib
 import json
 import platform
 import shutil
@@ -22,6 +24,7 @@ import timm
 import torch
 import torchvision
 from safetensors.torch import save_file
+from tqdm import tqdm
 
 from weedseg.classifier.crops import FILL_RGB
 from weedseg.classifier.data import MEAN, STD
@@ -33,6 +36,7 @@ from weedseg.paths import resolve
 
 HERE = Path(__file__).resolve().parent
 COPIED = ("weed_model.py", "requirements.txt")
+SPLITS = ("train", "val", "test")
 # Papers to cite, per dataset id of the combined data (see docs/datasets/).
 PAPERS = {
     "cropandweed": "Steininger et al., \"The CropAndWeed Dataset: a Multi-Modal Learning "
@@ -114,6 +118,9 @@ def export_package(config: dict[str, Any]) -> Path:
                   out_dir / f"{name}.safetensors", metadata={"run": info[name]["run"]})
     for name in COPIED:
         shutil.copyfile(HERE / name, out_dir / name)
+    splits = write_splits(out_dir / "splits.csv",
+                          {"detector": resolve(detector["config"]["data"]["dir"]),
+                           "classifier": species_dir})
 
     twostage_eval = (resolve(twostage["output_dir"])
                      / twostage["run_name"].format(detector=detector_file.parent.name,
@@ -123,7 +130,7 @@ def export_package(config: dict[str, Any]) -> Path:
     classifier_eval = (classifier_file.parent / "eval"
                        / f"{classifier_config['evaluate']['split']}_{classifier_file.stem}")
     readme = readme_text(info, train, classifier["classes"], taxa, twostage_eval,
-                         classifier_eval, config["handoff_table"])
+                         classifier_eval, config["handoff_table"], splits)
     (out_dir / "README.md").write_text(readme, encoding="utf-8")
     size = sum(f.stat().st_size for f in out_dir.iterdir()) / 1e6
     print(f"Package ({size:.0f} MB): {out_dir}")
@@ -144,8 +151,8 @@ def describe_class(code: str, taxa: dict[str, dict[str, Any]]) -> dict[str, Any]
 
 def readme_text(info: dict[str, Any], train: dict[str, Any], classes: list[str],
                 taxa: dict[str, dict[str, str]], twostage_eval: Path, classifier_eval: Path,
-                thresholds: list[float]) -> str:
-    """README_template.md filled in."""
+                thresholds: list[float], splits: list[dict[str, str]]) -> str:
+    """README_template.md filled in; `splits`: the rows of splits.csv."""
     datasets = train["info"]["datasets"]
     values = {
         "name": info["name"], "created": info["created"],
@@ -166,6 +173,7 @@ def readme_text(info: dict[str, Any], train: dict[str, Any], classes: list[str],
         "partial_section": partial_section(classifier_eval, datasets, taxa,
                                            info["classifier"]["partial_labels"]),
         "dataset_table": dataset_table(train),
+        "split_table": split_table(splits),
     }
     template = Template((HERE / "README_template.md").read_text(encoding="utf-8"))
     return template.substitute(values)
@@ -301,6 +309,60 @@ def dataset_table(train: dict[str, Any]) -> str:
         lines.append(f"| [{dataset['name']}]({dataset['source'].split(' ')[0]}) | "
                      f"{dataset['licence'].split('; see ')[0]} | {resolution} | {trains} | "
                      f"{len(images):,} | {PAPERS.get(key, '-')} |")
+    return "\n".join(lines)
+
+
+def split_rows(data_dirs: dict[str, Path]) -> dict[str, dict[str, str]]:
+    """The images of the stages' datasets ({stage: folder with <split>.json}), by file name:
+    their dataset, path inside the dataset's image folder, group, and the split each stage
+    put them in (empty when the stage didn't use the image). No sha256 yet."""
+    rows = {}
+    for stage, folder in data_dirs.items():
+        for split in SPLITS:
+            coco = json.loads((folder / f"{split}.json").read_text(encoding="utf-8"))
+            image_dirs = {name: d.get("image_dir", "").rstrip("/")
+                          for name, d in coco["info"]["datasets"].items()}
+            for image in coco["images"]:
+                name = image["file_name"]
+                row = rows.setdefault(name, {
+                    "dataset": image["dataset"],
+                    "image": name.removeprefix(image_dirs.get(image["dataset"], "") + "/"),
+                    "sha256": "", "group": image.get("group", ""),
+                    **{f"{s}_split": "" for s in data_dirs}})
+                row[f"{stage}_split"] = split
+    return rows
+
+
+def write_splits(path: Path, data_dirs: dict[str, Path]) -> list[dict[str, str]]:
+    """splits.csv: `split_rows` with the sha256 of each image file, sorted by dataset and
+    image. Its rows."""
+    rows = split_rows(data_dirs)
+    missing = 0
+    for file_name, row in tqdm(rows.items(), desc="sha256 of the images", unit="image"):
+        image = resolve(file_name)
+        if not image.is_file():
+            missing += 1
+            continue
+        with open(image, "rb") as f:
+            row["sha256"] = hashlib.file_digest(f, "sha256").hexdigest()
+    if missing:
+        print(f"{missing} images not found, left without sha256 in {path.name}")
+    ordered = sorted(rows.values(), key=lambda r: (r["dataset"], r["image"]))
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(ordered[0]))
+        writer.writeheader()
+        writer.writerows(ordered)
+    return ordered
+
+
+def split_table(rows: list[dict[str, str]]) -> str:
+    """Images per split, for each stage of splits.csv."""
+    stages = [key.removesuffix("_split") for key in rows[0] if key.endswith("_split")]
+    lines = ["| Split | " + " | ".join(f"Images ({stage})" for stage in stages) + " |",
+             "|---" * (len(stages) + 1) + "|"]
+    for split in SPLITS:
+        counts = [sum(r[f"{stage}_split"] == split for r in rows) for stage in stages]
+        lines.append(f"| {split} | " + " | ".join(f"{n:,}" for n in counts) + " |")
     return "\n".join(lines)
 
 

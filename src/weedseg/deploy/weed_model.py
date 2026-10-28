@@ -128,6 +128,10 @@ class WeedModel:
             "species_probability": round(probability, 4),
             "top5": [{"species": self.codes[k], "probability": round(float(probs[k]), 4)}
                      for k in order[:5]],
+            # every class, in model.json's order; 4 significant digits rather than decimals,
+            # so the small probabilities aren't rounded to 0
+            "probabilities": {code: float(f"{p:.4g}")
+                              for code, p in zip(self.codes, probs.tolist())},
             "send_to_zero_shot": bool(reasons),
             "zero_shot_reasons": reasons,
         }
