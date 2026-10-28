@@ -3,13 +3,16 @@ two-stage prediction made with it (scripts/predict_twostage.py), on the same spl
 
 The rows are the settings in which the runs differ, then the overall numbers (classifier
 accuracy overall and per dataset, and both stages' plants found, species right and decisions),
-then those that show how much a run relies on the look of a dataset (cross-dataset accuracy,
-fit of the partial labels). A missing file leaves "-". Runs whose settings differ only in
-`seed` are pointed out: their gaps show the run-to-run noise. See docs/twostage.md.
+then, with target shares of crops removed, the harmful weeds removed at each (the decisions
+at one crop safety, with the defer_below that gives it), then those that show how much a run
+relies on the look of a dataset (cross-dataset accuracy, fit of the partial labels). A
+missing file leaves "-". Runs whose settings differ only in `seed` are pointed out: their
+gaps show the run-to-run noise. See docs/twostage.md.
 """
 
 import csv
 import json
+from collections import defaultdict
 from itertools import combinations
 from pathlib import Path
 from string import ascii_uppercase
@@ -18,6 +21,10 @@ from typing import Any
 import yaml
 
 from weedseg.config import load_config
+from weedseg.decisions import harmful_removed_at, load_rules, removed_up_to, role_of
+from weedseg.eppo import load_taxa
+from weedseg.evaluation import ignore_category_ids, match_detections
+from weedseg.maskrcnn.data import load_masked_coco
 from weedseg.maskrcnn.run import resolve_run_dir
 from weedseg.paths import resolve
 
@@ -60,13 +67,15 @@ def flatten(config: dict[str, Any], prefix: str = "") -> dict[str, str]:
     return flat
 
 
-def comparison(runs: list[Path], split: str, checkpoint: str,
-               twostage_dir: Path) -> tuple[list[str], list[list[str]]]:
+def comparison(runs: list[Path], split: str, checkpoint: str, twostage_dir: Path,
+               crops_removed: list[float] = ()) -> tuple[list[str], list[list[str]]]:
     """Notes (which run is which, seed-only pairs) and the table rows: a name, then one value
-    per run. Classifier evaluations are read from <run>/eval/<split>_<checkpoint>."""
+    per run. Classifier evaluations are read from <run>/eval/<split>_<checkpoint>.
+    `crops_removed`: target shares of crops removed for `decisions_at_crops_removed`."""
     letters = ascii_uppercase[:len(runs)]
     notes = []
-    settings, classifier, twostage = [], [], []
+    settings, classifier, twostage, same_crops = [], [], [], []
+    ground_truths = {}
     for letter, run in zip(letters, runs):
         found = twostage_eval(twostage_dir, run, split, checkpoint)
         notes.append(f"{letter}: {run.name}" + (f" (both stages: {found.parent.parent.name})"
@@ -77,15 +86,23 @@ def comparison(runs: list[Path], split: str, checkpoint: str,
         classifier.append(read_classifier_eval(run, run / "eval" / f"{split}_{checkpoint}",
                                                checkpoint))
         twostage.append(read_csv_by(found / "by_dataset.csv", "dataset") if found else {})
+        same_crops.append({})
+        if found and crops_removed:
+            try:
+                same_crops[-1] = decisions_at_crops_removed(found, crops_removed, ground_truths)
+            except (FileNotFoundError, ValueError) as error:
+                notes.append(f"{letter}: no decisions at the same crops removed ({error})")
 
     rows = []
-    differing = sorted(key for key in set().union(*settings) - set(NAMING)
-                       if len({s.get(key, "-") for s in settings}) > 1)
+    present = [s for s in settings if s]  # a run not trained yet differs in nothing
+    differing = sorted(key for key in set().union(*present) - set(NAMING)
+                       if len({s.get(key, "-") for s in present}) > 1)
     if differing:
         rows.append(["**Settings that differ**", *[""] * len(runs)])
         rows += [[key, *(s.get(key, "-") for s in settings)] for key in differing]
     for i, j in combinations(range(len(runs)), 2):
-        if settings[i].get("seed") != settings[j].get("seed") and all(
+        if settings[i] and settings[j] and settings[i].get("seed") != settings[j].get(
+                "seed") and all(
                 settings[i].get(key) == settings[j].get(key) for key in differing if key != "seed"):
             notes.append(f"{letters[i]} and {letters[j]} differ only in seed: their gaps show "
                          "how much results vary by chance")
@@ -107,6 +124,17 @@ def comparison(runs: list[Path], split: str, checkpoint: str,
         for key, name in TWOSTAGE_COLUMNS.items():
             rows.append([f"{name}, {dataset}",
                          *(share(t.get(dataset, {}).get(key)) for t in twostage)])
+
+    if crops_removed:
+        rows.append(["**Both stages, harmful removed at the same crops removed (defer_below)**",
+                     *[""] * len(runs)])
+    for dataset in sorted(set().union(*same_crops), key=lambda d: (d != "all", d)):
+        for target in crops_removed:
+            cells = [removed_cell(*s.get(dataset, {}).get(target, (None, None)))
+                     for s in same_crops]
+            if any(cell != "-" for cell in cells):
+                rows.append([f"harmful removed, up to {share(target)} of crops, {dataset}",
+                             *cells])
 
     rows.append(["**Reliance on the dataset**", *[""] * len(runs)])
     rows.append(["cross-dataset accuracy",
@@ -143,6 +171,49 @@ def read_classifier_eval(run: Path, folder: Path, checkpoint: str) -> dict[str, 
             "partial_fit": {name: fitting[name] / crops[name] for name in crops}}
 
 
+def decisions_at_crops_removed(found: Path, targets: list[float],
+                               ground_truths: dict[Path, dict]) -> dict[str, dict[float, tuple]]:
+    """Per dataset of a two-stage evaluation folder (and "all"), for each target share of
+    crops removed: the share of harmful plants removed and the defer_below
+    (`harmful_removed_at`). Made again from the folder's predictions.json, with the ground
+    truth, matching and rule file of its evaluation.json; the rule file as it is now, so all
+    runs get the same roles. `ground_truths` keeps each ground truth loaded, by path. Raises
+    FileNotFoundError or ValueError when it can't be done."""
+    evaluation = json.loads((found / "evaluation.json").read_text(encoding="utf-8"))
+    settings = evaluation["settings"]
+    if settings.get("max_images") is not None:
+        raise ValueError(f"{found} was evaluated on {settings['max_images']} images only")
+    if not settings.get("rules"):
+        raise ValueError(f"{found} was evaluated without a rule file")
+    path = resolve(evaluation["split_file"])
+    if path not in ground_truths:
+        ground_truths[path] = load_masked_coco(path)
+    gt = ground_truths[path]
+    results = json.loads((found / "predictions.json").read_text(encoding="utf-8"))
+    taxa = load_taxa(resolve(settings["eppo_taxa"]))
+    rules = load_rules(resolve(settings["rules"]), taxa)
+    ignore_ids = ignore_category_ids(gt)
+    names = {c["id"]: c["name"] for c in gt["categories"] if c["id"] not in ignore_ids}
+    roles = {name: role_of(name, rules, taxa) for name in names.values()}
+    dataset_of = {image["id"]: image.get("dataset") or "(none)" for image in gt["images"]}
+    plants = defaultdict(lambda: {"crop": [], "harmful": []})
+    for match in match_detections(gt, results, None, settings["score_threshold"],
+                                  settings["iou_threshold"], settings["match_by"]):
+        role = roles[names[match.plant["category_id"]]] if match.plant else None
+        if role in ("crop", "harmful"):
+            value = (removed_up_to(match.detection, names, roles, rules.plant_defer_below)
+                     if match.detection else None)
+            for group in ("all", dataset_of[match.image_id]):
+                plants[group][role].append(value)
+    return {group: {target: harmful_removed_at(values["crop"], values["harmful"], target)
+                    for target in targets} for group, values in plants.items()}
+
+
+def removed_cell(harmful: float | None, defer_below: float | None) -> str:
+    """A share of harmful plants removed and, in brackets, the defer_below it is made at."""
+    return "-" if harmful is None else f"{share(harmful)} ({defer_below:.3f})"
+
+
 def read_csv_by(path: Path, key: str | None) -> Any:
     """Rows of a CSV file ([] or {} when it doesn't exist): a list, or {row[key]: row}."""
     rows = []
@@ -161,9 +232,9 @@ def share(value: Any) -> str:
 
 
 def write_comparison(runs: list[Path], split: str, checkpoint: str, twostage_dir: Path,
-                     stem: Path) -> str:
+                     stem: Path, crops_removed: list[float] = ()) -> str:
     """The comparison as <stem>.md (notes and table) and <stem>.csv; returns the Markdown."""
-    notes, table = comparison(runs, split, checkpoint, twostage_dir)
+    notes, table = comparison(runs, split, checkpoint, twostage_dir, crops_removed)
     lines = [*notes, "", "| " + " | ".join(table[0]) + " |",
              "|---" * len(table[0]) + "|", *("| " + " | ".join(row) + " |" for row in table[1:])]
     text = "\n".join(lines) + "\n"

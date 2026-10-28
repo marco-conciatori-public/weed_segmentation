@@ -19,7 +19,7 @@ def main(config_path: str = CONFIG) -> None:
     runs = [run_dir(entry) for entry in config["runs"]]
     stem = resolve(config["output_dir"]) / f"compare_{datetime.now():%Y%m%d_%H%M%S}"
     print(write_comparison(runs, config["split"], config["checkpoint"],
-                           resolve(config["twostage_dir"]), stem))
+                           resolve(config["twostage_dir"]), stem, config["crops_removed"]))
     print(f"-> {stem}.md, {stem.name}.csv")
 
 

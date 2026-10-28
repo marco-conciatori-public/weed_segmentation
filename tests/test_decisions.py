@@ -9,9 +9,11 @@ from weedseg.decisions import (
     decide,
     decision_matrix,
     decision_summary,
+    harmful_removed_at,
     level_accuracy,
     load_rules,
     plant_probability,
+    removed_up_to,
     role_of,
 )
 
@@ -134,6 +136,35 @@ def test_decide_asks_plant_and_action_separately():
     # older predictions: the score answers both
     assert decide(result(2, 0.85), NAMES, ROLES, 0.8, 0.8) == "remove"
     assert decide(result(2, 0.85), NAMES, ROLES, 0.8, 0.9) == "defer"
+
+
+def test_removed_up_to_is_where_decide_stops_removing():
+    detections = [two_stage(2, 0.95, {"2": 0.6, "3": 0.3, "1": 0.1}),  # remove 0.9
+                  two_stage(2, 0.95, {"2": 0.5, "1": 0.2, "5": 0.3}),  # remove 0.5
+                  two_stage(2, 0.95, {"2": 0.4, "1": 0.4, "5": 0.2}),  # a tie keeps
+                  two_stage(1, 0.95, {"1": 0.9, "2": 0.1}),  # kept
+                  two_stage(2, 0.7, {"2": 0.9, "1": 0.1})]  # maybe not a plant
+    values = [removed_up_to(d, NAMES, ROLES, 0.8) for d in detections]
+    assert values[0] == pytest.approx(0.9) and values[1] == pytest.approx(0.5)
+    assert values[2:] == [None, None, None]
+    assert removed_up_to(detections[4], NAMES, ROLES) == pytest.approx(0.9)  # no plant gate
+    for detection, value in zip(detections, values):
+        for defer_below in np.linspace(0, 1, 41):
+            removed = decide(detection, NAMES, ROLES, defer_below, 0.8) == "remove"
+            assert removed == (value is not None and defer_below <= value)
+
+
+def test_harmful_removed_at_one_share_of_crops_removed():
+    crops, harmful = [0.95, 0.9, None, None], [0.97, 0.92, None]
+    assert harmful_removed_at(crops, harmful, 0.0) == (pytest.approx(1 / 3), 0.951)
+    assert harmful_removed_at(crops, harmful, 0.25) == (pytest.approx(2 / 3), 0.901)
+    assert harmful_removed_at(crops, harmful, 0.5) == (pytest.approx(2 / 3), 0.5)  # lowest
+    assert harmful_removed_at(crops, harmful, 0.0, lowest=0.99) == (0.0, 0.99)
+    # a 3-decimal probability still gets a threshold above it
+    assert harmful_removed_at([0.927], [0.9275, 0.93], 0.0) == (0.5, 0.928)
+    assert harmful_removed_at([1.0], harmful, 0.0) == (None, None)  # can't be kept that low
+    assert harmful_removed_at(crops, [], 0.0) == (None, 0.951)
+    assert harmful_removed_at([], harmful, 0.0) == (pytest.approx(2 / 3), 0.5)
 
 
 def test_apply_decisions_relabels_to_the_action_taken():

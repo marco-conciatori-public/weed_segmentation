@@ -22,5 +22,12 @@ runs:
 split: val
 checkpoint: last
 twostage_dir: runs/twostage
+# Decisions at one crop safety: for each of these shares of crops removed, per dataset, the
+# share of harmful weeds removed at the lowest defer_below that removes no more crops, with
+# that defer_below. At the rule file's one defer_below, a less confident run removes fewer
+# crops but also fewer weeds, so those rows compare confidence as much as skill (see
+# docs/twostage.md). Made again from each run's predictions and the ground truth of its
+# evaluation, which must be on this machine: about 10 s per run. [] = none.
+crops_removed: [0.01, 0.02, 0.05]
 # Output: <output_dir>/compare_<date>_<time>.md and .csv.
 output_dir: runs/compare

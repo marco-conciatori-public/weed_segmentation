@@ -8,6 +8,9 @@ twostage: configs/twostage.yaml
 plant_dataset: configs/plant_dataset.yaml
 # Everything the runner prints also goes to <log_dir>/run_twostage_<date>_<time>.log.
 log_dir: runs/twostage/logs
+# The comparison after classifier variants (below) takes crops_removed from this config;
+# its runs, split and checkpoint are this session's.
+compare_runs: configs/compare_runs.yaml
 
 # Steps to run, in this order; remove those you don't need. Re-running is safe: crops already
 # cut for the same data are skipped, and trainings resume from their last.pt (a finished one does nothing), so

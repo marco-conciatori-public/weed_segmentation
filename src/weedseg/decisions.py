@@ -16,6 +16,7 @@ only plants whose action is unsure go to the generic model.
 still right (a wrong species may have the right genus, family or role).
 """
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -121,6 +122,47 @@ def decide(detection: dict[str, Any], names: dict[int, str], roles: dict[str, st
     scores = action_scores(detection, names, roles)
     action = max(("keep", "remove"), key=scores.get)
     return action if scores[action] >= defer_below else "defer"
+
+
+def removed_up_to(detection: dict[str, Any], names: dict[int, str], roles: dict[str, str],
+                  plant_defer_below: float | None = None) -> float | None:
+    """The highest `defer_below` at which `decide` removes the detection (it removes it at
+    every lower one too, and defers it above); None when it never does: keep is at least as
+    likely as remove, or the detection fails the plant threshold."""
+    if plant_defer_below is not None and plant_probability(detection) < plant_defer_below:
+        return None
+    scores = action_scores(detection, names, roles)
+    return scores["remove"] if scores["remove"] > scores["keep"] else None
+
+
+def harmful_removed_at(crops: list[float | None], harmful: list[float | None],
+                       crops_removed: float,
+                       lowest: float = 0.5) -> tuple[float | None, float | None]:
+    """The share of harmful plants removed at the lowest `defer_below` that removes at most a
+    `crops_removed` share of the crops, and that defer_below: rounded up to 3 decimals (a
+    rule file set to it gives these numbers), never under `lowest` (an action less likely
+    than not).
+
+    `crops` and `harmful` hold, for each labelled plant with that role, `removed_up_to` of
+    the detection matched to it (None when it has none). Runs compared this way are compared
+    at the same crop safety: at one fixed defer_below, a less confident model removes fewer
+    crops but also fewer weeds. The share is None without harmful plants; both are None when
+    even defer_below 1 removes too many crops.
+    """
+    removable = sorted((value for value in crops if value is not None), reverse=True)
+    allowed = int(crops_removed * len(crops) + 1e-9)
+    threshold = lowest
+    if len(removable) > allowed:
+        above = removable[allowed]  # the most likely removal that must be deferred
+        threshold = math.floor(above * 1000 + 1) / 1000
+        if threshold <= above:  # `above` was itself a 3-decimal value, a hair off in binary
+            threshold = round(threshold + 0.001, 3)
+        threshold = max(threshold, lowest)
+    if threshold > 1:
+        return None, None
+    if not harmful:
+        return None, threshold
+    return sum(v is not None and v >= threshold for v in harmful) / len(harmful), threshold
 
 
 def apply_decisions(results: list[dict[str, Any]], categories: list[dict[str, Any]],

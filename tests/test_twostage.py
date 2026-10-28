@@ -78,11 +78,13 @@ def test_shipped_configs_fit_together():
     detector = load_config(twostage["detector"]["config"])
     classifier_path = twostage["classifier"]["config"]
     classifiers = {classifier_path: load_config(classifier_path)}
-    classifiers |= {path: load_config(path)
-                    for path in load_config("configs/run_twostage.yaml")["classifier_variants"]}
+    runner = load_config("configs/run_twostage.yaml")
+    classifiers |= {path: load_config(path) for path in runner["classifier_variants"]}
     for classifier in classifiers.values():
         assert config_problems(plant, detector, classifier, twostage) == []
     assert shared_run_dirs(classifiers) == []
+    # read only after hours of training, by the comparison at the end
+    assert all(0 <= share < 1 for share in load_config(runner["compare_runs"])["crops_removed"])
 
 
 @pytest.mark.parametrize("path, changed", [

@@ -169,7 +169,8 @@ def main(config_path: str = CONFIG) -> None:
         stem = log_path.with_name(f"compare_{stamp}")
         print("\n" + write_comparison(runs, classifier["evaluate"]["split"],
                                       checkpoint_path(classifier).stem,
-                                      resolve(twostage["output_dir"]), stem))
+                                      resolve(twostage["output_dir"]), stem,
+                                      load_config(config["compare_runs"])["crops_removed"]))
         print(f"Comparison: {stem}.md")
 
 

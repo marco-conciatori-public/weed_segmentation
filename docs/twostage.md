@@ -73,7 +73,9 @@ smoothing 0.1, a class gets at most about 0.9, so the summed probability of an a
 rarely passes 0.92 to 0.94, and `defer_below` 0.9 sits just under that. A model a little
 less sure (like the sqrt run) then defers far more of everything: fewer crops removed, but
 fewer weeds too. To compare decisions between runs, compare them at the same share of crops
-removed. A sweep of `defer_below` on the val predictions (2026-10-28) puts the base, seed1,
+removed: the comparison does it since 2026-10-28 (`crops_removed` in
+`configs/compare_runs.yaml`, see [Comparing runs](#training)). A sweep of `defer_below` on the
+val predictions (2026-10-28) puts the base, seed1,
 DINOv3 and sqrt runs on one curve for ACRE: about 52% of its harmful weeds removed with 6.3%
 of its beans, 43 to 45% with 4.2%, 31 to 33% with 2.5%, 18 to 23% with 1.6%. No variant moves
 the curve; only fewer beans called fat-hen would. The sweep also shows how narrow the useful
@@ -243,10 +245,24 @@ alone (`classifier_seed1.yaml`).
 one column per run (A, B, ... named above the table), and rows in that order: the settings in
 which the runs differ (from each run's `config.yaml`), the epoch evaluated, how far the last
 epoch's val accuracy is below the best's, the classifier's accuracy overall and per dataset, both stages' plants found, species right, crops removed and
-harmful weeds removed and left, per dataset, then cross-dataset accuracy and the partial
-labels' fit. Runs that differ only in `seed` are pointed out. The two-stage numbers come from
-the newest `runs/twostage/<detector>__<classifier run>/eval/<split>_<checkpoint>/`, made with
-the same checkpoint (folders named `<split>` were made up to 2026-10-26, with `best`).
+harmful weeds removed and left, per dataset, then the decisions at the same share of crops
+removed, then cross-dataset accuracy and the partial labels' fit. Runs that differ only in
+`seed` are pointed out. The two-stage numbers come from the newest
+`runs/twostage/<detector>__<classifier run>/eval/<split>_<checkpoint>/`, made with the same
+checkpoint (folders named `<split>` were made up to 2026-10-26, with `best`).
+
+**Decisions at the same share of crops removed** (`crops_removed` in
+`configs/compare_runs.yaml`, e.g. 1%, 2% and 5%; the runner's comparison takes them from
+there too). The rule file's one `defer_below` puts each run at a different crop safety, so
+for each share and dataset the comparison finds the lowest `defer_below` that removes no
+more of that dataset's crops, and shows the share of its harmful weeds removed there, with
+that `defer_below` in brackets, e.g. `28.1% (0.927)`. The `defer_below` is rounded up to 3
+decimals, so a rule file set to it gives these numbers, and is never under 0.5 (an action
+less likely than not). At 0.500 the share was no constraint: even then fewer crops are
+removed. The numbers are made again from each two-stage evaluation's `predictions.json` and
+the ground truth and settings in its `evaluation.json` (the rule file as it is now, so all
+runs get the same roles); the split file must be on the machine, else a note says why the
+run has none. This takes about 10 s per run.
 
 ### Partial labels
 
