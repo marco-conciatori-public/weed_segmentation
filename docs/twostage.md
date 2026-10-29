@@ -388,11 +388,11 @@ this repo, e.g. on a demo website. It writes `exports/weed_twostage_<date>/`:
 | File | |
 |---|---|
 | `detector.safetensors`, `classifier.safetensors` | The weights only: plain tensors, no pickled code |
-| `model.json` | What `weed_model.py` needs (image size, anchors, crop margin, normalisation), the classes with their scientific and English names, the training datasets and their licences, and the hand-off thresholds |
+| `model.json` | What `weed_model.py` needs (image size, anchors, crop margin, normalisation), the classes with their scientific and English names, the training datasets of both stages with their licences and the stages each trains (`trains`, from each stage's own train.json: the detector leaves out images labelled with boxes only), and the hand-off thresholds |
 | `weed_model.py` | Self-contained inference, `WeedModel.predict(rgb_image)`: torch, torchvision, timm, safetensors, numpy and opencv, nothing from `weedseg` |
 | `requirements.txt` | Those packages (timm 1.0.20 or newer, for DINOv3) |
 | `DINOv3_LICENSE.md` | With a DINOv3 classifier: the licence of its weights, which must go with them (a copy of Meta's, `src/weedseg/deploy/DINOv3_LICENSE.md`). The README then says "Built with DINOv3" and sums up the terms. Each backbone's licence is in `BACKBONES` of `weedseg.deploy.export`; an unknown one stops the export |
-| `splits.csv` | Every image of the detector's and the classifier's datasets: dataset, path inside the dataset's image folder, sha256 of the file, group, and the split of each stage (empty when the stage didn't use it). The sha256 finds an image under any name, e.g. in the NeutraWeed platform, which stores images by it |
+| `splits.csv` | Every image of the detector's and the classifier's datasets: dataset, path inside the dataset's image folder, sha256 of the file, group, and the split of each stage (empty when the stage didn't use it; the detector doesn't use images labelled with boxes only). The sha256 finds an image under any name, e.g. in the NeutraWeed platform, which stores images by it |
 | `README.md` | For the person deploying it: install, input, output, hand-off, the species list, validation numbers, training data, splits and licences |
 
 The README is made from `src/weedseg/deploy/README_template.md`, with the species,

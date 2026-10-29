@@ -14,11 +14,14 @@ from weedseg.classifier.crops import FILL_RGB
 from weedseg.classifier.data import MEAN, STD
 from weedseg.classifier.model import build_classifier
 from weedseg.deploy import weed_model
+from weedseg.data.coco import BOX_ONLY
 from weedseg.deploy.export import (
     backbone_family,
+    dataset_table,
     describe_class,
     handoff_table,
     split_table,
+    training_data,
     write_splits,
 )
 from weedseg.deploy.inference import image_files, run_inference
@@ -134,18 +137,47 @@ def test_class_descriptions_and_handoff_table(tmp_path):
                          "| 0.95 | 0% | - |"]
 
 
+def test_training_data_says_what_each_dataset_trains():
+    # a: masks, both stages; b: boxes only, which the detector leaves out; c: detector only.
+    # The detector's older data lacks the names.
+    a = {"source": "https://a.org (a copy)", "licence": "CC BY 4.0; see docs/datasets/a.md"}
+    b = {"source": "https://b.org", "licence": "CC BY-NC 4.0"}
+    images = {"a": {"file_name": "a/1.jpg", "dataset": "a"},
+              "b": {"file_name": "b/1.jpg", "dataset": "b", BOX_ONLY: True},
+              "c": {"file_name": "c/1.jpg", "dataset": "c"}}
+    detector = {"info": {"datasets": {"a": a, "b": b, "c": {**b, "licence": "MIT"}}},
+                "images": list(images.values())}
+    classifier = {"info": {"datasets": {"a": {**a, "name": "A"}, "b": {**b, "name": "B"}}},
+                  "images": [images["a"], images["b"]]}
+
+    data = training_data(detector, classifier)
+    assert data == {
+        "a": {"name": "A", "source": a["source"], "licence": "CC BY 4.0",
+              "trains": ["detector", "classifier"]},
+        "b": {"name": "B", "source": b["source"], "licence": "CC BY-NC 4.0",
+              "trains": ["classifier"]},
+        "c": {"name": "c", "source": b["source"], "licence": "MIT", "trains": ["detector"]}}
+    rows = dataset_table(detector["images"] + classifier["images"], data).splitlines()[2:]
+    assert [[cell.strip() for cell in row.split("|")[1:-1]][1:5] for row in rows] == [
+        ["CC BY 4.0", "unknown", "detector and classifier", "1"],
+        ["CC BY-NC 4.0", "unknown", "classifier (boxes only)", "1"],
+        ["MIT", "unknown", "detector", "1"]]
+
+
 def test_splits_list_each_image_once_with_both_stages(tmp_path):
     raw = tmp_path / "raw" / "a"
     (raw / "sub").mkdir(parents=True)
-    (raw / "sub" / "x.jpg").write_bytes(b"x")  # y.jpg is missing
-    images = {"train": ["sub/x.jpg"], "val": ["y.jpg"], "test": []}
+    (raw / "sub" / "x.jpg").write_bytes(b"x")  # y.jpg and z.jpg are missing
+    # z.jpg is labelled with boxes only: in the detector's data too, but not trained on
+    images = {"train": ["sub/x.jpg", "z.jpg"], "val": ["y.jpg"], "test": []}
     for stage, stage_images in (("detector", {**images, "val": []}), ("classifier", images)):
         folder = tmp_path / stage
         folder.mkdir()
         for split, names in stage_images.items():
             coco = {"info": {"datasets": {"a": {"image_dir": f"{raw.as_posix()}/"}}},
                     "images": [{"file_name": f"{raw.as_posix()}/{name}", "dataset": "a",
-                                "group": name[-5]} for name in names]}
+                                "group": name[-5], **({BOX_ONLY: True} if name == "z.jpg" else {})}
+                               for name in names]}
             (folder / f"{split}.json").write_text(json.dumps(coco), encoding="utf-8")
 
     rows = write_splits(tmp_path / "splits.csv", {s: tmp_path / s for s in ("detector", "classifier")})
@@ -153,10 +185,12 @@ def test_splits_list_each_image_once_with_both_stages(tmp_path):
         {"dataset": "a", "image": "sub/x.jpg", "sha256": hashlib.sha256(b"x").hexdigest(),
          "group": "x", "detector_split": "train", "classifier_split": "train"},
         {"dataset": "a", "image": "y.jpg", "sha256": "", "group": "y", "detector_split": "",
-         "classifier_split": "val"}]
+         "classifier_split": "val"},
+        {"dataset": "a", "image": "z.jpg", "sha256": "", "group": "z", "detector_split": "",
+         "classifier_split": "train"}]
     with open(tmp_path / "splits.csv", newline="", encoding="utf-8") as f:
         assert list(csv.DictReader(f)) == rows
-    assert split_table(rows).splitlines()[2:] == ["| train | 1 | 1 |", "| val | 0 | 1 |",
+    assert split_table(rows).splitlines()[2:] == ["| train | 1 | 2 |", "| val | 0 | 1 |",
                                                   "| test | 0 | 0 |"]
 
 
