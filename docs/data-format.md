@@ -29,8 +29,9 @@ project root.
 
 `scripts/download_datasets.py` fetches the datasets listed in `configs/download.yaml`; each
 dataset config's `download` section lists its files (URL, size, checksum when published,
-whether to unpack), or folders of a Nextcloud public share (`share` link, folder `path`,
-total size). It is built for the slow, unstable connection we have in China (VPN):
+whether to unpack, and `extract_to`, a subfolder to unpack into, for archives with the same
+layout such as Weed-AI's), or folders of a Nextcloud public share (`share` link, folder
+`path`, total size). It is built for the slow, unstable connection we have in China (VPN):
 
 - Each file comes in pieces over several connections at once (`transfer.connections`). On
   2026-10-21 one connection to phenobench.org gave ~0.66 MB/s, six gave ~3 MB/s.

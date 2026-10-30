@@ -307,6 +307,16 @@ def test_fetch_files_unpacks_archives_and_skips_finished_ones(tmp_path, monkeypa
     assert len(server.requests) == requests_made
 
 
+def test_archives_can_be_unpacked_into_a_subfolder(tmp_path, monkeypatch):
+    # Archives with the same layout (Weed-AI's weedcoco.json + images/) kept apart.
+    files = [{"url": "https://x/1234.zip", "name": "beans.zip", "extract": True,
+              "extract_to": "beans"}]
+    serve(monkeypatch, FakeServer(archive("zip")))
+    download.fetch_files(files, tmp_path, settings())
+    assert (tmp_path / "beans" / "images" / "a.jpg").read_bytes() == b"abc"
+    assert (tmp_path / ".downloaded" / "beans").exists()
+
+
 def test_a_file_without_progress_is_set_aside_with_its_progress_kept(tmp_path, monkeypatch,
                                                                      short_sleep):
     target = tmp_path / "data.zip"

@@ -144,11 +144,12 @@ def fetch_files(files: list[dict[str, Any]], raw_dir: Path, settings: TransferSe
     """One pass over a dataset's files (a config `download.files` list), into `raw_dir`.
 
     Each entry has a `url` and optionally `name` (default: from the URL), `size` (bytes),
-    `md5` or `sha256`, and `extract` (unpack a .zip or .tar into `raw_dir`; the archive is
-    kept in `raw_dir/.archives/` until then, and afterwards with `keep_archives`). An entry
-    can instead be a folder of a Nextcloud public share: `share` (the link) and `path` (the
-    folder), copied into `raw_dir/<path>` by `fetch_share`, optionally with `name` (default:
-    the folder's) and `size` (all its files together). A file finished in an earlier run (its
+    `md5` or `sha256`, and `extract` (unpack a .zip or .tar into `raw_dir`, or into its
+    subfolder `extract_to` when given; the archive is kept in `raw_dir/.archives/` until
+    then, and afterwards with `keep_archives`). An entry can instead be a folder of a
+    Nextcloud public share: `share` (the link) and `path` (the folder), copied into
+    `raw_dir/<path>` by `fetch_share`, optionally with `name` (default: the folder's) and
+    `size` (all its files together). A file finished in an earlier run (its
     marker in `raw_dir/.downloaded/`) is skipped, and so are the download paths in `skip`. A
     file that fails, or brings no new byte for `give_up_after_min`, is left for later and the
     next one starts.
@@ -179,7 +180,7 @@ def fetch_files(files: list[dict[str, Any]], raw_dir: Path, settings: TransferSe
                               md5=entry.get("md5"), sha256=entry.get("sha256"),
                               extract_after=extract)
             if extract:
-                extract_archive(target, raw_dir)
+                extract_archive(target, raw_dir / entry.get("extract_to", ""))
                 if not keep_archives:
                     target.unlink()
         except NoProgress as error:
