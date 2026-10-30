@@ -1,0 +1,4 @@
+source_label,common_name,scientific_name,name_source,eppo,eppo_note,role,species,one_of,none_of
+crop: allium ampeloprasum (whole-plant),Leek,Allium ampeloprasum,weedai,ALLPO,"The dataset names Allium ampeloprasum, the species that includes wild leek; the crop is leek, EPPO's Allium porrum",crop,ALLPO,,
+crop: phaseolus vulgaris (whole-plant),Common bean,Phaseolus vulgaris,weedai,PHSVX,,crop,PHSVX,,
+crop: zea mays (whole-plant),Maize,Zea mays,weedai,ZEAMX,,crop,ZEAMX,,

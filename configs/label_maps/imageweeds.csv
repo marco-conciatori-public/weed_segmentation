@@ -1,0 +1,6 @@
+source_label,common_name,scientific_name,name_source,eppo,eppo_note,role,species,one_of,none_of
+weed: amaranthus retroflexus,Redroot pigweed,Amaranthus retroflexus,weedai,AMARE,,weed,AMARE,,
+weed: amaranthus tuberculatus,Waterhemp,Amaranthus tuberculatus,weedai,AMATU,,weed,AMATU,,
+weed: ambrosia artemisiifolia,Common ragweed,Ambrosia artemisiifolia,weedai,AMBEL,,weed,AMBEL,,
+weed: bassia scoparia,Kochia,Bassia scoparia,weedai,KCHSC,,weed,KCHSC,,
+weed: erigeron canadensis,Horseweed,Erigeron canadensis,weedai,ERICA,,weed,ERICA,,

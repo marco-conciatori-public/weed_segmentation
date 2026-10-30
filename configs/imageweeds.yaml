@@ -1,0 +1,107 @@
+# ImageWeeds (North Dakota State University; Data in Brief 2023): drone photos from 3.7 m of a
+# weed trial in seven crops, a box for each potted weed of five species set in the plots
+# (crops and the field's own weeds not boxed).
+# Weed-AI's copy (WeedCOCO, one upload per crop; see docs/datasets/weedai.md). Used by
+# scripts/download_datasets.py (see configs/download.yaml) and scripts/convert_weedai.py (see
+# configs/weedai.yaml). Relative paths are resolved against the project root. Licence:
+# CC BY 4.0 (Weed-AI records). Provenance: docs/datasets/provenance.md.
+
+# Where the download is unpacked: one folder per Weed-AI upload (part).
+raw_dir: data/raw/imageweeds
+
+# Written into every converted file's info (and the combined files').
+name: ImageWeeds
+# Weed-AI's page of the flax upload (the others: see download below). Original: Mendeley
+# Data, doi 10.17632/8kjcztbjz2.2.
+source: https://weed-ai.sydney.edu.au/datasets/ab3da4ea-4cb4-407a-a007-7052ed3a7850
+licence: CC BY 4.0 (Mendeley Data record and Weed-AI); see docs/datasets/imageweeds.md
+
+download:
+  # Weed-AI's downloads of each upload's current version (weedcoco.json + images/). Sizes as
+  # served on 2026-10-30; no checksum is published. Weed-AI's version links (<id>.v<n>.zip)
+  # don't match the versions its metadata gives, so the size pins the version: a changed
+  # upload fails the size check. Smallest first.
+  files:
+    - url: https://weed-ai.sydney.edu.au/code/download/327558ca-3bc2-4b55-b0ea-0319aeb3636f.zip
+      name: imageweeds_beta_vulgaris.zip
+      size: 223261295
+      extract: true
+      extract_to: beta_vulgaris
+    - url: https://weed-ai.sydney.edu.au/code/download/9d1778f9-4f60-4f58-8bba-a72011e29555.zip
+      name: imageweeds_lentils.zip
+      size: 232877191
+      extract: true
+      extract_to: lentils
+    - url: https://weed-ai.sydney.edu.au/code/download/a048518f-9651-4c8a-8c28-38ff87f3e9c4.zip
+      name: imageweeds_brassica.zip
+      size: 368683995
+      extract: true
+      extract_to: brassica
+    - url: https://weed-ai.sydney.edu.au/code/download/1807b958-5002-4133-aba3-7a757a690a44.zip
+      name: imageweeds_field_peas.zip
+      size: 570056102
+      extract: true
+      extract_to: field_peas
+    - url: https://weed-ai.sydney.edu.au/code/download/cfe6e919-6ddd-4b4e-aa63-58483841a11f.zip
+      name: imageweeds_glycine_max.zip
+      size: 683159363
+      extract: true
+      extract_to: glycine_max
+    - url: https://weed-ai.sydney.edu.au/code/download/1a9e04c8-80c3-41f1-a7af-a9d3f39d0feb.zip
+      name: imageweeds_zea_mays.zip
+      size: 777044644
+      extract: true
+      extract_to: zea_mays
+    - url: https://weed-ai.sydney.edu.au/code/download/ab3da4ea-4cb4-407a-a007-7052ed3a7850.zip
+      name: imageweeds_flax.zip
+      size: 937685999
+      extract: true
+      extract_to: flax
+  # Keep the archives in <raw_dir>/.archives/ after unpacking them.
+  keep_archives: false
+
+# Conversion to COCO (scripts/convert_weedai.py, listed in configs/weedai.yaml). See
+# docs/datasets/imageweeds.md. Boxes only: the images are marked box_only and reach the
+# species classifier, not Mask R-CNN.
+convert:
+  output_dir: data/processed/imageweeds
+  label_map: configs/label_maps/imageweeds.csv
+  eppo_taxa: configs/eppo_taxa.csv
+  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  taxonomy: species
+  # The Weed-AI uploads (folders under raw_dir) that make up the dataset.
+  parts: [beta_vulgaris, brassica, field_peas, flax, glycine_max, lentils, zea_mays]
+  # Boxes that aren't plants, left out: none.
+  drop_labels: []
+  # Images whose file is byte for byte an earlier one's are left out (the reader hashes
+  # them; a few seconds per GB).
+  # ImageWeeds has 54: photos uploaded twice under two numbers (313 or 537
+  # apart, in the same crop upload) and labelled twice, differently. The lower number is kept.
+  drop_duplicate_images: true
+  # Plants whose box is shorter than this on its longer side (mm, via the scale below)
+  # become ignore regions. Must match the other datasets to combine them.
+  min_plant_size_mm: 20
+  # Images without plants (or with only plants under min_plant_size_mm) are negative
+  # samples. false drops them: box-only images reach only the species classifier, which
+  # learns nothing from an image without plants.
+  keep_negative_images: false
+  # The images carry no site or date: the file names UASs_<n> number all seven uploads in
+  # one sequence (1-1441), and neighbouring numbers fall in different crops (side-by-side
+  # plots). So the group is a block of consecutive numbers, across uploads, and a crop
+  # upload is not a group. The drone flew back and forth: feature matching found 53 pairs
+  # of photos up to 25 numbers apart that show the same ground, e.g. 6 and 19, 22 and 41.
+  # Blocks of 20 would split 11 of those pairs, blocks of 50 only one (1299 and 1300).
+  group_pattern: '^UASs_(\d+)$'
+  group_block: 50
+  # Split by group, never by image, balanced over species. Only 18 groups (blocks), so the
+  # plant shares depend on the seed: seed 0 put 26% of the redroot pigweeds in test. Seed 5,
+  # the best of 0-9, keeps every species within 6 points of the fractions.
+  split:
+    seed: 5
+    fractions: {train: 0.70, val: 0.15, test: 0.15}
+  # Not given in the paper. Estimate: DJI Phantom 4 Pro (13.2 mm sensor over 5472 px, 8.8 mm
+  # lens) at ~3.7 m gives 1.0 mm/px; its 4:3 (4864x3648) and 16:9 (5472x3078) modes keep
+  # the pixel size. Weed-AI gives the camera angle as 70 degrees, which the paper doesn't
+  # state; the photos look straight down (the drone's shadow is below it).
+  mm_per_px_estimate: 1.0
+  footprint_mm_estimate: null

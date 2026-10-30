@@ -1,0 +1,3 @@
+source_label,common_name,scientific_name,name_source,eppo,eppo_note,role,species,one_of,none_of
+crop: beta vulgaris,Sugar beet,Beta vulgaris subsp. vulgaris var. altissima,paper,BEAVA,,crop,BEAVA,,
+weed: UNSPECIFIED,Weed,Plantae,paper,1PLAK,One plant of unknown species: weeds are one class (the fields differ in weed varieties but no species is labelled),weed,1PLAK,,BEAVA

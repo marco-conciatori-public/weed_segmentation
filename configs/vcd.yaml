@@ -1,0 +1,89 @@
+# VCD, Vegetable Crops Detection (CTIFL, Bordeaux Sciences Agro, IMS, ENSEIRB-Matmeca; Data
+# in Brief 2022): maize, bean and leek photographed under a shrouded, lit platform at
+# INRAE Montoldre (France), a box for each crop plant and its stem (weeds not boxed).
+# Weed-AI's copy (WeedCOCO, one upload per crop; see docs/datasets/weedai.md). Used by
+# scripts/download_datasets.py (see configs/download.yaml) and scripts/convert_weedai.py (see
+# configs/weedai.yaml). Relative paths are resolved against the project root. Licence:
+# CC BY 4.0 (Weed-AI records). Provenance: docs/datasets/provenance.md.
+
+# Where the download is unpacked: one folder per Weed-AI upload (part).
+raw_dir: data/raw/vcd
+
+# Written into every converted file's info (and the combined files').
+name: VCD
+# Weed-AI's pages of the uploads (beans; maize f6e9953d-dc9c-4bf2-8309-e17d726030d1, leeks
+# 2adbf2e1-ebc1-48fd-bbbc-76ef8b97e255). Original: Mendeley Data, doi 10.17632/d7kbzjr83k.1.
+source: https://weed-ai.sydney.edu.au/datasets/499647c5-fdd2-472f-bccb-ee4acda631c9
+licence: CC BY 4.0 (Mendeley Data record and Weed-AI); see docs/datasets/vcd.md
+
+download:
+  # Weed-AI's downloads of each upload's current version (weedcoco.json + images/). Sizes as
+  # served on 2026-10-30; no checksum is published. Weed-AI's version links (<id>.v<n>.zip)
+  # don't match the versions its metadata gives, so the size pins the version: a changed
+  # upload fails the size check. Smallest first.
+  files:
+    - url: https://weed-ai.sydney.edu.au/code/download/2adbf2e1-ebc1-48fd-bbbc-76ef8b97e255.zip
+      name: vcd_leeks.zip
+      size: 168423349
+      extract: true
+      extract_to: leeks
+    - url: https://weed-ai.sydney.edu.au/code/download/499647c5-fdd2-472f-bccb-ee4acda631c9.zip
+      name: vcd_beans.zip
+      size: 315578009
+      extract: true
+      extract_to: beans
+    - url: https://weed-ai.sydney.edu.au/code/download/f6e9953d-dc9c-4bf2-8309-e17d726030d1.zip
+      name: vcd_maize.zip
+      size: 513203028
+      extract: true
+      extract_to: maize
+  # Keep the archives in <raw_dir>/.archives/ after unpacking them.
+  keep_archives: false
+
+# Conversion to COCO (scripts/convert_weedai.py, listed in configs/weedai.yaml). See
+# docs/datasets/vcd.md. Boxes only: the images are marked box_only and reach the species
+# classifier, not Mask R-CNN.
+convert:
+  output_dir: data/processed/vcd
+  label_map: configs/label_maps/vcd.csv
+  eppo_taxa: configs/eppo_taxa.csv
+  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  taxonomy: species
+  # The Weed-AI uploads (folders under raw_dir) that make up the dataset.
+  parts: [beans, maize, leeks]
+  # Boxes that aren't plants, left out: the box around each crop's stem entry point.
+  drop_labels:
+    - "crop: allium ampeloprasum (stem)"
+    - "crop: phaseolus vulgaris (stem)"
+    - "crop: zea mays (stem)"
+  # Images whose file is byte for byte an earlier one's are left out (the reader hashes
+  # them; a few seconds per GB). VCD has none (2026-10-30).
+  drop_duplicate_images: true
+  # Plants whose box is shorter than this on its longer side (mm, via the scale below)
+  # become ignore regions. Must match the other datasets to combine them.
+  min_plant_size_mm: 20
+  # Images without plants (or with only plants under min_plant_size_mm) are negative
+  # samples. false drops them: box-only images reach only the species classifier, which
+  # learns nothing from an image without plants. (Every image has boxes.)
+  keep_negative_images: false
+  # The group is the original file name up to the last number,
+  # <date>_<site>_<crop>[_<row>]_<index>: one crop row on one day (or misc_<crop>_<n>,
+  # undated). Its images follow the row, neighbours may overlap. A row can be split between
+  # the bean and the maize uploads (mixed plots); it stays in one split all the same.
+  group_pattern: '^(.+)_\d+$'
+  # null: the captured text is the group (a number would be split into blocks of this size).
+  group_block: null
+  # Split by group, never by image, balanced over species. 62 groups, some large (one leek
+  # row has 206 images), so the plant shares depend on the seed: seed 0 put 26% of the leeks
+  # in val. Seed 5, the best of 0-9, keeps every crop within 5 points of the fractions.
+  split:
+    seed: 5
+    fractions: {train: 0.70, val: 0.15, test: 0.15}
+  # The images were resized to several sizes (632x632 to 2448x2048), so the scale is given
+  # per image as the ground length of its longer side. Estimate: a Basler acA2500 (2592 px of
+  # 2.2 um) with a 4 mm lens at 35-45 cm (paper) sees ~570 mm across; 2048x1536 then gives
+  # 0.28 mm/px, 1024x768 0.56. The undated misc images come from another camera (2448x2048,
+  # and 632x632 frames): unknown, the same footprint assumed. It matters only for the 20 mm
+  # size filter, which the crops (2-5 weeks old) mostly pass.
+  mm_per_px_estimate: null
+  footprint_mm_estimate: 570

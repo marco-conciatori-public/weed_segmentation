@@ -9,6 +9,10 @@ datasets:
   - configs/phenobench.yaml
   - configs/groundbased_weed.yaml
   - configs/cropandweed.yaml  # already downloaded: skipped
+  # Weed-AI (https://weed-ai.sydney.edu.au), ~7 GB in all; ~2 MB/s on 2026-10-30.
+  - configs/vcd.yaml
+  - configs/imageweeds.yaml
+  - configs/lincolnbeet.yaml
 
 transfer:
   # Parallel connections per file. Measured 2026-10-21 on the university network + VPN: one

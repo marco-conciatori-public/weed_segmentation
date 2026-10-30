@@ -29,24 +29,32 @@ def convert_dataset(names: list[str], group_of: Callable[[str], str],
                     records_of: Callable[[list[str]], Iterator[ImageRecord]],
                     label_map: LabelMap, settings: dict[str, Any],
                     info: dict[str, Any], box_only: bool = False,
-                    splits: dict[str, list[str]] | None = None) -> Path:
+                    splits: dict[str, list[str]] | None = None,
+                    mm_per_px_of: Callable[[str], float] | None = None) -> Path:
     """Convert a dataset and write <output_dir>/<taxonomy>[_min<size>mm]/<split>.json.
 
     `boxes_of(name)` gives (source label, width, height) in px of each plant of an image;
     `records_of(names)` yields their ImageRecords. `settings` is the dataset config's
     `convert` section (min_plant_size_mm, mm_per_px_estimate, keep_negative_images, split,
     output_dir); `info` (name, source, licence, image_dir) goes into every file's info.
+    `mm_per_px_of(name)` gives an image's own mm/px, for a dataset whose images differ in
+    scale; it replaces `mm_per_px_estimate`, which the settings may then leave out.
     `box_only` for a dataset labelled with boxes only, without masks: its images are marked
     (weedseg.data.coco.BOX_ONLY) and reach the species classifier only. `splits` keeps the
     dataset's own split (image names per split; `settings` then needs no `split`), for a
     dataset whose split is cleaner than ours, e.g. separated in space.
     """
-    min_size_mm, mm_per_px = settings["min_plant_size_mm"], settings["mm_per_px_estimate"]
-    if min_size_mm is not None and mm_per_px is None:
-        raise SystemExit("min_plant_size_mm needs mm_per_px_estimate")
+    min_size_mm = settings["min_plant_size_mm"]
+    if mm_per_px_of is None:
+        mm_per_px = settings["mm_per_px_estimate"]
+        if min_size_mm is not None and mm_per_px is None:
+            raise SystemExit("min_plant_size_mm needs mm_per_px_estimate")
+
+        def mm_per_px_of(name: str) -> float | None:
+            return mm_per_px
     # Source labels of the plants that pass the size filter, per image.
     plant_labels = {name: {label for label, width, height in boxes_of(name)
-                           if not is_small(width, height, mm_per_px, min_size_mm)}
+                           if not is_small(width, height, mm_per_px_of(name), min_size_mm)}
                     for name in names}
     if not settings["keep_negative_images"]:  # also drop images left without plants
         names = [name for name in names if plant_labels[name]]

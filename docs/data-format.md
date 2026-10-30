@@ -179,8 +179,9 @@ detections still treat these plants as ignore regions.
 
 ## Datasets labelled with boxes only
 
-Some datasets name each plant's species but give only its box (GROUNDBASED_WEED, OPPD). Their
-converter passes `box_only=True` to `convert_dataset`, which marks every image `box_only`.
+Some datasets name each plant's species but give only its box (GROUNDBASED_WEED, OPPD, and
+the Weed-AI datasets: LincolnBeet, ImageWeeds, VCD). Their converter passes `box_only=True`
+to `convert_dataset`, which marks every image `box_only`.
 They are combined with the others into the same files, with one class list (decided
 2026-10-21), and each step takes what it can use:
 

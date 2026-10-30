@@ -1,0 +1,74 @@
+# LincolnBeet (Salazar-Gomez et al., University of Lincoln, UK; IROS 2022): sugar beet fields
+# photographed from ~50 cm, a box for each beet and each weed (weeds not by species).
+# Weed-AI's copy (WeedCOCO, see docs/datasets/weedai.md). Used by
+# scripts/download_datasets.py (see configs/download.yaml) and scripts/convert_weedai.py (see
+# configs/weedai.yaml). Relative paths are resolved against the project root. Licence:
+# CC BY 4.0 (Weed-AI record). Provenance: docs/datasets/provenance.md.
+
+# Where the download is unpacked: one folder per Weed-AI upload (part).
+raw_dir: data/raw/lincolnbeet
+
+# Written into every converted file's info (and the combined files').
+name: LincolnBeet
+# Weed-AI's page of the upload. Original: https://github.com/LAR/lincolnbeet_dataset.
+source: https://weed-ai.sydney.edu.au/datasets/dc1e5436-fa3e-4c0f-84e3-3ea875ea9db4
+licence: CC BY 4.0 per Weed-AI only; the original release states no licence, see docs/datasets/lincolnbeet.md
+
+download:
+  # Weed-AI's download of the upload's current version (weedcoco.json + images/). Sizes as
+  # served on 2026-10-30; no checksum is published. Weed-AI's version links (<id>.v<n>.zip)
+  # don't match the versions its metadata gives, so the size pins the version: a changed
+  # upload fails the size check.
+  files:
+    - url: https://weed-ai.sydney.edu.au/code/download/dc1e5436-fa3e-4c0f-84e3-3ea875ea9db4.zip
+      name: lincolnbeet.zip
+      size: 2133209212
+      extract: true
+      extract_to: lincolnbeet
+  # Keep the archives in <raw_dir>/.archives/ after unpacking them.
+  keep_archives: false
+
+# Conversion to COCO (scripts/convert_weedai.py, listed in configs/weedai.yaml). See
+# docs/datasets/lincolnbeet.md. Boxes only: the images are marked box_only and reach the
+# species classifier, not Mask R-CNN.
+convert:
+  output_dir: data/processed/lincolnbeet
+  label_map: configs/label_maps/lincolnbeet.csv
+  eppo_taxa: configs/eppo_taxa.csv
+  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  taxonomy: species
+  # The Weed-AI uploads (folders under raw_dir) that make up the dataset.
+  parts: [lincolnbeet]
+  # Boxes that aren't plants, left out: none.
+  drop_labels: []
+  # Images whose file is byte for byte an earlier one's are left out (the reader hashes
+  # them; a few seconds per GB). LincolnBeet has none (2026-10-30).
+  drop_duplicate_images: true
+  # Plants whose box is shorter than this on its longer side (mm, via the scale below)
+  # become ignore regions. Must match the other datasets to combine them.
+  min_plant_size_mm: 20
+  # Images without plants (or with only plants under min_plant_size_mm) are negative
+  # samples. false drops them: box-only images reach only the species classifier, which
+  # learns nothing from an image without plants.
+  keep_negative_images: false
+  # The group is the field and the day, from the original file name
+  # <field>_<field>_<dd>_<mm>_<yyyy>_<v|i>_...: the frames of that day's videos (v) and
+  # photos (i). The paper took frames "sufficiently far apart" within a video, but videos of
+  # one day may cross the same ground. Each field was filmed on 4-12 days a week apart, so
+  # val and test share fields (and plants, older) with train.
+  group_pattern: '^([a-z0-9]+_[a-z0-9]+_\d\d_\d\d_\d{4})_'
+  # null: the captured text is the group (a number would be split into blocks of this size).
+  group_block: null
+  # Split by group, never by image, balanced over species. Only 21 groups (field days),
+  # some large (Near 30 on 1 June: 670 images), so the plant shares depend on the seed:
+  # seed 0 put 36% of the weeds in test. Seed 9, the best of 0-9, keeps both
+  # classes within 6 points of the fractions.
+  split:
+    seed: 9
+    fractions: {train: 0.70, val: 0.15, test: 0.15}
+  # Not given. Estimate: 4K video frames (2160x3840, 26 or 29 mm equivalent lens) at ~500 mm
+  # from the ground, published at 1920x1080. The paper's own example of a 1.8:1 camera at
+  # 500 mm covers 670 mm across; the 26 mm lens gives ~666 mm, the 29 mm ~597. 670 / 1920 =
+  # 0.35 mm/px.
+  mm_per_px_estimate: 0.35
+  footprint_mm_estimate: null

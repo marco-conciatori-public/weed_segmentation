@@ -50,6 +50,13 @@ PAPERS = {
             "Remote Sensing 2020",
     "groundbased_weed": "Moreno, Rivera Cárdenas and Andújar, \"Ground-based imagery dataset "
                         "for early weed classification in tomato crops\", Data in Brief 2025",
+    "lincolnbeet": "Darbyshire, Salazar-Gomez et al., \"Towards practical object detection for "
+                   "weed spraying in precision agriculture\", Frontiers in Plant Science 2023",
+    "imageweeds": "Rai et al., \"ImageWeeds: an image dataset consisting of weeds in multiple "
+                  "formats to advance computer vision algorithms for real-time weed "
+                  "identification and spot spraying application\", Data in Brief 2023",
+    "vcd": "Lac et al., \"An annotated image dataset of vegetable crops at an early stage of "
+           "growth for proximal sensing applications\", Data in Brief 2022",
 }
 # Classifier backbones by a part of their timm name: the name in the README, the licence of
 # the pretrained weights, the licence file that must go with them (and with the fine-tuned
