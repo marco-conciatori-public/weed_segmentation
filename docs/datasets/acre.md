@@ -65,3 +65,6 @@
 - Some small seedlings are not annotated; most fall under the size filter anyway.
 - Companion dataset: ROSE (same field, 2019-2021, about 3,000 images, similar
   annotations), https://www.challenge-rose.fr/en/home. Not used yet.
+- **Related: [VCD](vcd.md)**, partly recorded at INRAE Montoldre too (2019-2020, another
+  camera), with the same sown weeds; it boxes the crops only. See
+  [provenance.md](provenance.md).

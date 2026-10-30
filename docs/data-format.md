@@ -1,7 +1,9 @@
 # Internal data format
 
 Every dataset, public or our own, is converted to the same COCO-based format. Training and
-evaluation code then reads only this format. Per-dataset notes live in [datasets/](datasets/).
+evaluation code then reads only this format. Per-dataset notes live in [datasets/](datasets/);
+[datasets/provenance.md](datasets/provenance.md) compares where and how each was recorded, to
+check a new dataset against the others before adding it.
 
 Status: proposed and in use by the CropAndWeed converter. It has not yet been agreed with
 the team that prepares our own dataset.
