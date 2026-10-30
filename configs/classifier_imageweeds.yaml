@@ -1,0 +1,15 @@
+# Classifier variant: configs/classifier.yaml trained on public7 plus ImageWeeds (eight
+# datasets), and nothing else. ImageWeeds's weeds are potted plants set in the field, so it
+# is tried as a variant before joining the main combination (docs/datasets/imageweeds.md).
+# Licence: as configs/classifier.yaml. Trained after the base run by scripts/run_twostage.py
+# (classifier_variants in configs/run_twostage.yaml); its two-stage prediction runs on this
+# data's val split, which holds public7's val images unchanged plus ImageWeeds's. Compare the
+# public7 datasets' rows with the base run and classifier_dinov3_seed1.yaml: redroot pigweed
+# (AMARE) on CropAndWeed shows whether the pots carry over. Second seed:
+# classifier_imageweeds_seed1.yaml.
+base: configs/classifier.yaml
+# {dataset} is public7+imageweeds here, so the run has a folder of its own.
+run_name: "{dataset}_{taxonomy}_dinov3b"
+data:
+  # Written by scripts/combine_datasets.py (the variant of configs/combine.yaml).
+  dir: data/processed/public7+imageweeds/species_min50img_min20mm

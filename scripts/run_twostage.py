@@ -15,9 +15,11 @@ fixing the cause, run it again: finished work is skipped or resumed.
 Classifier variants (`classifier_variants`: configs holding only what differs from the
 classifier's, each with its own run_name) are trained after the steps: each repeats the
 classifier steps of the list (prepare_crops, train_classifier, evaluate_classifier,
-predict_twostage, those listed) with its config, paired with the same detector. A variant that
-fails with a Python error is reported and the next one starts. At the end all classifier runs
-are set side by side in <log_dir>/compare_<date>_<time>.md and .csv (weedseg.compare).
+predict_twostage, those listed) with its config, paired with the same detector. A variant may
+train on other species data (its own data.dir, e.g. another combination): its prediction then
+runs on that data's split. A variant that fails with a Python error is reported and the next
+one starts. At the end all classifier runs are set side by side in
+<log_dir>/compare_<date>_<time>.md and .csv (weedseg.compare).
 
 Everything printed also goes to <log_dir>/run_twostage_<date>_<time>.log, with the Python
 lines where a step crashed.
@@ -46,7 +48,7 @@ from weedseg.config import load_config
 from weedseg.console import log_console
 from weedseg.maskrcnn.run import checkpoint_path, resolve_run_dir
 from weedseg.paths import resolve
-from weedseg.twostage import config_problems, shared_run_dirs
+from weedseg.twostage import config_problems, missing_data, other_data, shared_run_dirs
 
 CONFIG = "configs/run_twostage.yaml"
 # Exit code of a step that raised a CUDA error as a Python exception: worth a restart.
@@ -76,10 +78,13 @@ def main(config_path: str = CONFIG) -> None:
 
     problems = config_problems(plant, detector, classifier, twostage)
     for path, variant in variants.items():
-        problems += [f"{path}: {problem}" for problem
-                     in config_problems(plant, detector, variant, twostage)
-                     if problem not in problems]
+        if not other_data(classifier, variant):  # else its prediction runs on its own data
+            problems += [f"{path}: {problem}" for problem
+                         in config_problems(plant, detector, variant, twostage)
+                         if problem not in problems]
     problems += shared_run_dirs({classifier_path: classifier, **variants})
+    if any(step in VARIANT_STEPS for step in config["steps"]):
+        problems += missing_data({classifier_path: classifier, **variants})
     if (variants and "predict_twostage" in variant_steps
             and twostage["classifier"]["checkpoint"] not in ("best", "last")):
         problems.append("classifier variants need classifier.checkpoint best or last in "
@@ -89,7 +94,8 @@ def main(config_path: str = CONFIG) -> None:
 
     def classifier_steps(path: str, settings: dict, variant: bool) -> dict:
         run_dir = resolve_run_dir(settings)
-        predict = (partial(predict_twostage.main, classifier_config=path) if variant
+        predict = (partial(predict_twostage.main, classifier_config=path,
+                           data_dir=settings["data"]["dir"]) if variant
                    else predict_twostage.main)
         return {"prepare_crops": (prepare_crops.main, path, None),
                 "train_classifier": (train_classifier.main, path, run_dir),
@@ -111,7 +117,9 @@ def main(config_path: str = CONFIG) -> None:
         print(f"  {step:20} {path}" + (f" -> {run_dir}" if run_dir else ""))
     for path, variant in variants.items():
         print(f"Then classifier variant {path} -> {resolve_run_dir(variant)}:\n"
-              f"  {', '.join(variant_steps) or 'no steps'}")
+              f"  {', '.join(variant_steps) or 'no steps'}"
+              + (f"\n  on its own data, {variant['data']['dir']}"
+                 if other_data(classifier, variant) else ""))
     for name in ("detector", "classifier"):
         if twostage[name]["checkpoint"] not in ("best", "last"):
             print(f"Note: predict_twostage uses the fixed {name} checkpoint "

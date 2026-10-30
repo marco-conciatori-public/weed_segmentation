@@ -88,3 +88,10 @@ From the paper, and measured from the Weed-AI download (2026-10-30):
   VCD may be partly site-specific.
 - The scale is an estimate, and unknown for the undated images.
 - Plants cut by the image border are boxed like the others (the paper gives no rule).
+
+## In the combination
+
+Since 2026-10-30 in `public7` (`configs/combine.yaml`) with CropAndWeed, ACRE, PhenoBench,
+OPPD, GROUNDBASED_WEED and LincolnBeet. Leek (`ALLPO`) becomes a class; bean training images
+go from 216 to 772, maize from 1,597 to 2,327 (see [twostage.md](../twostage.md#steps),
+"Adding Weed-AI datasets").

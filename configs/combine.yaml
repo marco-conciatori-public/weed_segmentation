@@ -11,6 +11,23 @@ datasets:
   - data/processed/phenobench/species_min20mm
   - data/processed/oppd/species_min20mm
   - data/processed/groundbased_weed/species_min20mm
+  - data/processed/vcd/species_min20mm
+  - data/processed/lincolnbeet/species_min20mm
+# The combined folder's name. null = the dataset names joined by +, e.g.
+# cropandweed+acre+phenobench+oppd+groundbased_weed (up to 2026-10-30). That grows with each
+# dataset, and run and preview paths repeat it (runs/twostage/<detector>__<classifier run>/
+# eval/val_last/previews/<image>.jpg): with seven datasets and LincolnBeet's 70-character
+# file names they pass Windows' 260-character limit. classes.txt lists the datasets.
+name: public7
+# Further combinations, each written the same way to a folder of its own: the datasets above
+# plus `add`. For classifier variants trained on other data (configs/classifier_imageweeds.yaml,
+# see configs/run_twostage.yaml). [] = none.
+variants:
+  # ImageWeeds kept apart: its weeds are potted plants set in the field, so it is tried as a
+  # variant first (docs/datasets/imageweeds.md).
+  - name: public7+imageweeds
+    add:
+      - data/processed/imageweeds/species_min20mm
 # A species needs at least this many training images, over all datasets, to be a class.
 # Rarer species become one "other_plant" class (handed to a generic model at inference).
 # Genus-only labels also go to other_plant, or become ignore regions when one of their
@@ -19,7 +36,7 @@ datasets:
 # classes.txt.
 min_train_images: 50
 eppo_taxa: configs/eppo_taxa.csv
-# Output: <output_dir>/<dataset names joined by +>/species_min<N>img[_min<size>mm], e.g.
-# data/processed/cropandweed+we3ds/species_min50img_min20mm. Point data.dir in
-# configs/maskrcnn.yaml there.
+# Output: <output_dir>/<name>/species_min<N>img[_min<size>mm], e.g.
+# data/processed/public7/species_min50img_min20mm. The classifier, two-stage, plant dataset and
+# detector configs point there.
 output_dir: data/processed

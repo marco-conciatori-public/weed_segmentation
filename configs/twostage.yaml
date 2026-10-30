@@ -16,16 +16,17 @@ data:
   # Species folder whose split is evaluated: the classifier's classes must be in it. The
   # species Mask R-CNN stays on cropandweed+acre (the frozen reference): compare the two
   # pipelines in the CropAndWeed and ACRE rows of by_dataset.csv (docs/twostage.md).
-  dir: data/processed/cropandweed+acre+phenobench+oppd+groundbased_weed/species_min50img_min20mm
+  dir: data/processed/public7/species_min50img_min20mm
   num_workers: 6
 
 detector:
   # The detector's config (scripts/train_detector.py) and its checkpoint: best or last of
   # that config's run, or a path to a .pt file (then the config is not used to find it).
   config: configs/detector.yaml
-  # Run 2's detector (CropAndWeed+ACRE+PhenoBench+OPPD) since 2026-10-26: one for the five
-  # datasets would train on the same images, as GROUNDBASED_WEED has boxes only. Back to best
-  # (a new detector run) once a dataset with masks is added.
+  # Run 2's detector (CropAndWeed+ACRE+PhenoBench+OPPD) since 2026-10-26: one for the later
+  # combinations would train on the same images, as GROUNDBASED_WEED, VCD, LincolnBeet and
+  # ImageWeeds have boxes only. Back to best (a new detector run) once a dataset with masks
+  # is added.
   checkpoint: runs/maskrcnn/cropandweed+acre+phenobench+oppd_plant_min20mm/best.pt
   batch_size: 2
 

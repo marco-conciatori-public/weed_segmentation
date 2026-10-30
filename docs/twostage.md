@@ -47,7 +47,10 @@ classifier steps of the list (`prepare_crops`, which skips a cache already cut,
 `train_classifier`, `evaluate_classifier`, `predict_twostage` with the same detector) with
 its config. Before anything starts, the runner checks that every variant has its own run
 folder (a variant that kept the base `run_name` would resume the base's finished run instead
-of training anew) and the same species data. A variant that fails with a Python error is
+of training anew) and the same species data, unless it names its own `data.dir`: a variant
+may train on another combination of `configs/combine.yaml` (since 2026-10-30, e.g.
+`classifier_imageweeds.yaml`), and its prediction then runs on that combination's split, with
+the same detector. The species data of every run must exist. A variant that fails with a Python error is
 reported and the next one starts; an error in the main steps still stops the runner. At the
 end, `compare_<date>_<time>.md` and `.csv` in `log_dir` set all classifier runs side by side
 (see [Comparing runs](#training)); `scripts/compare_runs.py` (`configs/compare_runs.yaml`)
@@ -96,6 +99,34 @@ CropAndWeed's genus labels 3 points less. So `classifier.yaml` switched to DINOv
 2026-10-28 (the DINOv3 seed-0 run is its run), and DINOv2 became `classifier_dinov2.yaml`,
 which the DINOv2 variants now build on. The export ships the DINOv3 License with the weights
 and says "Built with DINOv3" (see [Deployment package](#deployment-package)).
+
+**Adding Weed-AI datasets** (prepared 2026-10-30; [datasets/weedai.md](datasets/weedai.md)).
+The main combination became `public7`: the five datasets plus VCD and LincolnBeet, 69
+species classes (leek, `ALLPO`, is new), 16,709 training images against 12,233. ImageWeeds
+has potted weeds ([datasets/imageweeds.md](datasets/imageweeds.md)), so it is a variant
+first: `public7+imageweeds`, 73 classes (common ragweed, kochia, waterhemp, horseweed). All
+four new datasets have boxes only, so the detector is unchanged (run 2's) and only the
+classifier is trained, two seeds per combination:
+
+| Run | Config | Data |
+|---|---|---|
+| A, B, C | the 2026-10-28 DINOv3 runs (seeds 0-2), as reference | five datasets |
+| D, E | `classifier.yaml`, `classifier_dinov3_seed1.yaml` | `public7` |
+| F, G | `classifier_imageweeds.yaml`, `classifier_imageweeds_seed1.yaml` | `public7+imageweeds` |
+
+Each combination's val split holds the previous one's val images with the same boxes and
+classes (checked: all 4,248 of `public7` in `public7+imageweeds`), so compare runs dataset
+by dataset, not by the overall row, whose mix of datasets differs. The questions:
+
+- **D, E against A-C**: do VCD and LincolnBeet hurt the five datasets' rows? Do they help
+  ACRE's beans (VCD is from ACRE's site, [provenance](datasets/provenance.md)) and
+  PhenoBench's "not sugar beet" fit?
+- **F, G against D, E**: does ImageWeeds hurt the seven datasets' rows? Redroot pigweed
+  (`AMARE`) on CropAndWeed is the check of the pots: ImageWeeds is its only other source.
+- ImageWeeds's own accuracy (rows of F and G) is only a weak sign: its val split shares the
+  three sites and the pots.
+
+Results: pending.
 
 **Decisions at one `defer_below` compare confidence, not only skill.** With label
 smoothing 0.1, a class gets at most about 0.9, so the summed probability of an action
@@ -156,14 +187,14 @@ usable outline) stay ignored even when they carry a code. See `weedseg.data.plan
 All datasets go into one combination with one class list, the classifier's, so the
 evaluation measures the classes the robot will use. Each stage takes what the labels allow
 (images marked `box_only`, see [data-format.md](data-format.md#datasets-labelled-with-boxes-only)).
-For the datasets planned on 2026-10-21:
+For the datasets planned on 2026-10-21, and the Weed-AI ones of 2026-10-30:
 
-| | CropAndWeed, ACRE (masks, species) | PhenoBench (masks; weeds without species) | GROUNDBASED_WEED, OPPD (boxes, species) |
-|---|---|---|---|
-| Detector | yes | every plant | no |
-| Classifier | yes | sugar beets; weeds as "not sugar beet" ([partial labels](#partial-labels)) | yes |
-| Evaluation of both stages (step 7) | yes | sugar beets; step 4 also counts its weeds | not yet |
-| Evaluation of the classifier (step 6) | yes | sugar beets; weeds by `label_fit` | yes |
+| | CropAndWeed, ACRE (masks, species) | PhenoBench (masks; weeds without species) | GROUNDBASED_WEED, OPPD, VCD, ImageWeeds (boxes, species) | LincolnBeet (boxes; weeds without species) |
+|---|---|---|---|---|
+| Detector | yes | every plant | no | no |
+| Classifier | yes | sugar beets; weeds as "not sugar beet" ([partial labels](#partial-labels)) | yes | as PhenoBench |
+| Evaluation of both stages (step 7) | yes | sugar beets; step 4 also counts its weeds | not yet | not yet |
+| Evaluation of the classifier (step 6) | yes | sugar beets; weeds by `label_fit` | yes | as PhenoBench |
 
 - The species Mask R-CNN can't learn from box-only datasets: it stays the reference trained
   on CropAndWeed + ACRE ([maskrcnn.md](maskrcnn.md)). Compare it with the two-stage pipeline

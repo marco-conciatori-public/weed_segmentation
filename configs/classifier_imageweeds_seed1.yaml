@@ -1,0 +1,5 @@
+# Classifier variant: configs/classifier_imageweeds.yaml (public7 plus ImageWeeds) with
+# another seed and nothing else, as classifier_dinov3_seed1.yaml is for public7.
+base: configs/classifier_imageweeds.yaml
+run_name: "{dataset}_{taxonomy}_dinov3b_seed1"
+seed: 1

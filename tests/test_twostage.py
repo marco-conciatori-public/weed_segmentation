@@ -11,6 +11,8 @@ from weedseg.twostage import (
     classify_detections,
     config_problems,
     detection_input,
+    missing_data,
+    other_data,
     shared_run_dirs,
     with_species,
 )
@@ -85,8 +87,17 @@ def test_shipped_configs_fit_together():
     # every classifier config, listed or not, trains a run of its own on the same data
     classifiers |= {f"configs/{path.name}": load_config(path)
                     for path in resolve("configs").glob("classifier*.yaml")}
+    main = classifiers[classifier_path]
+    combine = load_config("configs/combine.yaml")
+    assert resolve(main["data"]["dir"]).parent.name == combine["name"]
+    variant_data = {variant["name"] for variant in combine["variants"]}
     for classifier in classifiers.values():
-        assert config_problems(plant, detector, classifier, twostage) == []
+        if other_data(main, classifier):  # a variant on another combination of combine.yaml
+            data = resolve(classifier["data"]["dir"])
+            assert data.parent.name in variant_data
+            assert data.name == resolve(main["data"]["dir"]).name
+        else:
+            assert config_problems(plant, detector, classifier, twostage) == []
     assert shared_run_dirs(classifiers) == []
     # read only after hours of training, by the comparison at the end
     assert all(0 <= share < 1 for share in load_config(runner["compare_runs"])["crops_removed"])
@@ -129,3 +140,34 @@ def test_shared_run_dirs():
     assert shared_run_dirs({"a.yaml": config, "b.yaml": {**config, "run_name": "{dataset}_b"}}) == []
     (problem,) = shared_run_dirs({"a.yaml": config, "b.yaml": dict(config)})
     assert problem.startswith("a.yaml and b.yaml train the same run")
+
+
+def flat_config(path):
+    def flat(config, prefix=""):
+        items = {}
+        for key, value in config.items():
+            items |= (flat(value, f"{prefix}{key}.") if isinstance(value, dict)
+                      else {f"{prefix}{key}": value})
+        return items
+    return flat(load_config(path))
+
+
+def test_imageweeds_variants_change_only_the_data_and_seed():
+    base = flat_config("configs/classifier.yaml")
+    variant = flat_config("configs/classifier_imageweeds.yaml")
+    assert {k for k in base.keys() | variant.keys() if base.get(k) != variant.get(k)} == {
+        "data.dir"}
+    seed1 = flat_config("configs/classifier_imageweeds_seed1.yaml")
+    assert {k: seed1[k] for k in seed1 if seed1[k] != variant.get(k)} == {
+        "run_name": "{dataset}_{taxonomy}_dinov3b_seed1", "seed": 1}
+
+
+def test_variants_on_other_data(tmp_path):
+    main = {"data": {"dir": str(tmp_path / "public7" / "species")}}
+    seed1 = {"data": {"dir": str(tmp_path / "public7" / "species")}}
+    imageweeds = {"data": {"dir": str(tmp_path / "public7+imageweeds" / "species")}}
+    assert not other_data(main, seed1) and other_data(main, imageweeds)
+    (tmp_path / "public7" / "species").mkdir(parents=True)
+    (tmp_path / "public7" / "species" / "train.json").write_text("{}")
+    (problem,) = missing_data({"a.yaml": main, "b.yaml": imageweeds})
+    assert problem.startswith("b.yaml: no ") and "combine_datasets.py" in problem

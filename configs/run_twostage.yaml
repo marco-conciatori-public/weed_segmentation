@@ -39,6 +39,8 @@ steps:
 # prediction uses the detector of configs/twostage.yaml. A variant that fails with a Python
 # error is reported and the next one starts. At the end, <log_dir>/compare_<date>_<time>.md
 # sets all classifier runs side by side (scripts/compare_runs.py does it for any runs).
+# A variant may train on other species data (its own data.dir, e.g. another combination of
+# configs/combine.yaml): its prediction then runs on that data's split, with the same detector.
 # Each variant adds about an hour. [] = none. Done on 2026-10-26: classifier_seed1.yaml,
 # classifier_detail.yaml, classifier_colour.yaml; on 2026-10-27: classifier_frozen.yaml,
 # DINOv3 (now configs/classifier.yaml), classifier_balance.yaml; on 2026-10-28:

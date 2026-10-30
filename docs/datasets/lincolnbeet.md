@@ -72,3 +72,10 @@ From the paper, and measured from the Weed-AI download (2026-10-30):
 - Weeds have no species, so they teach the classifier only what they are not.
 - Val and test share fields with train (see the groups).
 - The scale is an estimate, and the camera height was approximate.
+
+## In the combination
+
+Since 2026-10-30 in `public7` (`configs/combine.yaml`) with CropAndWeed, ACRE, PhenoBench,
+OPPD, GROUNDBASED_WEED and VCD. Sugar beet training images go from 2,209 to 4,871, and its
+8,755 training weeds are partial labels, "every class but `BEAVA`" (see
+[twostage.md](../twostage.md#steps), "Adding Weed-AI datasets").

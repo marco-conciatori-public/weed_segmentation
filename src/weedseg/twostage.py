@@ -125,6 +125,20 @@ def config_problems(plant: dict[str, Any], detector: dict[str, Any], classifier:
     return problems
 
 
+def other_data(classifier: dict[str, Any], variant: dict[str, Any]) -> bool:
+    """Whether a classifier variant trains on other species data than the classifier, e.g.
+    another combination (configs/classifier_imageweeds.yaml). Its prediction then runs on
+    that data, with the same detector."""
+    return resolve(variant["data"]["dir"]) != resolve(classifier["data"]["dir"])
+
+
+def missing_data(configs: dict[str, dict[str, Any]]) -> list[str]:
+    """Classifier configs ({path: config}) whose species data isn't there yet."""
+    return [f"{path}: no {config['data']['dir']}/train.json; run scripts/combine_datasets.py"
+            for path, config in configs.items()
+            if not (resolve(config["data"]["dir"]) / "train.json").exists()]
+
+
 def shared_run_dirs(classifiers: dict[str, dict[str, Any]]) -> list[str]:
     """Classifier configs ({path: config}) that would train the same run folder, e.g. a
     variant that kept its base config's run_name: its training would resume the other's

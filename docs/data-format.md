@@ -151,8 +151,13 @@ images, so that every dataset counts (`weedseg.data.combine`):
    table doesn't record its species.
 4. Ignore regions stay ignore regions.
 
-The decisions are printed and saved to `classes.txt`. The output goes to
-`data/processed/<datasets joined by +>/species_min<N>img_min<size>mm`. Each plant keeps its
+The decisions are printed and saved to `classes.txt`, under the list of datasets. The output
+goes to `data/processed/<name>/species_min<N>img_min<size>mm`, where `<name>` is the
+config's `name` (since 2026-10-30 `public7`) or else the dataset names joined by + (the older
+combinations, e.g. `cropandweed+acre`): a short name keeps run and preview paths under
+Windows' 260 characters. Each of the config's `variants` (the datasets plus some more) is
+combined the same way into a folder of its own, for classifier variants trained on other
+data (`public7+imageweeds`). Each plant keeps its
 own EPPO code in an `eppo` field, whatever class it ends up in; image file names become
 paths from the project root (`info.image_dir` is "."), and `info.licences` lists the
 licences of all the datasets, since the most restrictive one applies to the combination.

@@ -77,3 +77,11 @@ From the paper, and measured from the Weed-AI download (2026-10-30):
 - Small: 260 training photos. The four new species have 187-344 training plants each, in
   92-141 photos per species (2026-10-30), and neighbouring photos can show the same pots.
 - The crops and the field's own weeds are visible but unlabelled.
+
+## In the combination
+
+Since 2026-10-30 only in the variant `public7+imageweeds` of `configs/combine.yaml`, for
+`configs/classifier_imageweeds.yaml` and its second seed: common ragweed (`AMBEL`), kochia
+(`KCHSC`), horseweed (`ERICA`) and waterhemp (`AMATU`) become classes (73 in all), from
+ImageWeeds alone. It joins `public7` if it doesn't hurt the other datasets (see
+[twostage.md](../twostage.md#steps), "Adding Weed-AI datasets").
