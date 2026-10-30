@@ -4,18 +4,18 @@
 # The runs, in this order (columns A, B, ...): a classifier config, for its run, or a run
 # folder, e.g. runs/classifier/cropandweed+acre+phenobench+oppd_species_min50img_min20mm_dinov2b
 # for an older run.
-# Three seeds of each backbone fine-tuned, then both frozen (2026-10-28; the older variants
-# are in docs/twostage.md). DINOv2 is configs/classifier_dinov2.yaml since the switch to
-# DINOv3 (configs/classifier.yaml).
+# Since 2026-10-30: DINOv3 on the five datasets (seeds 0-2, the runs of 2026-10-28), on
+# public7 (adds VCD and LincolnBeet; seeds 0-1) and on public7 plus ImageWeeds (seeds 0-1).
+# Compare datasets by their rows: each combination's val split holds the earlier one's val
+# images unchanged. The 2026-10-28 backbone comparison is in docs/twostage.md.
 runs:
-  - configs/classifier_dinov2.yaml
-  - configs/classifier_seed1.yaml
-  - configs/classifier_seed2.yaml
+  - runs/classifier/cropandweed+acre+phenobench+oppd+groundbased_weed_species_min50img_min20mm_dinov3b
+  - runs/classifier/cropandweed+acre+phenobench+oppd+groundbased_weed_species_min50img_min20mm_dinov3b_seed1
+  - runs/classifier/cropandweed+acre+phenobench+oppd+groundbased_weed_species_min50img_min20mm_dinov3b_seed2
   - configs/classifier.yaml
   - configs/classifier_dinov3_seed1.yaml
-  - configs/classifier_dinov3_seed2.yaml
-  - configs/classifier_frozen.yaml
-  - configs/classifier_dinov3_frozen.yaml
+  - configs/classifier_imageweeds.yaml
+  - configs/classifier_imageweeds_seed1.yaml
 # The evaluation compared: <run>/eval/<split>_<checkpoint> (scripts/evaluate_classifier.py),
 # and the two-stage one made with the same checkpoint of each run,
 # <twostage_dir>/<detector run>__<run>/eval/<split>_<checkpoint> (scripts/predict_twostage.py;

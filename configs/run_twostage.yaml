@@ -45,9 +45,13 @@ steps:
 # classifier_detail.yaml, classifier_colour.yaml; on 2026-10-27: classifier_frozen.yaml,
 # DINOv3 (now configs/classifier.yaml), classifier_balance.yaml; on 2026-10-28:
 # classifier_dinov3_seed1.yaml, classifier_dinov3_seed2.yaml, classifier_seed2.yaml,
-# classifier_dinov3_frozen.yaml (results in docs/twostage.md). Since then none: listing a
-# finished one only repeats its evaluation and prediction.
-classifier_variants: []
+# classifier_dinov3_frozen.yaml (results in docs/twostage.md), all on the five datasets.
+# 2026-10-30, the switch to public7 (adds VCD and LincolnBeet): a second seed of it, and
+# public7 plus ImageWeeds in two seeds (docs/twostage.md, "Adding Weed-AI datasets").
+classifier_variants:
+  - configs/classifier_dinov3_seed1.yaml
+  - configs/classifier_imageweeds.yaml
+  - configs/classifier_imageweeds_seed1.yaml
 
 # Each step runs in a process of its own. When it crashes (e.g. the GPU driver resets), the
 # step is started again after restart_wait_s seconds, up to max_restarts times in all (0 = stop
