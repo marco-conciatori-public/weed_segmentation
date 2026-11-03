@@ -1,0 +1,43 @@
+# Skewing the classifier with a crop list and a weed list, evaluated on saved two-stage
+# predictions: used by scripts/evaluate_skew.py. Relative paths are resolved against the project
+# root. See docs/twostage.md (Species lists).
+
+# The runs: a classifier config, for its run, or a run folder. Two seeds show the run-to-run noise.
+runs:
+  - configs/classifier.yaml
+  - configs/classifier_dinov3_seed1.yaml
+# The two-stage evaluation of each: <twostage_dir>/<detector run>__<run>/eval/<split>_<checkpoint>.
+split: val
+checkpoint: last
+twostage_dir: runs/twostage
+
+# How strongly a list counts: off-list species are divided by this. Several values give one row
+# each, e.g. [3, 5, 10].
+multipliers: [5]
+# Which lists are used: both, crop (only the crop list) and/or weed (only the weed list).
+lists: [both, crop, weed]
+# Where the lists come from for this evaluation (the skew step itself doesn't know):
+# - labelled: the species labelled in each session, the best case;
+# - first_pass: made from the model's raw predictions, with the settings below;
+# - first_pass_paired: the same, joining sessions under min_plants two by two. For testing only,
+#   since many CropAndWeed sessions are short.
+sources: [labelled, first_pass, first_pass_paired]
+first_pass:
+  # A weed species is listed if it makes up at least this share of the plants called weeds, so
+  # at most 10 species at 0.1. The most frequent crop class is always listed.
+  weed_share: 0.1
+  # A session with fewer plants (detections above the evaluation's score threshold) gets no list.
+  min_plants: 40
+
+# Decisions at one crop safety: harmful weeds removed at these shares of crops removed.
+crops_removed: [0.01, 0.02, 0.05]
+# A plant whose top class is less likely than this counts as "under hand-off" (the export's
+# handoff.zero_shot_below_species_probability).
+hand_off_below: 0.7
+# Balanced accuracy: the mean over classes with at least this many plants found.
+min_class_plants: 20
+# A weed species the list misses: species with at least this many plants found count.
+missed_min_plants: 10
+
+# Output: <output_dir>/skew_<date>_<time>.md, .csv, _missed.csv and _lists.csv.
+output_dir: runs/skew

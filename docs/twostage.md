@@ -410,6 +410,78 @@ One difference in AP: the species model can return the same plant twice with two
 low scores; the two-stage pipeline returns each plant once, with its best class. The
 confusion matrix, taxonomic levels and decisions, at score 0.5, are unaffected.
 
+## Species lists
+
+`weedseg.skew.skew_probabilities` skews the classifier's probabilities with the species
+expected in a field: one crop list and one weed list. It has only two settings, `use_lists`
+(default off) and `multiplier` (default 5), and doesn't know where the lists come from: an
+expert, a first pass of the model, a regional list. Whatever supplies them also answers for
+their quality, since a bad list is applied like a good one. It isn't part of the export or the
+platform yet.
+
+A list makes the species off it less likely, so the model can still name them:
+
+1. Off-list weeds are divided by the multiplier, then all weeds are scaled back to their total.
+   The list says which weeds to expect, not whether the plant is a weed, so it can't push a
+   plant towards the crop.
+2. Off-list crops are divided by the multiplier, and that probability goes to all other classes:
+   a crop that isn't in the field doesn't explain the plant.
+
+An empty list says nothing, and that side stays as it was, so a crop list alone is a safe way
+to use a field's known crop. A class on either list is never divided and the lists override the
+crop tags (volunteer potatoes on the weed list), and `other_plant` is never divided.
+
+`scripts/evaluate_skew.py` (settings: `configs/evaluate_skew.yaml`) measures this from saved
+two-stage predictions, in about 40 s without a GPU, and writes `runs/skew/skew_<date>_<time>.md`
+and `.csv`, with `_missed.csv` and `_lists.csv` (every session's lists). Without a skew its
+species right, crops removed and harmful removed equal `by_dataset.csv` exactly. No real list
+exists yet, so it uses stand-ins per session (image `group`):
+
+- `labelled`: the species labelled in the session. The best case: nothing is missing, and
+  sessions label few species.
+- `first_pass`: from the raw predictions, the most frequent crop class and the weeds making up at
+  least 10% of the plants called weeds, in sessions with at least 40 plants: 60 of CropAndWeed's
+  127 val sessions, with a median of 2 weeds listed. The minimum belongs to this source, not to
+  the skew step: an expert's list holds for a small session too.
+- `first_pass_paired`: the same, with sessions under 40 plants first joined two by two, those
+  with the same most frequent crop class, the largest first. For testing only: it reaches 88-90
+  sessions, but joins different sites.
+
+Results on val (2026-11-03, the two public7 DINOv3 seeds, x5), of the plants found. Species right
+leaves out `other_plant`, as `by_dataset.csv` does. Harmful removed is at up to 2% of crops removed:
+
+| Lists | CnW species right | CnW balanced | CnW crop or not right | CnW weeds called crop | CnW harmful removed | ACRE balanced | ACRE crops removed at 0.9 |
+|---|---|---|---|---|---|---|---|
+| No skew | 93.8-93.9% | 86.6-86.7% | 98.4% | 1.8-2.0% | 89.6-89.8% | 53.0-53.9% | 6.7-6.8% |
+| Labelled, both | 95.9-96.2% | 90.8-91.8% | 98.7% | 1.1-1.2% | 91.2-91.6% | 52.8-53.8% | 7.5-7.8% |
+| Labelled, crop only | 93.9-94.1% | 86.8-87.0% | 98.5-98.6% | 1.3-1.6% | 90.0-90.3% | 53.0-53.9% | 7.0-7.1% |
+| Labelled, weed only | 95.7-95.9% | 90.6-91.4% | 98.5% | 1.5% | 90.8-91.1% | 52.8-53.8% | 7.3-7.4% |
+| First pass, both | 94.4-94.7% | 88.1-88.7% | 98.7% | 1.0-1.2% | 91.3% | 46.5-48.3% | 8.6-9.0% |
+| First pass, crop only | 94.0-94.2% | 86.8-87.1% | 98.7% | 1.2-1.5% | 90.2-90.6% | 53.0-53.9% | 7.1% |
+| First pass, weed only | 94.2-94.4% | 87.8-88.3% | 98.4% | 1.6% | 90.4-90.5% | 46.5-48.3% | 8.3-8.6% |
+| First pass, joined, both | 94.6-94.9% | 88.6-89.3% | 98.7% | 1.0-1.1% | 91.4-91.5% | 46.5-48.3% | 8.6-9.0% |
+
+- A crop list from the first pass does no measurable harm to rare species, and is as good for
+  crop or not as a labelled one. A weed list from the first pass is what costs them: on ACRE it
+  lists only the dominant weeds, so MATCH, SINAR and LOLPE lose out.
+- Names improve more than actions. Decisions sum probabilities over classes, so at the same crops
+  removed, harmful removed gains at most about 2 points on CropAndWeed.
+- A list raises the confidence. At `defer_below` 0.9 CropAndWeed's harmful removed goes from 63-65%
+  to 77%, and plants under the 0.7 hand-off from 15% to 10%, mostly because the threshold now
+  means less. So compare decisions at the same crops removed, and tune thresholds again before
+  acting on skewed probabilities.
+- A weed species the list misses (each left off in turn, mean per species): CropAndWeed 79-80%
+  right without a skew and 77-79% with it, called a crop 3% and 2%. On ACRE 45-46% and 35-36%,
+  since CHEAL, which it is confused with, stays on the list.
+- ACRE's rows at up to 1-2% of crops removed move a lot and aren't shown: about 16% of its labelled
+  beans lie off the crop rows and take most removals, and they look like mislabelled weeds. An
+  expert should check them first.
+
+The evidence is thin: saved probabilities exist only for CropAndWeed, ACRE and PhenoBench (which
+shows nothing here, at 99.5%), ACRE has 2 sessions, val shares sites with train, and no real
+expert list has been tried. Lists are made per session, not live: a robot in the field would need
+running counts.
+
 ## Deployment package
 
 `scripts/export_twostage.py` (settings: `configs/export_twostage.yaml`) packages the
