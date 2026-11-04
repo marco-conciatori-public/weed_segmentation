@@ -16,6 +16,7 @@ which label smoothing keeps under ~0.9, would then cap every score.
 """
 
 from collections import defaultdict
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -27,17 +28,17 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 from weedseg.classifier.crops import FILL_RGB, cut_square, square_window
-from weedseg.classifier.data import to_input
+from weedseg.classifier.data import to_input, view_crop
 from weedseg.data.coco import decode_mask
 from weedseg.maskrcnn.engine import CLASS_SCORE_MIN
 from weedseg.maskrcnn.run import resolve_run_dir
 from weedseg.paths import resolve
 
 
-def detection_input(image: np.ndarray, detection: dict[str, Any],
-                    crops: dict[str, Any]) -> torch.Tensor:
-    """Classifier input for one detection on an RGB image."""
-    window = square_window(detection["bbox"], crops["margin"])
+def detection_input(image: np.ndarray, detection: dict[str, Any], crops: dict[str, Any],
+                    view: dict[str, Any] | None = None) -> torch.Tensor:
+    """Classifier input for one detection on an RGB image; `view` as in CropDataset."""
+    window = square_window(detection["bbox"], crops["margin"], (view or {}).get("scale", 1.0))
     crop = cut_square(image, *window, crops["input_size"], FILL_RGB)
     mask = None
     if crops["background"] != "keep":
@@ -47,6 +48,8 @@ def detection_input(image: np.ndarray, detection: dict[str, Any],
             full = np.zeros(image.shape[:2], bool)
             full[round(y):round(y + h), round(x):round(x + w)] = True
         mask = cut_square(full.astype(np.uint8), *window, crops["input_size"], nearest=True) > 0
+    if view:
+        crop, mask = view_crop(crop, mask, view)
     return to_input(crop, mask, crops)
 
 
@@ -64,9 +67,10 @@ class DetectionCrops(Dataset):
     """Per image: the classifier inputs of its detections [n, 3, size, size]."""
 
     def __init__(self, images: list[dict[str, Any]], detections: dict[int, list[dict[str, Any]]],
-                 image_dir: Path, crops: dict[str, Any]):
+                 image_dir: Path, crops: dict[str, Any], view: dict[str, Any] | None = None):
         self.images = [i for i in images if detections[i["id"]]]
         self.detections, self.image_dir, self.crops = detections, image_dir, crops
+        self.view = view
 
     def __len__(self) -> int:
         return len(self.images)
@@ -77,11 +81,29 @@ class DetectionCrops(Dataset):
         if image is None:
             raise FileNotFoundError(self.image_dir / info["file_name"])
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        return info["id"], torch.stack([detection_input(image, d, self.crops)
+        return info["id"], torch.stack([detection_input(image, d, self.crops, self.view)
                                         for d in self.detections[info["id"]]])
 
 
 @torch.no_grad()
+def image_probs(detections: dict[int, list[dict[str, Any]]], images: list[dict[str, Any]],
+                image_dir: Path, classifier: nn.Module, crops: dict[str, Any],
+                device: torch.device, amp: bool, batch_size: int = 128, num_workers: int = 0,
+                view: dict[str, Any] | None = None) -> Iterator[tuple[int, np.ndarray]]:
+    """Per image with detections (`detections`: by image id): its id and the classifier's
+    probabilities [its detections, classes]."""
+    loader = DataLoader(DetectionCrops(images, detections, image_dir, crops, view),
+                        batch_size=None, num_workers=num_workers)
+    classifier.eval()
+    for image_id, inputs in tqdm(loader, desc="classify", dynamic_ncols=True):
+        probs = []
+        for batch in inputs.split(batch_size):
+            with torch.autocast(device.type, enabled=amp):
+                logits = classifier(batch.to(device, non_blocking=True))
+            probs.append(logits.float().softmax(1).cpu().numpy())
+        yield int(image_id), np.concatenate(probs)
+
+
 def classify_detections(detections: list[dict[str, Any]], images: list[dict[str, Any]],
                         image_dir: Path, classifier: nn.Module, class_ids: list[int],
                         crops: dict[str, Any], device: torch.device, amp: bool,
@@ -92,18 +114,10 @@ def classify_detections(detections: list[dict[str, Any]], images: list[dict[str,
     for detection in detections:
         if detection["score"] >= min_plant_score:
             by_image[detection["image_id"]].append(detection)
-    loader = DataLoader(DetectionCrops(images, by_image, image_dir, crops), batch_size=None,
-                        num_workers=num_workers)
-    classifier.eval()
     results = []
-    for image_id, inputs in tqdm(loader, desc="classify", dynamic_ncols=True):
-        probs = []
-        for batch in inputs.split(batch_size):
-            with torch.autocast(device.type, enabled=amp):
-                logits = classifier(batch.to(device, non_blocking=True))
-            probs.append(logits.float().softmax(1).cpu().numpy())
-        results += [with_species(d, p, class_ids)
-                    for d, p in zip(by_image[int(image_id)], np.concatenate(probs))]
+    for image_id, probs in image_probs(by_image, images, image_dir, classifier, crops, device,
+                                       amp, batch_size, num_workers):
+        results += [with_species(d, p, class_ids) for d, p in zip(by_image[image_id], probs)]
     return results
 
 

@@ -1,0 +1,63 @@
+# Test-time augmentation, on all plants of a split, then worked out for any views, way of combining
+# them and gate: used by scripts/evaluate_tta.py. Relative paths are resolved against the project
+# root. See docs/twostage.md (Test-time augmentation).
+
+# The runs: a classifier config, for its run, or a run folder. Two seeds show the run-to-run noise.
+# Each needs its checkpoint, crop cache and two-stage evaluation.
+runs:
+  - configs/classifier.yaml
+  - configs/classifier_dinov3_seed1.yaml
+# <twostage_dir>/<detector run>__<run>/eval/<split>_<checkpoint>. test stays out, for the final
+# evaluation of the model we choose.
+split: val
+checkpoint: last
+twostage_dir: runs/twostage
+
+# The views, each predicted once for every plant. Only what training has seen: flip (true or false),
+# rotate90 (quarter turns, 0 to 3) and scale (the window's side, as in augment.box_scale, which went
+# up to +-0.2; at most crops.cache_context). Each name is also a file name. plain must be there and
+# must be empty. Changing a view predicts it again; adding one predicts only that one.
+views:
+  plain: {}
+  rot90: {rotate90: 1}
+  rot180: {rotate90: 2}
+  rot270: {rotate90: 3}
+  flip: {flip: true}
+  flip_rot90: {flip: true, rotate90: 1}
+  flip_rot180: {flip: true, rotate90: 2}
+  flip_rot270: {flip: true, rotate90: 3}
+  tighter: {scale: 0.85}
+  looser: {scale: 1.15}
+
+# Each set gets one row, its views' probabilities averaged. Each must include plain.
+view_sets:
+  flip: [plain, flip]
+  4 rotations: [plain, rot90, rot180, rot270]
+  8 flips and rotations: [plain, rot90, rot180, rot270, flip, flip_rot90, flip_rot180, flip_rot270]
+  window sizes: [plain, tighter, looser]
+  all 10: [plain, rot90, rot180, rot270, flip, flip_rot90, flip_rot180, flip_rot270, tighter, looser]
+# This set also gets a row by vote (votes: true), and a row for each gate: the views are used only
+# for plants whose plain view has a top probability under it.
+main_set: all 10
+votes: true
+gates: [0.5, 0.7, 0.85]
+
+# Decisions at one crop safety: harmful weeds removed at these shares of crops removed.
+crops_removed: [0.01, 0.02, 0.05]
+# A plant whose top class is less likely than this counts as "under hand-off" (the export's
+# handoff.zero_shot_below_species_probability).
+hand_off_below: 0.7
+# Balanced accuracy: the mean over classes with at least this many plants.
+min_class_plants: 20
+
+# auto = CUDA when available, else CPU (a laptop CPU scores about 3 plants per second).
+device: auto
+batch_size: 128
+# Data-loading processes. 0 = main process.
+num_workers: 6
+# Use a fixed random subset of N crops and N detections (null = all). For a quick smoke test: it
+# replaces the kept probabilities, so a full run predicts them again.
+max_plants: null
+# Output: <output_dir>/tta_<date>_<time>.md and .csv, and <run>/ with the probabilities (about 14 MB
+# per view for the crops, 8 MB for the detections; delete them to predict again).
+output_dir: runs/tta

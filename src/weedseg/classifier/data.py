@@ -52,11 +52,16 @@ class CropDataset(Dataset):
     With `augment` (training): random box jitter (`box_scale`, `box_shift`), flips, 90-degree
     rotations, less detail (`detail_p`, `blur_p`, `jpeg_p`, see `lower_detail`), colour
     jitter and, unless the background is kept, mask jitter (`mask_jitter_px`). Without: the
-    plain crop, as at prediction.
+    plain crop, as at prediction. With `view`: one fixed view of it (`view_crop`, and `scale`
+    for a tighter or looser window), for test-time augmentation (weedseg.tta).
     """
 
     def __init__(self, rows: list[dict[str, Any]], folder: Path, classes: list[str],
-                 crops: dict[str, Any], augment: dict[str, Any] | None = None):
+                 crops: dict[str, Any], augment: dict[str, Any] | None = None,
+                 view: dict[str, Any] | None = None):
+        if augment and view:
+            raise ValueError("A crop is either augmented at random or shown in a fixed view")
+        self.view = view
         index = {name: i for i, name in enumerate(classes)}
         needed = {name for row in rows for name in row.get("allowed") or [row["category"]]}
         unknown = sorted(needed - set(index))
@@ -97,7 +102,7 @@ class CropDataset(Dataset):
         size, augment = cache_size(self.crops), self.augment
         box_side = size / self.crops["cache_context"] / (1 + 2 * self.crops["margin"])
         box = [(size - box_side) / 2, (size - box_side) / 2, box_side, box_side]
-        scale, shift = 1.0, (0.0, 0.0)
+        scale, shift = (self.view or {}).get("scale", 1.0), (0.0, 0.0)
         if augment:
             scale = 1 + random.uniform(-augment["box_scale"], augment["box_scale"])
             shift = (random.uniform(-augment["box_shift"], augment["box_shift"]),
@@ -112,6 +117,8 @@ class CropDataset(Dataset):
         if augment:
             crop, mask = flip_rotate(crop, mask, augment)
             crop = lower_detail(crop, augment, *self.detail(i, window[2], scale))
+        if self.view:
+            crop, mask = view_crop(crop, mask, self.view)
         return (to_input(crop, mask, self.crops, self.color_jitter), self.labels[i],
                 self.allowed_mask(i))
 
@@ -130,14 +137,21 @@ class CropDataset(Dataset):
 def flip_rotate(crop: np.ndarray, mask: np.ndarray | None,
                 augment: dict[str, Any]) -> tuple[np.ndarray, np.ndarray | None]:
     """Random flips and 90-degree rotations: top-down images have no preferred orientation."""
+    return view_crop(crop, mask, {
+        "flip": bool(augment.get("flips")) and random.random() < 0.5,
+        "rotate90": random.randrange(4) if augment.get("rotate90") else 0})
+
+
+def view_crop(crop: np.ndarray, mask: np.ndarray | None,
+              view: dict[str, Any]) -> tuple[np.ndarray, np.ndarray | None]:
+    """A crop and its mask flipped (`flip`), then turned by `rotate90` quarter turns."""
     def both(function):
         return function(crop), (function(mask) if mask is not None else None)
 
-    if augment.get("flips") and random.random() < 0.5:
+    if view.get("flip"):
         crop, mask = both(np.fliplr)
-    if augment.get("rotate90"):
-        k = random.randrange(4)
-        crop, mask = both(lambda a: np.rot90(a, k))
+    if view.get("rotate90"):
+        crop, mask = both(lambda a: np.rot90(a, view["rotate90"]))
     return crop, mask
 
 

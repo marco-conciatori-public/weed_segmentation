@@ -434,8 +434,10 @@ crop tags (volunteer potatoes on the weed list), and `other_plant` is never divi
 `scripts/evaluate_skew.py` (settings: `configs/evaluate_skew.yaml`) measures this from saved
 two-stage predictions, in about 40 s without a GPU, and writes `runs/skew/skew_<date>_<time>.md`
 and `.csv`, with `_missed.csv` and `_lists.csv` (every session's lists). Without a skew its
-species right, crops removed and harmful removed equal `by_dataset.csv` exactly. No real list
-exists yet, so it uses stand-ins per session (image `group`):
+species right equals `by_dataset.csv` exactly. Its crops removed and harmful removed count the
+plants found, where `by_dataset.csv` also counts those missed, so they run higher: CropAndWeed's
+harmful removed is 64.8% here and 49.9% there. No real list exists yet, so it uses stand-ins per
+session (image `group`):
 
 - `labelled`: the species labelled in the session. The best case: nothing is missing, and
   sessions label few species.
@@ -481,6 +483,50 @@ The evidence is thin: saved probabilities exist only for CropAndWeed, ACRE and P
 shows nothing here, at 99.5%), ACRE has 2 sessions, val shares sites with train, and no real
 expert list has been tried. Lists are made per session, not live: a robot in the field would need
 running counts.
+
+## Unseen sites
+
+Every dataset's val split shares sites and days with its train split, so the usual evaluation
+can't show what a model does at a new site, nor what more diverse training data buys.
+`scripts/evaluate_unseen.py` (settings: `configs/evaluate_unseen.yaml`, code: `weedseg.unseen`)
+has runs of different combinations score the same plants, so that a dataset new to one run is
+known to another. As set up, those are the three five-dataset DINOv3 seeds, the two public7 seeds
+and the two public7+ImageWeeds seeds, on LincolnBeet, VCD and ImageWeeds. It uses the classifier
+alone, on labelled boxes, so the detector plays no part.
+
+- A run always scores a dataset's val split, so that runs can be compared on the same plants, and
+  another split only if it never trained on that dataset. VCD's and ImageWeeds's train splits are
+  listed because their val splits are thin: VCD's has no beans from a known site other than ACRE's,
+  and ImageWeeds's only 43 redroot pigweeds. `test` stays out, for the final evaluation.
+- Plants of a species the run has no class for are scored too, to see what it does with them.
+- Partly labelled plants, such as weeds without a species, are scored by the probability of the
+  classes their label rules out, not by the top class alone: on a plant of an unknown species the
+  output is often flat, and a top class at 0.05 says little.
+- Plants are grouped by dataset, split, label and site. The site is found in the image's `group`
+  with a regular expression per dataset. ImageWeeds doesn't give its sites, and VCD's Montoldre is
+  where ACRE was recorded, so it isn't a new place for a run trained on ACRE.
+
+It writes `runs/unseen/unseen_<date>_<time>.md` and `.csv`: one column per run (A, B, ...), and
+for each group of plants which runs are `new` to that dataset and which have `seen` it, then:
+
+| Row | |
+|---|---|
+| right, right genus | Labelled plants; "right" is empty when the run has no class for the species |
+| top class ruled out, ruled-out classes reach 0.7 | Partly labelled plants, instead of the two above |
+| top class at 0.7 or more | How sure the run is; 0.7 is the export's hand-off to the zero-shot model |
+| other_plant | The share whose top class is `other_plant` |
+| keep / remove / defer | Given that it is a plant, at the rule file's `defer_below` |
+| median top probability, most predicted | What the run does with these plants |
+
+It cuts only the crops it needs, to `runs/unseen/crops/` (skipped when up to date), and keeps each
+run's probabilities in `runs/unseen/<run>/<split>_<checkpoint>.npz`, so a stopped session goes on
+where it was and only the table is made again. Each file is written when that run's split is done,
+so stopping inside one loses that split. The plants are 5,248 in val (LincolnBeet 3,663, VCD 1,307,
+ImageWeeds 278) and 6,911 in train (VCD 5,654, ImageWeeds 1,257), and a laptop CPU scores about 3
+per second, so this is a job for the training machine. Lower `batch_size` and `num_workers` on a
+small machine. `scripts/evaluate_rows.py` reads the same files (see Crop rows and spacing).
+
+Results: pending.
 
 ## Crop rows and spacing
 
@@ -586,6 +632,64 @@ and no confidence intervals; ACRE has 2 sessions, and 1% of its crops is about 1
 are judged alone, whereas overlapping images could carry a row's history along and show the same
 plant more than once. No dataset labels weeds that look just like the crop (volunteer beet in
 beet), which only a position can catch.
+
+## Test-time augmentation
+
+Marco's idea: when a plant gets a low score, show the classifier several views of it and combine
+the outputs. `scripts/evaluate_tta.py` (settings: `configs/evaluate_tta.yaml`, code: `weedseg.tta`)
+tests it on the two public7 seeds. The prediction pipeline and the export don't use it.
+
+- The views are things training has seen: the 8 combinations of a flip and quarter turns, and a
+  tighter and a looser window (x0.85, x1.15), 10 in all. Crops are always resized to the input size,
+  so a change of size only means a different window around the plant. Free-angle rotations and
+  colour changes aren't in the test: training never saw the first, and doubling the colour jitter in
+  training changed nothing (see Training).
+- Every view is predicted once for every plant, not only for those with a low score. Which views,
+  how they are combined and which plants get them are then worked out from the saved files, so
+  trying another gate or view set needs no GPU.
+- Probabilities are averaged, or counted as votes in a row of their own. Decisions sum class
+  probabilities and compare them with `defer_below`, which ten votes can only do in steps of 0.1.
+- A gate uses the views only for plants whose plain view has a top probability under it. That
+  re-rolls only the low scores, so some rise over a threshold with nothing new known. Compare the
+  gated rows with the same views without a gate, and decisions at the same crops removed.
+
+It scores two sets of plants: the labelled boxes of the crop cache (classifier alone, all seven
+datasets, so OPPD too), and the two-stage evaluation's detections (real boxes and the plant
+threshold; CropAndWeed, ACRE and PhenoBench). The second counts the plants found, as
+`scripts/evaluate_skew.py` does, so its decision shares run higher than `by_dataset.csv`.
+
+It writes `runs/tta/tta_<date>_<time>.md` and `.csv`. Each table has one row per variant: the plain
+crop, each view set averaged, then the main set by vote and behind each gate. Ranges are the spread
+across seeds, and the plain row's spread is the noise to compare with. "Wrong to right" and "right
+to wrong" count top classes changed against the plain view, so a gain shows as more of the first
+than the second. The report starts with checks: the plain view must give the two-stage evaluation's
+top classes, and the accuracy in the run's `metrics.json`.
+
+Each view's probabilities are kept in `runs/tta/<run>/val_last/crops/` and `detections/`, one file
+per view, so a stopped session goes on where it was and a view added later costs only that view. To
+remake the report elsewhere, copy `runs/tta/`: it needs those files, the two-stage evaluations and
+the species data, but no checkpoint, crop cache or GPU. The 4090 needs no preparation beyond the
+public7 session's outputs. Its log there shows 33-67 s for a pass over the val crops and about 72 s
+for classifying all detections, so this should take about 45 minutes for both seeds on an otherwise
+idle machine, with about 440 MB of probabilities. A laptop CPU scores about 3 plants per second,
+too slow for the full test; `max_plants` gives a smoke test.
+
+ACRE's harmful removed at up to 1-2% of crops is too thin to read small moves: 1% of its crops is
+about 12 plants. In a dry run with the saved probabilities rounded a second time, its row at 2% went
+from 19.9% to 20.7% with nothing else changed.
+
+The chance of a gain looked small beforehand, on the saved public7 val predictions (classifier
+alone, seed 0 against seed 1). Under a top probability of 0.7 lie 11.8% of the crops and 67% of the
+errors, so a gate looks in the right place. But on 78.8% of seed 0's errors, seed 1 picks the same
+wrong class, 85% at 0.5-0.7 and 99.8% at 0.85 or more, and averaging removes noise, not a shared
+bias. Averaging the two seeds' probabilities, as a rough upper limit since separately trained
+models usually differ more than views of one image, moved species right on the plants found from
+96.24% to 96.25% and balanced accuracy from 82.7% to 83.1%, and left harmful removed at the same
+crops removed level. Of 19,682 plants, it changed the top class on 140: 51 became right, 53 became
+wrong. That is two models rather than ten views, on three datasets without OPPD, which has the most
+low scores (21% under 0.7), so it doesn't settle the question.
+
+Results: pending.
 
 ## Deployment package
 
