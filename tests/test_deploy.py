@@ -235,3 +235,10 @@ def test_inference_runs_a_package_on_an_image(tmp_path):
     record = json.loads((tmp_path / "out" / "package" / "field.json").read_text("utf-8"))
     assert (record["width"], record["height"], record["model"]) == (120, 90, "package")
     assert all(plant["species"] in codes and "mask" not in plant for plant in record["plants"])
+
+
+def test_class_descriptions_tag_the_crops():
+    taxa = {"ZEAMX": {"name": "Zea mays", "common_names_en": "maize", "family_name": "Poaceae"}}
+    assert describe_class("ZEAMX", taxa, {"ZEAMX"})["crop"] is True
+    assert describe_class("ZEAMX", taxa)["crop"] is False
+    assert describe_class("other_plant", taxa, {"ZEAMX"})["crop"] is False

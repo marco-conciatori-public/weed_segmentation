@@ -18,6 +18,7 @@ from datetime import date
 from pathlib import Path
 from statistics import median
 from string import Template
+from collections.abc import Collection
 from typing import Any
 
 import timm
@@ -140,7 +141,9 @@ def export_package(config: dict[str, Any]) -> Path:
         },
         "handoff": config["handoff"],
         "min_plant_size_mm": train["info"]["min_plant_size_mm"],
-        "classes": [describe_class(code, taxa) for code in classifier["classes"]],
+        "classes": [describe_class(code, taxa, {c["name"] for c in train["categories"]
+                                                if c.get("supercategory") == "crop"})
+                    for code in classifier["classes"]],
         "training_data": training_data(detector_train, train),
         "versions": {"python": platform.python_version(), "torch": torch.__version__,
                      "torchvision": torchvision.__version__, "timm": timm.__version__},
@@ -195,16 +198,18 @@ def training_data(detector_train: dict[str, Any],
             for key, d in datasets.items()}
 
 
-def describe_class(code: str, taxa: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    """Code, scientific name, English names (EPPO's, which marks none as preferred) and
-    family of a class."""
+def describe_class(code: str, taxa: dict[str, dict[str, Any]],
+                   crops: Collection[str] = ()) -> dict[str, Any]:
+    """Code, scientific name, English names (EPPO's, which marks none as preferred), family of
+    a class, and whether the training data tags it a crop (`crops`, used by the platform's
+    species lists)."""
     if code == OTHER_CATEGORY:
         return {"code": code, "name": "Other plant (a species not in this list)",
-                "common_names": [], "family": ""}
+                "common_names": [], "family": "", "crop": False}
     row = taxa[code]
     names = [" ".join(name.split()) for name in row["common_names_en"].split(NAME_SEPARATOR)]
     return {"code": code, "name": row["name"], "common_names": [n for n in names if n],
-            "family": row["family_name"]}
+            "family": row["family_name"], "crop": code in crops}
 
 
 def readme_text(info: dict[str, Any], train: dict[str, Any], detector_train: dict[str, Any],

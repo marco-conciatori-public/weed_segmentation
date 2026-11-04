@@ -416,8 +416,9 @@ confusion matrix, taxonomic levels and decisions, at score 0.5, are unaffected.
 expected in a field: one crop list and one weed list. It has only two settings, `use_lists`
 (default off) and `multiplier` (default 5), and doesn't know where the lists come from: an
 expert, a first pass of the model, a regional list. Whatever supplies them also answers for
-their quality, since a bad list is applied like a good one. It isn't part of the export or the
-platform yet.
+their quality, since a bad list is applied like a good one. The export's `weed_model.py` doesn't
+use it. The export's `model.json` tags each class `crop`, and the platform has its own copy of the
+step (R69 in its docs/requests.md).
 
 A list makes the species off it less likely, so the model can still name them:
 
