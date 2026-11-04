@@ -22,7 +22,7 @@ docs/twostage.md (Species lists).
 import csv
 import json
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 from typing import Any
@@ -73,6 +73,9 @@ class Evaluation:
     sessions: list[Session]  # of each detection
     true: np.ndarray  # class index of the labelled plant matched to each detection, or -1
     labelled: dict[Session, set[str]]  # classes labelled per session, found or not
+    image_ids: list[int] = field(default_factory=list)  # of each detection
+    boxes: list[list[float]] = field(default_factory=list)  # of each detection
+    gt: dict[str, Any] = field(default_factory=dict)  # the ground truth
 
     @cached_property
     def rows(self) -> dict[Session, np.ndarray]:
@@ -134,7 +137,8 @@ def load_evaluation(folder: Path, ground_truths: dict[Path, dict]) -> Evaluation
         rules, np.divide(probs, total, out=probs, where=total > 0),
         np.array([r.get("plant_score", r["score"]) for r in results]),
         [session_of[r["image_id"]] for r in results],
-        np.array([matched.get(id(r), -1) for r in results], dtype=np.int64), dict(labelled))
+        np.array([matched.get(id(r), -1) for r in results], dtype=np.int64), dict(labelled),
+        [r["image_id"] for r in results], [r["bbox"] for r in results], gt)
 
 
 def labelled_lists(evaluation: Evaluation) -> dict[Session, Lists]:
@@ -345,7 +349,7 @@ def evaluate_run(evaluation: Evaluation, run: str, settings: dict[str, Any]) -> 
     return {"scores": rows, "missed": missed, "lists": lists}
 
 
-def _spread(values: list[float | None], digits: int = 1) -> str:
+def spread(values: list[float | None], digits: int = 1) -> str:
     """Across runs: a percentage, or the range when the runs differ at this rounding."""
     known = [100 * value for value in values if value is not None]
     if not known:
@@ -378,7 +382,7 @@ def report(results: dict[str, list], settings: dict[str, Any], runs: list[str]) 
                 with_list = sorted({row["sessions_with_list"] for row in rows})
                 counted = (f"{with_list[0]}-{with_list[-1]}" if len(with_list) > 1
                            else str(with_list[0]))
-                cells = [_spread([row[column] for row in rows]) for column in columns]
+                cells = [spread([row[column] for row in rows]) for column in columns]
                 lines.append(f"| {key[1]} | {key[2]} | {key[3]} | {counted}/{rows[0]['sessions']} "
                              f"| " + " | ".join(cells) + " |")
         lines.append("")
@@ -395,12 +399,12 @@ def report(results: dict[str, list], settings: dict[str, Any], runs: list[str]) 
                                                   key=lambda item: (item[0][0] != ALL, item[0])):
             species = sorted({row["species"] for row in rows})
             lines.append(f"| {dataset} | {multiplier} | {species[0]} | " + " | ".join(
-                _spread([row[column] for row in rows]) for column in MISSED) + " |")
+                spread([row[column] for row in rows]) for column in MISSED) + " |")
         lines.append("")
     return "\n".join(lines)
 
 
-def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
+def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     fields = list(dict.fromkeys(field for row in rows for field in row))
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
@@ -426,7 +430,7 @@ def write_report(runs: list[Path], settings: dict[str, Any], stem: Path) -> str:
     text = report(results, settings, [run.name for run in runs])
     stem.parent.mkdir(parents=True, exist_ok=True)
     stem.with_suffix(".md").write_text(text, encoding="utf-8")
-    _write_csv(stem.with_suffix(".csv"), results["scores"])
-    _write_csv(stem.parent / f"{stem.name}_missed.csv", results["missed"])
-    _write_csv(stem.parent / f"{stem.name}_lists.csv", results["lists"])
+    write_csv(stem.with_suffix(".csv"), results["scores"])
+    write_csv(stem.parent / f"{stem.name}_missed.csv", results["missed"])
+    write_csv(stem.parent / f"{stem.name}_lists.csv", results["lists"])
     return text

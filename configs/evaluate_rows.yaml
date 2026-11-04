@@ -1,0 +1,109 @@
+# A plant's place against the crop rows and the spacing along them, next to the classifier,
+# evaluated on saved predictions: used by scripts/evaluate_rows.py. Relative paths are resolved
+# against the project root. See docs/twostage.md (Crop rows and spacing).
+
+# Two-stage evaluations of these runs, per group: a classifier config, for its run, or a run
+# folder. A group's runs are its seeds and show as one range. The first run's plants also serve as
+# "other datasets" for the unseen section below.
+runs:
+  public7:
+    - configs/classifier.yaml
+    - configs/classifier_dinov3_seed1.yaml
+  # A weaker classifier on the same plants (frozen backbone): does a position help when the look
+  # of the plant is less to go on? Its PhenoBench weeds aren't scored: its ground truth on this
+  # laptop predates partial labels.
+  frozen:
+    - runs/classifier/cropandweed+acre+phenobench+oppd+groundbased_weed_species_min50img_min20mm_dinov3b_frozen
+# <twostage_dir>/<detector run>__<run>/eval/<split>_<checkpoint>.
+split: val
+checkpoint: last
+twostage_dir: runs/twostage
+
+# The test of a new site: labelled boxes of datasets a run never trained on. It needs the
+# probabilities of scripts/evaluate_unseen.py; a run without them is listed at the end of the
+# report and left out, so this works without them.
+unseen:
+  # That script's output_dir: <probabilities>/<run>/<split>_<checkpoint>.npz.
+  probabilities: runs/unseen
+  # The data holding the plants, as in configs/evaluate_unseen.yaml. Also the plants of the
+  # report's first table (position alone).
+  data_dir: data/processed/public7+imageweeds/species_min50img_min20mm
+  datasets: [lincolnbeet, vcd]
+  runs:
+    # Never trained on those datasets.
+    new:
+      - runs/classifier/cropandweed+acre+phenobench+oppd+groundbased_weed_species_min50img_min20mm_dinov3b
+      - runs/classifier/cropandweed+acre+phenobench+oppd+groundbased_weed_species_min50img_min20mm_dinov3b_seed1
+      - runs/classifier/cropandweed+acre+phenobench+oppd+groundbased_weed_species_min50img_min20mm_dinov3b_seed2
+    # Trained on them, to compare.
+    seen:
+      - configs/classifier.yaml
+      - configs/classifier_dinov3_seed1.yaml
+  # For the roles of a run's classes, as for the two-stage evaluation.
+  rules: configs/rules/example.yaml
+  eppo_taxa: configs/eppo_taxa.csv
+
+# Which plants the rows come from: called_crop (what a robot would have), labelled (the best a
+# classifier could do) and/or all (not trusting the classifier, e.g. for a crop it doesn't know).
+evidence: [called_crop, labelled]
+# Whom a position's worth is learned from: other_sessions (of any dataset), same_dataset (other
+# sessions of the plant's dataset) and/or other_datasets (all a new field could have).
+learn_from: [other_sessions, same_dataset, other_datasets]
+# rows (distance to the row), rows+spacing (also the next plant and the expected plant) and/or
+# size (against the image's fullest row).
+variants: [rows, rows+spacing, size]
+# Plain combination: odds of a crop x ratio ^ trust. The stack is always there too.
+trust: [1, 0.5]
+# A part with fewer crops or other plants than this to learn from stays as the classifier says.
+min_to_learn: 10
+
+# A position counts only if the image's fullest row has this many plants besides the one judged:
+# any two plants make a line.
+min_row_plants: 3
+# Within this many mm of a row, a plant counts as on it, in the reports and the brake.
+on_row_mm: 50
+# Weeds caught and harmful weeds removed at these shares of crops lost.
+crops_lost: [0.01, 0.02, 0.05]
+# The brake: a plant on a real row isn't removed. "Well spaced" also needs the next plant at
+# least this share of the usual gap away, and, with a pitch, to be under this share of it from
+# an expected plant.
+veto:
+  spacing_above: 0.5
+  phase_below: 0.25
+
+# The tables of log likelihood ratios: smoothing (plants added to each cell), and the largest
+# ratio any cell may give, either way.
+smooth: 2
+largest_ratio: 50
+# Their cells: the edges of each measure's intervals.
+cells:
+  row_distance_mm: [25, 50, 100, 200]
+  # Spacing and phase count within this distance of a row.
+  spacing_within_mm: 100
+  # As a share of the session's usual gap.
+  spacing: [0.25, 0.5, 0.75]
+  # As a share of the pitch.
+  phase: [0.1, 0.2, 0.3]
+  # Against the median of the image's fullest row.
+  size: [0.33, 0.5, 0.75, 1.33, 2]
+
+# Finding the rows (weedseg.rows).
+rows:
+  # How closely two plants must line up to support a direction.
+  line_tolerance_mm: 30
+  # Plants closer than this across the rows share a row, or half the row spacing where a session
+  # shows one, if larger: the box centres of large plants wander.
+  same_row_mm: 100
+  row_spacing_range_mm: [100, 1200]
+  # Pitches searched. Under about 100 mm the wander of box centres hides any period.
+  pitch_range_mm: [100, 600]
+  # Blurring that tells a period from pairs of plants simply being close together.
+  blur_mm: 150
+  # Gaps a session needs for a usual gap and a pitch.
+  min_gaps: 8
+  # A pitch counts when its fit reaches this and this many standard errors (0.7 / sqrt(gaps)).
+  min_regularity: 0.12
+  regularity_errors: 4
+
+# Output: <output_dir>/rows_<date>_<time>.md, .csv, _where.csv, _veto.csv, _alone.csv, _sessions.csv.
+output_dir: runs/rows

@@ -482,6 +482,111 @@ shows nothing here, at 99.5%), ACRE has 2 sessions, val shares sites with train,
 expert list has been tried. Lists are made per session, not live: a robot in the field would need
 running counts.
 
+## Crop rows and spacing
+
+`weedseg.rows` says where each plant of an image stands against the crop rows: how far off the
+nearest row, how close to the next plant along it and, where a session's plants are evenly
+spaced, how far from where that spacing expects a plant. It knows nothing of species: it takes
+positions in mm and which plants count as evidence for the rows, and judges every plant from the
+other evidence plants only. Images cover less than a metre, so a session supplies what one image
+can't: the direction of the rows, the distance between them, the usual gap along a row, and the
+pitch, only when the gaps really are periodic. It isn't part of the export or the platform.
+
+`scripts/evaluate_rows.py` (settings: `configs/evaluate_rows.yaml`) measures what that adds to the
+classifier, from saved predictions, in about 5 minutes without a GPU. It writes
+`runs/rows/rows_<date>_<time>.md` and `.csv`, with `_where.csv`, `_veto.csv`, `_alone.csv` and
+`_sessions.csv` (every session's rows). It looks at three sets of plants:
+
+- Position alone: every labelled plant, with rows from the labelled crops and no model.
+- Two-stage detections, with rows from the plants called crop (or, as a best case, the labelled
+  ones). Without a position its crops removed and harmful removed equal those of `evaluate_skew.py`
+  without a skew: both count the plants found, where `by_dataset.csv` also counts those missed.
+- Labelled boxes of datasets a run never trained on, as if the detector were perfect: the test of
+  a new site. It needs the probabilities of `scripts/evaluate_unseen.py`, and a run without them
+  is listed at the end of the report and left out. **No results yet.**
+
+A position's worth is learned as a table of log likelihood ratios per cell (how far off the row,
+how close to the next plant, how far from an expected plant), from plants other than those judged:
+other sessions of any dataset, other sessions of the same dataset (tuned to the crop and the
+place), or other datasets (all a new field could have). It counts only in an image whose fullest
+row has at least 3 other plants, since any two make a line. It joins the classifier in two ways:
+
+- Plain: the odds of a crop x ratio ^ trust.
+- Stack: a logistic regression on the classifier's logit and the ratio, learned on the same plants.
+  The fairest version, since it can give the position no weight. Its control, `classifier, stack`,
+  has no position at all, so it can only recalibrate. A stack is worth what it adds beyond that.
+
+Weeds include those the source didn't name (PhenoBench's, LincolnBeet's), which
+`evaluate_skew.py` leaves out. "Weeds caught" is the share under the P(crop) threshold that loses
+at most that share of the crops: it depends neither on a rule file nor on where 0.5 falls.
+
+Results on val (2026-11-04, the two public7 DINOv3 seeds; frozen is one run of an older
+combination, whose PhenoBench weeds aren't scored). Position alone, rows from the other labelled
+crops:
+
+| Dataset, crop | Sessions with a pitch | Pitch | Crops / weeds on a row (50 mm) | Row AUC | Weeds on a row: spacing AUC | Phase AUC |
+|---|---|---|---|---|---|---|
+| PhenoBench, beet | 12 of 12 | 212 mm | 96% / 25% | 0.91 | 0.79 | 0.80 |
+| LincolnBeet, beet | 2 of 3 | 148 mm | 84% / 35% | 0.81 | 0.56 | 0.72 |
+| ACRE, bean | 0 of 2 | - | 84% / 11% | 0.90 | 0.64 | - |
+| CropAndWeed, maize | 1 of 24 | 177 mm | 62% / 26% | 0.73 | 0.64 | - |
+| CropAndWeed, beet | 1 of 12 | 322 mm | 78% / 40% | 0.75 | 0.82 | too few |
+
+With the classifier, weeds caught at up to 1% and 5% of crops lost, rows from the plants called
+crop, stacks:
+
+| Dataset, crops lost | Classifier | Control, same dataset | Rows, same dataset | Rows and spacing, same dataset | Rows and spacing, other datasets |
+|---|---|---|---|---|---|
+| CropAndWeed, 1% | 98.1-98.2% | 98.1% | 98.1% | 98.0-98.2% | 98.1% |
+| CropAndWeed, 5% | 99.5% | 99.4-99.5% | 99.5-99.6% | 99.6% | 99.5-99.6% |
+| PhenoBench, 1% | 96.9-97.3% | 96.7-97.3% | 97.7-98.3% | 97.9-98.5% | 97.2-97.7% |
+| PhenoBench, 5% | 99.6-99.7% | 99.5-99.6% | 98.9-99.3% | 99.3% | 99.5-99.6% |
+| ACRE, 1% | 16.1-38.5% | 12.9-25.7% | 13.4-23.8% | 13.6-26.3% | 15.7-30.7% |
+| ACRE, 5% | 84.7-86.4% | 73.7-78.6% | 71.3-77.1% | 71.0-76.7% | 69.6-70.1% |
+| CropAndWeed, frozen, 1% | 76.3% | 75.8% | 75.5% | 75.5% | 66.7% |
+| CropAndWeed, frozen, 5% | 90.4% | 90.3% | 90.7% | 90.5% | 87.9% |
+
+- A position says a lot alone and little the classifier doesn't. In images with a real row, it
+  could put right 21 errors on CropAndWeed against 407-410 right plants it puts at risk (right
+  crops off a row, right weeds on it), on PhenoBench 69-72 against 613-622, on ACRE 68-71 against
+  793-815. The frozen classifier has more to fix but no better odds: 89 against 357 on CropAndWeed.
+- The one gain is on PhenoBench, tuned on the same dataset: with rows and spacing, weeds called
+  crop fall from 2.4-3.0% to 1.4-1.7% with crops called weeds level at 1.1%, 33-37 errors fixed
+  and 5-6 caused, where the control fixes 9-16 and causes 17-20. That is about 30 plants of 7,400,
+  and the classifier alone still catches a little more at 5% of crops lost.
+- What spacing adds is mostly less harm from the rows. A weed on the row looks like a crop to the
+  row alone: at full trust, PhenoBench weeds called crop reach 10.0-10.1% with rows, 3.5-3.7% with
+  rows and spacing. In a stack it adds about 0.2 points on top of rows.
+- Spacing could only be judged on beet. Beans show no period (ACRE 0 of 2 sessions, VCD's 0 of 3),
+  and CropAndWeed's sessions of about 10 images are too short to show one, though single images of
+  maize can look very regular.
+- Tables don't travel. Learned on other crops, spacing is taken at the wrong strength: at full
+  trust, PhenoBench weeds called crop reach 18.0-21.9%. Odds x ratio at full trust does harm in
+  general, since label smoothing keeps the classifier's probabilities far from 0 and 1: CropAndWeed
+  crops called weeds go from 1.7-1.8% to 5.9-6.1%.
+- Rows from the labelled crops do no better than rows from the plants called crop, so finding the
+  rows isn't what limits this: PhenoBench 97.7-98.4% at 1% of crops lost against 97.9-98.5%.
+- A stack moves decisions by recalibrating alone. On the frozen run's CropAndWeed plants, harmful
+  removed at up to 2% of crops goes from 61.3% to 74.6-75.5% in every same-dataset stack, and to
+  75.1% in the control. So that gain isn't the position's.
+- As a brake (a plant on a real row isn't removed) it costs more than it saves. On CropAndWeed,
+  crops removed go from 0.08% to 0.04%, about one plant, and harmful removed from 63.0-64.8% to
+  58.4-59.6%, or 61.7-63.2% for well-spaced plants only.
+- Plant size against the image's fullest row helps only on ACRE: at 1% of crops lost 31.0-31.7%
+  against the control's 12.9-25.7%, and 63.8-66.7% when the row is made of labelled crops. It does
+  nothing on CropAndWeed or PhenoBench.
+- ACRE's numbers can't be taken at their word: most crops the classifier calls weeds are off the
+  rows (133-141 of 174-188, in images with a real row), and those "beans" look mislabelled (see
+  Species lists). If they are weeds, the classifier and the rows are both right about them and the score
+  says otherwise. An expert should check them first.
+
+The evidence is thin, and this test can't show some of what rows might do. Val shares sites with
+train, where the classifier is at its best: a new site is the open question. There are two seeds
+and no confidence intervals; ACRE has 2 sessions, and 1% of its crops is about 12 plants. Images
+are judged alone, whereas overlapping images could carry a row's history along and show the same
+plant more than once. No dataset labels weeds that look just like the crop (volunteer beet in
+beet), which only a position can catch.
+
 ## Deployment package
 
 `scripts/export_twostage.py` (settings: `configs/export_twostage.yaml`) packages the
