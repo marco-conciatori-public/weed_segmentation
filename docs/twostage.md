@@ -670,10 +670,11 @@ Each view's probabilities are kept in `runs/tta/<run>/val_last/crops/` and `dete
 per view, so a stopped session goes on where it was and a view added later costs only that view. To
 remake the report elsewhere, copy `runs/tta/`: it needs those files, the two-stage evaluations and
 the species data, but no checkpoint, crop cache or GPU. The 4090 needs no preparation beyond the
-public7 session's outputs. Its log there shows 33-67 s for a pass over the val crops and about 72 s
-for classifying all detections, so this should take about 45 minutes for both seeds on an otherwise
-idle machine, with about 440 MB of probabilities. A laptop CPU scores about 3 plants per second,
-too slow for the full test; `max_plants` gives a smoke test.
+public7 session's outputs. There it took 47 minutes for both seeds beside other programs, with
+`batch_size` 32, and about 470 MB of probabilities. Batch size doesn't change the results: the model
+has no batch-dependent layers, and on CPU 32 images at once against 4 at a time differ by at most
+0.0000001 in probability. A laptop CPU scores about 5 plants per second, so the full test would take
+about 4 days; `max_plants` gives a smoke test.
 
 ACRE's harmful removed at up to 1-2% of crops is too thin to read small moves: 1% of its crops is
 about 12 plants. In a dry run with the saved probabilities rounded a second time, its row at 2% went
@@ -683,12 +684,171 @@ The chance of a gain looked small beforehand, on the saved public7 val predictio
 alone, seed 0 against seed 1). Under a top probability of 0.7 lie 11.8% of the crops and 67% of the
 errors, so a gate looks in the right place. But on 78.8% of seed 0's errors, seed 1 picks the same
 wrong class, 85% at 0.5-0.7 and 99.8% at 0.85 or more, and averaging removes noise, not a shared
-bias. Averaging the two seeds' probabilities, as a rough upper limit since separately trained
-models usually differ more than views of one image, moved species right on the plants found from
-96.24% to 96.25% and balanced accuracy from 82.7% to 83.1%, and left harmful removed at the same
-crops removed level. Of 19,682 plants, it changed the top class on 140: 51 became right, 53 became
-wrong. That is two models rather than ten views, on three datasets without OPPD, which has the most
-low scores (21% under 0.7), so it doesn't settle the question.
+bias. Averaging the two seeds' probabilities, expected to be a rough upper limit since separately
+trained models usually differ more than views of one image, moved species right on the plants found
+from 96.24% to 96.25% and balanced accuracy from 82.7% to 83.1%, and left harmful removed at the
+same crops removed level. Of 19,682 plants, it changed the top class on 140: 51 became right, 53
+became wrong. That is two models rather than ten views, on three datasets without OPPD, which has
+the most low scores (21% under 0.7), so it doesn't settle the question.
+
+Results on val (2026-11-05, the two public7 DINOv3 seeds; report:
+`runs/tta/tta_20261105_133108.md`): a small gain in naming plants that beats the noise, all of it on
+plants under 0.7, and none of it reaches the export or the decisions. Of the plants found, both
+stages:
+
+| 19,682 plants | Plain | All 10, under 0.7 | All 10, no gate |
+|---|---|---|---|
+| Species right | 96.24% | 96.39-96.41% | 96.40-96.41% |
+| Class right | 95.67-95.71% | 95.86-95.89% | 95.87-95.89% |
+| Balanced | 82.67-82.69% | 83.53-84.18% | 83.53-84.19% |
+| Crop or not right | 98.28-98.29% | 98.38-98.39% | 98.38% |
+| Weeds called crop | 0.97-0.98% | 0.90-0.94% | 0.90-0.94% |
+| Harmful removed at up to 1% of crops | 70.01-70.09% | 69.98-70.06% | 68.54-69.46% |
+| Harmful removed at up to 2% of crops | 78.00% | 78.11-78.14% | 78.10-78.14% |
+| Under hand-off (0.7) | 5.61-5.80% | 5.16-5.30% | 6.01-6.11% |
+| Wrong to right, right to wrong | | 71-79, 33-43 | 73-80, 33-44 |
+
+- The gain is real. Behind the gate, species right rises 0.16 points on the plants found (95%
+  interval 0.08 to 0.24 resampling images, 0.09 to 0.30 resampling the 141 sessions) and 0.17 on the
+  labelled boxes (0.11 to 0.24). That is about 4% of the species errors, with about two fixes per
+  new error on the plants found and 1.6 on the boxes. Of CropAndWeed's 127 sessions, 28-31 go up and
+  11 down.
+- It is uneven across datasets. CropAndWeed goes from 93.78-93.93% to 94.17-94.44% species right on
+  the plants found and from 93.39-93.63% to 93.81-94.09% on the boxes. On the boxes, OPPD goes from
+  95.18-95.22% to 95.36-95.50%, GroundBased from 97.09-97.13% to 97.24-97.28% and VCD from
+  96.25-97.78% to 97.70-98.55%, on only 1,307 plants. ACRE, PhenoBench and LincolnBeet stay inside
+  their plain spread.
+- The gate is in the right place, as Marco's idea had it. On the plants found, the changes are +60
+  -37 under 0.5, +19 -6 at 0.5-0.7, +1 -1 at 0.7-0.85 and none above (seed 0; seed 1: +58 -28, +12
+  -5, +3 -0, none). So a gate at 0.85 adds nothing over 0.7, and one at 0.5 keeps about 70% of the
+  gain. About half of the errors on the plants found (405-428 of 844-852) score 0.7 or more, and
+  views don't touch them.
+- In the export, nothing of this is left. Plants under 0.7 go to the zero-shot model, and the fixes
+  stay under 0.7: of the 71-79 on the plants found, 1 ends at 0.7 or more (1-2 of 289-311 on the
+  boxes). What the gate changes is who decides: 98-108 plants rise over 0.7, about 87% of them right
+  (85-94), so the classifier decides 94.70-94.84% of the plants instead of 94.20-94.39%, with
+  97.66-97.76% right among them instead of 97.70-97.82%. This is the re-roll, not knowledge: the
+  same views without a gate raise the plants under hand-off. It only helps if the zero-shot model
+  does worse than about 87% on those plants, which hasn't been measured.
+- Decisions don't gain. Behind the gate, harmful removed at up to 1% of crops stays level, and at 2%
+  it rises about 0.12 points, about 12 of 9,707 plants. Without a gate, high scores move too and the
+  row at 1% falls 0.6-1.5 points. ACRE's row at 1% does rise, with 4 or 8 orientations and not with
+  window sizes: from 4.26-6.74% to 10.28-10.62% on the plants found and from 7.74-8.98% to
+  12.49-13.84% on the boxes. But 1% of its crops is about 12 plants, so that is a lead at most.
+- Votes name plants as well as the average (96.40% species right), but their scores are coarse:
+  plants under hand-off fall to 1.44-1.50%, crops removed at the rule file's `defer_below` rise from
+  1.01-1.03% to 1.56-1.58%, and no threshold gets down to 1% of crops.
+- The two seeds weren't an upper limit. On the same new predictions, the two seeds averaged give
+  96.26% species right, and `flip` alone on one model gives 96.31%. All 10 gives 96.40%, and all 10
+  of both seeds 96.41%, so a second seed adds nothing on top of the views.
+- Labelled boxes flatter the window views. `tighter` alone beats plain on the boxes (class right
+  94.51-94.60% against 94.41-94.47%) but not on the plants found (95.69-95.70% against
+  95.67-95.71%).
+- Partial-label fit moves both ways: overall from 77.65-78.98% to 77.30-78.08%, CropAndWeed up from
+  74.11-74.43% to 75.40-76.05%, PhenoBench down from 91.72-91.91% to 90.65-91.07%.
+
+Fewer views get part of the gain for less. These were worked out afterwards from the saved views,
+on the same plants, so they are rough. Passes are classifier runs per detection, as 19.3% of
+detections score under 0.7. Means of the two seeds, plants found:
+
+| Added under 0.7 | Passes | Species right | Class right | Balanced |
+|---|---|---|---|---|
+| Nothing | 1.00 | 96.24% | 95.69% | 82.68% |
+| `flip` | 1.19 | 96.31% | 95.77% | 83.36% |
+| `tighter` | 1.19 | 96.31% | 95.78% | 83.48% |
+| `tighter`, `looser` | 1.39 | 96.34% | 95.80% | 83.68% |
+| `flip`, `tighter`, `looser` | 1.58 | 96.37% | 95.84% | 83.83% |
+| The 7 other orientations | 2.35 | 96.39% | 95.87% | 83.74% |
+| All 9 other views | 2.74 | 96.40% | 95.88% | 83.85% |
+
+The run itself checks out. On the labelled boxes the plain view gives the class right in
+`metrics.json` (94.41%, 94.47%). On the detections it gives the two-stage evaluation's top class on
+29,586 and 29,588 of 29,595; the others are all unlabelled, with a top-two gap of at most 0.002, and
+the largest probability difference is 0.0074. No view alone is far from plain (class right
+94.21-94.60% on the boxes), and the report remade on the laptop from the saved views is identical to
+the 4090's.
+
+So this doesn't argue for adding views to the pipeline while the hand-off stands. It could matter
+without a hand-off, for naming plants rather than deciding on them. Val shares sites with train, so
+a new site is still open, and there are only two seeds. Closed on 2026-11-05: the pipeline stays
+without views, and the script stays for a re-run should the hand-off change.
+
+## Overlapping frames
+
+A second frame of a plant is a new image, which augmenting one frame isn't: another exposure and
+angle, and a plant cut by one frame's border may be whole in the next. `scripts/evaluate_overlap.py`
+(settings: `configs/evaluate_overlap.yaml`, code: `weedseg.overlap`, `weedseg.frames`) tests whether
+combining them beats a single frame, on the two public7 seeds. The prediction pipeline and the
+export don't use it.
+
+Only one thing is assumed about the robot: that its images overlap. So frames are placed from the
+images alone. SIFT and RANSAC give the similarity from a frame to its neighbours in the session. A
+pair must have moved by at least 2% of the frame's longer side, which drops a robot standing still
+(the same picture) and marks on the rig or lens matched in every frame (no move at all): VCD has
+many of those. Boxes are then moved into the neighbour and joined one to one by IoU, inside the part
+both frames see. Linked boxes are one plant, and every view of it gets the same probabilities:
+
+- `mean` averages them, as test-time augmentation did;
+- `product` treats the views as independent evidence, which sharpens. Averaging can't lift a plant
+  over the hand-off when its views agree, and independent evidence should;
+- `whole first` trusts views not cut by the frame's border;
+- the augmented views of the same plants are the control: what the 10 views of one frame give, and
+  what they give across its frames, so a real view can be set against an augmented one.
+
+Plants seen once keep their probabilities exactly, so whatever moves comes from plants seen more
+than once. All frames of a plant are used, later ones too, as if the decision waits until the plant
+has left the camera. The classifier isn't run: the probabilities are the two-stage evaluation's and
+`scripts/evaluate_tta.py`'s kept views, so this needs a CPU and the images.
+
+The data holds little overlap, so read the rows on plants seen twice for what a second view is
+worth, not the dataset rows for what a robot would gain. Its overlap is not this data's.
+
+| Dataset | Frames | In the test |
+|---|---|---|
+| ACRE | A robot at 0.2 m/s, 2 s apart, chosen by its authors to repeat little. Next frames share about 14% of the image, a strip at the border | Both sets |
+| CropAndWeed | Hand-held, documented as at least 3 m apart, yet 267 of 1,108 next frames overlap | Both sets |
+| VCD, LincolnBeet | Labelled boxes only: no masks, so no detections. LincolnBeet's frames were picked far apart | Labelled boxes |
+| PhenoBench | Left out. Windows of one photo are the same pixels. Across photos, plant ids don't name one plant (46 of 432 ids mix beet and weed) and windows with one number don't show the same ground (0 of 60 pairs register) | No |
+| OPPD, GroundBased | Left out. Trays photographed on different days; 16 of 1,215 neighbouring pairs overlap | No |
+
+It writes `runs/overlap/overlap_<date>_<time>.md` and `.csv`, with `_links.csv`, `_intervals.csv`
+and `_label_conflicts.csv` next to them, and keeps the registrations in
+`runs/overlap/registrations/`, so only the first run is slow. Frames: how many overlap. Links: how
+many plants are seen twice, and whether a link holds one plant (one label, one top class). One table
+per set of plants and dataset, with one row per variant. "Fixes over hand-off" counts fixes at or
+over the export's 0.7: a fix under it goes to the zero-shot model and never reaches the output,
+which is what closed test-time augmentation. The last table gives the gain in species right with a
+95% interval, resampling
+sessions, where there are at least 10 (ACRE has 2).
+
+It needs both public7 seeds' two-stage evaluations and `runs/tta/`, on the 4090 or the laptop. On
+the laptop, registering should take about 25 minutes with 4 processes, then scoring a few minutes.
+The first run there was stopped during CropAndWeed because the system ran low on memory. Workers no
+longer import torch (about 0.3 GB each instead of about 1.2 GB), but a complete run on the laptop is
+still to be seen, so close what you can first, or lower `num_workers`.
+
+**A link also checks the labels: on ACRE, one plant is often named twice.** At IoU 0.7 or more, 82
+of 692 links between labelled boxes join two labels, 55 of them fat-hen (`CHEAL`) and bean
+(`PHSVX`). In a sample of 12, each pair clearly shows one plant, so the links hold and the labels
+don't. On CropAndWeed, all 234 links agree. This bears on the off-row "beans" of [Crop rows and
+spacing](#crop-rows-and-spacing), and needs no opinion on which label is right to show that ACRE's
+crop-safety rows rest on noisy labels. `_label_conflicts.csv` lists every such pair for the expert.
+
+The chance of a gain looks small from a prototype on the same plants, before the 2% move was
+required, so it counted some standing frames:
+
+| Plants found | Seen twice | Same label | Same top class | `mean`, wrong to right, right to wrong | Fixes over 0.7 |
+|---|---|---|---|---|---|
+| ACRE, seed 0 | 2,136 of 9,564 | 91.6% | 98.1% | 8, 12 | 0 |
+| ACRE, seed 1 | 2,136 of 9,564 | 91.6% | 98.1% | 10, 10 | 0 |
+| CropAndWeed, seed 0 | 564 of 5,358 | 99.3% | 95.2% | 10, 3 | 0 |
+| CropAndWeed, seed 1 | 564 of 5,358 | 99.3% | 96.9% | 7, 4 | 0 |
+
+Frames of a plant nearly always agree, so there is little for them to fix. On ACRE, cut boxes are
+right less often than whole ones (89.0-89.6% against 96.9%), yet trusting whole views changes
+nothing (9 and 10 fixed, 10 and 9 caused). `product` does take fixes over the hand-off on
+CropAndWeed (4 of 12, 4 of 6), but lets errors through too: right among the plants the classifier
+decides falls from 97.53% to 97.34% and from 97.07% to 96.94%.
 
 Results: pending.
 
