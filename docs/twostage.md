@@ -806,7 +806,7 @@ worth, not the dataset rows for what a robot would gain. Its overlap is not this
 | Dataset | Frames | In the test |
 |---|---|---|
 | ACRE | A robot at 0.2 m/s, 2 s apart, chosen by its authors to repeat little. Next frames share about 14% of the image, a strip at the border | Both sets |
-| CropAndWeed | Hand-held, documented as at least 3 m apart, yet 267 of 1,108 next frames overlap | Both sets |
+| CropAndWeed | Hand-held, documented as at least 3 m apart, yet 263 of 1,108 next frames overlap | Both sets |
 | VCD, LincolnBeet | Labelled boxes only: no masks, so no detections. LincolnBeet's frames were picked far apart | Labelled boxes |
 | PhenoBench | Left out. Windows of one photo are the same pixels. Across photos, plant ids don't name one plant (46 of 432 ids mix beet and weed) and windows with one number don't show the same ground (0 of 60 pairs register) | No |
 | OPPD, GroundBased | Left out. Trays photographed on different days; 16 of 1,215 neighbouring pairs overlap | No |
@@ -818,39 +818,56 @@ many plants are seen twice, and whether a link holds one plant (one label, one t
 per set of plants and dataset, with one row per variant. "Fixes over hand-off" counts fixes at or
 over the export's 0.7: a fix under it goes to the zero-shot model and never reaches the output,
 which is what closed test-time augmentation. The last table gives the gain in species right with a
-95% interval, resampling
-sessions, where there are at least 10 (ACRE has 2).
+95% interval, resampling sessions, where there are at least 10 (ACRE has 2).
 
-It needs both public7 seeds' two-stage evaluations and `runs/tta/`, on the 4090 or the laptop. On
-the laptop, registering should take about 25 minutes with 4 processes, then scoring a few minutes.
-The first run there was stopped during CropAndWeed because the system ran low on memory. Workers no
-longer import torch (about 0.3 GB each instead of about 1.2 GB), but a complete run on the laptop is
-still to be seen, so close what you can first, or lower `num_workers`.
+It needs both public7 seeds' two-stage evaluations and `runs/tta/`, on the 4090 or the laptop. The
+laptop ran it in 14 minutes with 2 processes, ACRE's registrations already kept (2026-11-06). A
+first try there, with 4 processes that each imported torch, was stopped during CropAndWeed because
+the system ran low on memory. Workers no longer import torch (about 0.3 GB each instead of about
+1.2 GB).
 
-**A link also checks the labels: on ACRE, one plant is often named twice.** At IoU 0.7 or more, 82
-of 692 links between labelled boxes join two labels, 55 of them fat-hen (`CHEAL`) and bean
-(`PHSVX`). In a sample of 12, each pair clearly shows one plant, so the links hold and the labels
-don't. On CropAndWeed, all 234 links agree. This bears on the off-row "beans" of [Crop rows and
-spacing](#crop-rows-and-spacing), and needs no opinion on which label is right to show that ACRE's
-crop-safety rows rest on noisy labels. `_label_conflicts.csv` lists every such pair for the expert.
+**A link also checks the labels: on ACRE, one plant is often named twice.** Of the 1,400 links
+between labelled boxes, 127 join two labels, 93 of them fat-hen (`CHEAL`) and bean (`PHSVX`). The
+share doesn't fall when links must be closer (88 of 958 at IoU 0.5 or more, 54 of 409 at 0.7), and
+in a sample of 12 from a prototype each pair clearly shows one plant, so the links hold and the
+labels don't. On CropAndWeed, 4 of 340 links join two labels, none at IoU 0.5 or more. The
+classifier calls 83% of the views of fat-hen and bean plants fat-hen. This bears on the off-row
+"beans" of [Crop rows and spacing](#crop-rows-and-spacing): of the bean views seen twice that the
+classifier calls another species, 50 of 61 are on a plant with two labels. It needs no opinion on
+which label is right to show that ACRE's crop-safety rows rest on noisy labels.
+`_label_conflicts.csv` lists every such pair for the expert.
 
-The chance of a gain looks small from a prototype on the same plants, before the 2% move was
-required, so it counted some standing frames:
+Results (2026-11-06, both seeds, `runs/overlap/overlap_20261106_022202.md`), on the plants found:
 
-| Plants found | Seen twice | Same label | Same top class | `mean`, wrong to right, right to wrong | Fixes over 0.7 |
-|---|---|---|---|---|---|
-| ACRE, seed 0 | 2,136 of 9,564 | 91.6% | 98.1% | 8, 12 | 0 |
-| ACRE, seed 1 | 2,136 of 9,564 | 91.6% | 98.1% | 10, 10 | 0 |
-| CropAndWeed, seed 0 | 564 of 5,358 | 99.3% | 95.2% | 10, 3 | 0 |
-| CropAndWeed, seed 1 | 564 of 5,358 | 99.3% | 96.9% | 7, 4 | 0 |
+| Plants found | Seen twice | Species right: one view, `mean`, `whole first` | `mean`: wrong to right, right to wrong | Fixes over 0.7: `mean`, `product` |
+|---|---|---|---|---|
+| ACRE | 2,109 of 9,564 | 95.79-95.89%, 95.74-95.89%, 95.78-95.90% | 8-10, 10-12 | 0, 7-9 |
+| CropAndWeed | 550 of 5,358 | 93.78-93.93%, 93.86-94.10%, 93.90-94.12% | 7-10, 3-4 | 0, 4 |
 
-Frames of a plant nearly always agree, so there is little for them to fix. On ACRE, cut boxes are
-right less often than whole ones (89.0-89.6% against 96.9%), yet trusting whole views changes
-nothing (9 and 10 fixed, 10 and 9 caused). `product` does take fixes over the hand-off on
-CropAndWeed (4 of 12, 4 of 6), but lets errors through too: right among the plants the classifier
-decides falls from 97.53% to 97.34% and from 97.07% to 96.94%.
+On CropAndWeed's 127 sessions, the gain is +0.12 points for `mean` (95% interval -0.01 to +0.26)
+and +0.15 for `whole first` (+0.04 to +0.29); on its plants seen twice, +1.12 (-0.01 to +2.31) and
++1.40 (+0.44 to +2.49). The augmented views of the same plants give less there: +0.37 from one
+frame, +0.56 from all. ACRE's 2 sessions give no interval.
 
-Results: pending.
+- **ACRE is flat because of its labels.** On its plants seen twice with one label, `mean` fixes 5
+  and 6 views and breaks 3, and `whole first` fixes 6 and breaks 1 and 2, much as on CropAndWeed.
+  On the 73 with two labels, `mean` fixes 3 and 4 and breaks 9 and 7: every view of a plant gets
+  one class, and one of its labels is wrong. About 4 in 5 of ACRE's errors on plants seen twice
+  are on those 73 plants. Of the views of plants seen twice, cut ones are right 93.1% of the time
+  against 96.5-96.7% for whole ones on ACRE, and 94.1% against 94.2-95.7% on CropAndWeed.
+- **Nothing reaches the export.** `mean` lifts no fix over the hand-off. `product` takes 94 and
+  105 more plants over it, 65 and 77 of them right. One view with a lower hand-off, deciding as
+  many plants, does about as well: `product` gets 6 fewer right on ACRE in each seed, and 2 and 5
+  more on CropAndWeed, of about 4,600. So `product` mostly moves the hand-off. At equal crops
+  removed it is no better (harmful at 2% crops: 77.95-78.01% against 78.00%) and worse at 1%
+  (65.6-67.2% against 70.0-70.1%).
+
+Frames of a plant agree on the top class 92-98% of the time, so there is little to fix, and what
+is fixed stays under the hand-off, as with test-time augmentation. On this data, combining frames
+doesn't change what the pipeline outputs. A robot's own sequences would show more plants twice and
+fewer at the border, so they would test it better, but with views agreeing this often the gain
+there is likely small too. Closed on 2026-11-06: the pipeline stays with one frame per plant, and
+the script stays for a re-run on the robot's own sequences or should the hand-off change.
 
 ## Deployment package
 
