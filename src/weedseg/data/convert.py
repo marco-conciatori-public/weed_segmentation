@@ -1,8 +1,9 @@
 """The conversion pipeline shared by all datasets (see docs/data-format.md).
 
 Order: size filter -> split by group, balanced over species (or the dataset's own split) ->
-COCO files, small plants as ignore regions. A dataset module only provides its image names, their groups, the boxes of
-each image (cheap, for the size filter and the split) and the full records.
+COCO files of boxes, small plants as ignore regions. A dataset module only provides its image
+names, their groups, the boxes of each image (cheap, for the size filter and the split) and
+the full records.
 """
 
 from collections import Counter
@@ -28,8 +29,7 @@ def convert_dataset(names: list[str], group_of: Callable[[str], str],
                     boxes_of: Callable[[str], list[tuple[str, float, float]]],
                     records_of: Callable[[list[str]], Iterator[ImageRecord]],
                     label_map: LabelMap, settings: dict[str, Any],
-                    info: dict[str, Any], box_only: bool = False,
-                    splits: dict[str, list[str]] | None = None,
+                    info: dict[str, Any], splits: dict[str, list[str]] | None = None,
                     mm_per_px_of: Callable[[str], float] | None = None) -> Path:
     """Convert a dataset and write <output_dir>/<taxonomy>[_min<size>mm]/<split>.json.
 
@@ -38,10 +38,8 @@ def convert_dataset(names: list[str], group_of: Callable[[str], str],
     `convert` section (min_plant_size_mm, mm_per_px_estimate, keep_negative_images, split,
     output_dir); `info` (name, source, licence, image_dir) goes into every file's info.
     `mm_per_px_of(name)` gives an image's own mm/px, for a dataset whose images differ in
-    scale; it replaces `mm_per_px_estimate`, which the settings may then leave out.
-    `box_only` for a dataset labelled with boxes only, without masks: its images are marked
-    (weedseg.data.coco.BOX_ONLY) and reach the species classifier only. `splits` keeps the
-    dataset's own split (image names per split; `settings` then needs no `split`), for a
+    scale; it replaces `mm_per_px_estimate`, which the settings may then leave out. `splits`
+    keeps the dataset's own split (image names per split; `settings` then needs no `split`), for a
     dataset whose split is cleaner than ours, e.g. separated in space.
     """
     min_size_mm = settings["min_plant_size_mm"]
@@ -77,12 +75,13 @@ def convert_dataset(names: list[str], group_of: Callable[[str], str],
         split_info = {
             **info,
             "description": f"{info['name']}, {split_name} split, taxonomy {label_map.taxonomy}",
+            "taxonomy": label_map.taxonomy,
             "split": split_name,
             "split_seed": seed,
             "min_plant_size_mm": min_size_mm,
         }
         records = tqdm(records_of(split_names), total=len(split_names), desc=split_name)
-        coco = ignore_small_plants(to_coco(records, label_map, split_info, box_only), min_size_mm)
+        coco = ignore_small_plants(to_coco(records, label_map, split_info), min_size_mm)
         path = output_dir / f"{split_name}.json"
         write_json(coco, path)
 

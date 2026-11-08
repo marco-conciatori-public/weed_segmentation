@@ -13,29 +13,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-from pycocotools import mask as mask_utils
-
-from weedseg.eppo import LIMIT_COLUMNS, PARENT_RANKS
+from weedseg.eppo import PARENT_RANKS
 
 IGNORE_CATEGORY = "ignore"
-# Plants of a known species too rare to be a class of their own (see weedseg.data.combine);
-# at inference they are handed to a generic model.
-OTHER_CATEGORY = "other_plant"
-# Image field marking the images of a dataset labelled with boxes only, without masks (e.g.
-# GROUNDBASED_WEED). Mask R-CNN (species model, plant detector) can't learn from them, so its
-# training and the evaluation of instance predictions leave them out (`drop_box_only`); the
-# species classifier learns from their plants all the same, since it needs only a box.
-BOX_ONLY = "box_only"
 
 
 @dataclass
 class Instance:
-    """One annotated plant, with its label as written in the source dataset."""
+    """One annotated plant, with its label as written in the source dataset. Only its box is
+    kept: a dataset with outlines uses them to find its boxes and its ignore regions."""
 
     source_label: str
     bbox_xyxy: tuple[float, float, float, float]
-    mask: np.ndarray | None = None  # bool, full image size
     stem_xy: tuple[float, float] | None = None
     ignore: bool = False  # keep as an ignore region (iscrowd) whatever its category
     attributes: dict[str, Any] = field(default_factory=dict)
@@ -55,9 +44,8 @@ class LabelMap:
     """Maps source labels to categories, read from a CSV with one row per source label.
 
     Required columns: `source_label`, `role` (crop/weed) and one column per taxonomy whose
-    values are category names. An empty taxonomy value marks labels to be ignored. Optional
-    `one_of` and `none_of` narrow down a label coarser than species (weedseg.eppo.LIMIT_COLUMNS).
-    Any other columns (common name, scientific name, ...) are kept for the category metadata.
+    values are category names. An empty taxonomy value marks labels to be ignored. Any other
+    columns (common name, scientific name, ...) are kept for the category metadata.
 
     The taxonomies `genus`, `family` and `order` need no column: they come from the `eppo`
     column and the EPPO taxa table (`taxa`, see weedseg.eppo.load_taxa). They group weeds
@@ -89,12 +77,6 @@ class LabelMap:
         if source_label not in self.rows:
             raise KeyError(f"Source label {source_label!r} missing from the label map")
         return self.rows[source_label][self.taxonomy] or IGNORE_CATEGORY
-
-    def limits(self, source_label: str) -> dict[str, list[str]]:
-        """The label's `one_of` and `none_of` EPPO codes, those it has."""
-        row = self.rows[source_label]
-        return {column: row[column].split() for column in LIMIT_COLUMNS
-                if (row.get(column) or "").strip()}
 
     def categories(self) -> list[dict[str, Any]]:
         """COCO categories of the selected taxonomy, ignore category last."""
@@ -171,33 +153,10 @@ def split_by_group[T](items: list[T], group_of: Callable[[T], str],
     return splits
 
 
-def encode_mask(mask: np.ndarray) -> dict[str, Any]:
-    """Compressed COCO RLE of a bool mask, JSON-serialisable."""
-    rle = mask_utils.encode(np.asfortranarray(mask.astype(np.uint8)))
-    rle["counts"] = rle["counts"].decode("ascii")
-    return rle
-
-
-def decode_mask(annotation: dict[str, Any], height: int, width: int) -> np.ndarray | None:
-    """Bool mask of an annotation's segmentation (RLE or polygons), or None without one."""
-    segmentation = annotation.get("segmentation")
-    if not segmentation:
-        return None
-    if isinstance(segmentation, list):  # polygons
-        rle = mask_utils.merge(mask_utils.frPyObjects(segmentation, height, width))
-    elif isinstance(segmentation["counts"], list):  # uncompressed RLE
-        rle = mask_utils.frPyObjects(segmentation, height, width)
-    else:
-        rle = segmentation
-    return mask_utils.decode(rle).astype(bool)
-
-
-def to_coco(records: Iterable[ImageRecord], label_map: LabelMap, info: dict[str, Any],
-            box_only: bool = False) -> dict[str, Any]:
-    """Build a COCO dict. Ignored instances, and those mapped to the ignore category, get
-    `iscrowd = 1`, so COCO evaluation neither rewards nor penalises detections on them.
-    The label map's `one_of` and `none_of` go into each annotation of that label.
-    `box_only` marks every image BOX_ONLY, for a dataset labelled without masks."""
+def to_coco(records: Iterable[ImageRecord], label_map: LabelMap,
+            info: dict[str, Any]) -> dict[str, Any]:
+    """Build a COCO dict of boxes. Ignored instances, and those mapped to the ignore category,
+    get `iscrowd = 1`, so COCO evaluation neither rewards nor penalises detections on them."""
     categories = label_map.categories()
     category_ids = {c["name"]: c["id"] for c in categories}
     images, annotations = [], []
@@ -205,8 +164,6 @@ def to_coco(records: Iterable[ImageRecord], label_map: LabelMap, info: dict[str,
         image_id = len(images) + 1
         images.append({"id": image_id, "file_name": record.file_name, "width": record.width,
                        "height": record.height, "group": record.group, **record.attributes})
-        if box_only:
-            images[-1][BOX_ONLY] = True
         for instance in record.instances:
             category = label_map.category(instance.source_label)
             x0, y0, x1, y1 = instance.bbox_xyxy
@@ -218,12 +175,8 @@ def to_coco(records: Iterable[ImageRecord], label_map: LabelMap, info: dict[str,
                 "area": float((x1 - x0) * (y1 - y0)),
                 "iscrowd": int(instance.ignore or category == IGNORE_CATEGORY),
                 "source_label": instance.source_label,
-                **label_map.limits(instance.source_label),
                 **instance.attributes,
             }
-            if instance.mask is not None:
-                annotation["segmentation"] = encode_mask(instance.mask)
-                annotation["area"] = float(instance.mask.sum())
             if instance.stem_xy is not None:
                 annotation["stem"] = list(instance.stem_xy)
             annotations.append(annotation)
@@ -257,23 +210,6 @@ def ignore_small_plants(coco: dict[str, Any], min_size_mm: float | None) -> dict
                           "ignored_category_id": annotation["category_id"]}
         annotations.append(annotation)
     return {**coco, "annotations": annotations}
-
-
-def drop_box_only(coco: dict[str, Any]) -> dict[str, Any]:
-    """Copy of `coco` without the images marked BOX_ONLY and their annotations, for Mask R-CNN
-    training and the evaluation of instance predictions. A labelled plant without a mask on
-    an unmarked image is an error: Mask R-CNN would learn its box as the plant's outline."""
-    box_only = {image["id"] for image in coco["images"] if image.get(BOX_ONLY)}
-    unmarked = [a for a in coco["annotations"] if a["image_id"] not in box_only
-                and not a.get("iscrowd") and not a.get("segmentation")]
-    if unmarked:
-        raise ValueError(f"{len(unmarked)} labelled plants have no mask, on images not marked "
-                         f"{BOX_ONLY} (e.g. annotation {unmarked[0]['id']}); convert datasets "
-                         "labelled with boxes only with box_only=True")
-    if not box_only:
-        return coco
-    return {**coco, "images": [i for i in coco["images"] if i["id"] not in box_only],
-            "annotations": [a for a in coco["annotations"] if a["image_id"] not in box_only]}
 
 
 def write_json(data: dict[str, Any], path: Path) -> None:

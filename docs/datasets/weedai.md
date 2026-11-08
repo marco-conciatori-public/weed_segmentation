@@ -46,9 +46,9 @@ COCO with Weed-AI's additions:
 
 `scripts/convert_weedai.py` converts the datasets listed in `configs/weedai.yaml`, each
 described by its own config (`configs/lincolnbeet.yaml`, ...), with the shared pipeline
-`weedseg.data.convert` and the reader `weedseg.data.weedai`. All Weed-AI images are
-converted as box only ([data-format.md](../data-format.md#datasets-labelled-with-boxes-only)):
-they reach the species classifier, not Mask R-CNN.
+`weedseg.data.convert` and the reader `weedseg.data.weedai`. Only the datasets whose every
+plant is boxed join the detector's data ([detector.md](../detector.md#datasets)): LincolnBeet
+does, ImageWeeds and VCD don't.
 
 A dataset config has, besides its `download` section:
 
@@ -78,8 +78,10 @@ The image field `source_name` keeps the original file stem, `part` the upload.
 
 ## The survey of 2026-10-30
 
-All 41 uploads were checked against what the two-stage pipeline can use. Nearly all are
-boxes only (classifier only), and most box only the weeds, not the crop.
+All 41 uploads were checked (on `master`) against what the two-stage pipeline can use,
+which needed species. Nearly all are boxes only, and most box only the weeds, not the crop.
+For the plant detector the question is different: species don't matter, but every plant must
+be boxed. CornWeed (below) is worth checking for that.
 
 **Used:** LincolnBeet, ImageWeeds (all seven crop uploads), VCD (beans, maize, leeks).
 

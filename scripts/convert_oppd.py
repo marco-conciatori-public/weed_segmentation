@@ -1,8 +1,8 @@
 """Convert OPPD to COCO (one JSON per split). Settings: configs/oppd.yaml.
 
-OPPD is labelled with boxes only, so its images are marked box_only: they reach the species
-classifier, not Mask R-CNN. The pipeline (size filter, split by tray balanced over species,
-COCO files) is weedseg.data.convert; scripts/combine_datasets.py then chooses the classes.
+The pipeline (size filter, split by tray balanced over species, COCO files) is
+weedseg.data.convert; scripts/combine_datasets.py then merges it with the other datasets into
+the detector's data.
 """
 
 from weedseg.config import load_config
@@ -36,7 +36,7 @@ def main() -> None:
                                   "(Dataset Ninja's copy)",
                         "licence": "CC BY-NC-SA 4.0; see docs/datasets/oppd.md",
                         "image_dir": f"{config['raw_dir']}/ds0/img",  # from the project root
-                    }, box_only=True)
+                    })
 
 
 if __name__ == "__main__":

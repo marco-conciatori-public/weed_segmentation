@@ -13,7 +13,8 @@ def load_config(path: str | Path) -> dict[str, Any]:
 
     A config with a `base` key (another config's path) holds only what differs from that
     one: it is loaded on top of it, sections merged key by key (lists and plain values are
-    replaced). E.g. configs/detector.yaml is configs/maskrcnn.yaml with another `data.dir`.
+    replaced). E.g. a variant of configs/detector.yaml with only another `data.dir` and
+    `run_name`.
     """
     with open(resolve(path), encoding="utf-8") as f:
         config = yaml.safe_load(f) or {}

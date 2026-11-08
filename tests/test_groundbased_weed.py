@@ -1,7 +1,7 @@
 import json
 
 from weedseg.data import groundbased_weed
-from weedseg.data.coco import BOX_ONLY, LabelMap
+from weedseg.data.coco import LabelMap
 from weedseg.data.convert import convert_dataset
 from weedseg.eppo import load_taxa
 from weedseg.paths import resolve
@@ -57,12 +57,12 @@ def test_records(tmp_path):
                                "mm_per_px_estimated": True}
     assert quadrat.attributes["quadrat"] == 2
     tomato, nightshade, unknown = full.instances
-    assert tomato.bbox_xyxy == (2, 3, 10, 8) and tomato.mask is None and not tomato.attributes
+    assert tomato.bbox_xyxy == (2, 3, 10, 8) and not tomato.attributes
     assert nightshade.attributes == {"truncated": True}
     assert unknown.attributes == {"difficult": True} and not unknown.ignore
 
 
-def test_conversion_marks_box_only_and_maps_unrecognised_plants(tmp_path):
+def test_conversion_keeps_blocks_together_and_maps_unrecognised_plants(tmp_path):
     raw = write_dataset(tmp_path)
     names = groundbased_weed.image_names(raw)
     label_map = LabelMap(resolve("configs/label_maps/groundbased_weed.csv"), "species",
@@ -76,11 +76,11 @@ def test_conversion_marks_box_only_and_maps_unrecognised_plants(tmp_path):
                           lambda name: groundbased_weed.box_labels(raw, name),
                           lambda split_names: groundbased_weed.iter_records(raw, split_names,
                                                                             10, 0.5),
-                          label_map, settings, {"name": "GROUNDBASED_WEED"}, box_only=True)
+                          label_map, settings, {"name": "GROUNDBASED_WEED"})
     files = [json.loads((out / f"{split}.json").read_text(encoding="utf-8"))
              for split in ("train", "val")]
     images = [image for coco in files for image in coco["images"]]
-    assert len(images) == 5 and all(image[BOX_ONLY] for image in images)
+    assert len(images) == 5
     coco = next(coco for coco in files if any(i["file_name"].endswith("IMG_4130.JPG")
                                               for i in coco["images"]))
     # The two photos of one block stay together.

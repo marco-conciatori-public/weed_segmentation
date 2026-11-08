@@ -1,0 +1,21 @@
+# Deployment package of the plant detector: its weights, model.json, a self-contained
+# plant_detector.py and a README for whoever runs the model outside this repo, e.g. the
+# NeutraWeed platform. Used by scripts/export_detector.py. Relative paths are resolved against
+# the project root. See docs/detector.md#deployment-package.
+
+# The detector's config (scripts/train_detector.py) and its checkpoint: best or last of that
+# config's run, or a path to a .pt file. The README takes its numbers from that checkpoint's
+# evaluation (scripts/evaluate_detector.py on the config's evaluate.split): run it first.
+detector: configs/detector.yaml
+checkpoint: best
+# The package goes to <output_dir>/<name>/. Placeholder {date}: today, YYYY-MM-DD. The name is
+# also the version's name on the NeutraWeed platform: letters, digits, '.', '_' and '-'.
+output_dir: exports
+name: "plant_detector_{date}"
+# Replace a package of the same name (false = stop if it exists).
+overwrite: false
+# EPPO taxonomy: the names in the README's table of plants found per species.
+eppo_taxa: configs/eppo_taxa.csv
+# Written to model.json, where the package's user can change it: detections with a lower
+# plant score are left out (as evaluate.score_threshold of configs/detector.yaml).
+min_plant_score: 0.5

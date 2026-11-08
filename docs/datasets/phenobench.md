@@ -39,12 +39,8 @@
   are our train and val splits, and our test split stays empty. Its val is not divided
   further: overlapping images of the same two rows would put the same plants in our val
   and test. The group (recorded, not used for splitting) is the drone photo.
-- Sugar beet is `BEAVA`; weeds are `1PLAK`, plants of unknown species: ignore regions in the
-  species files, plants for the two-stage detector ([data-format.md](../data-format.md)).
-  Their label map row says `none_of` `BEAVA`, so the classifier learns them as "anything but
-  sugar beet" ([partial labels](../data-format.md#partial-labels)). Without that, every
-  PhenoBench plant the classifier saw was a beet, and it called all PhenoBench weeds sugar
-  beet (run 2, 2026-10-23).
+- Sugar beet is `BEAVA`; weeds are `1PLAK`, plants of unknown species: plants for the
+  detector like the beets ([data-format.md](../data-format.md)).
 - **Partly visible plants become ignore regions** (`ignore_partial_plants`), keeping their
   code. A plant cut by the image border is at least half visible in an overlapping image:
   the paper chose the overlap for that.
@@ -52,16 +48,11 @@
 - Every plant pixel belongs to an instance and every instance has a single label (checked
   2026-10-21), so no ignore regions for unassigned vegetation are needed.
 
-## In the combination
+## In the detector's data
 
-- The class list doesn't change: sugar beet is already a class (from CropAndWeed). A trial
-  combination with CropAndWeed and ACRE (2026-10-21) gave the detector 14,646 more train
-  plants (+26%) and the classifier 8,679 more sugar beet crops.
-- Its weeds reach only the detector.
-- Since 2026-10-22 in `configs/combine.yaml` with CropAndWeed, ACRE and OPPD, and since
-  2026-10-26 with GROUNDBASED_WEED too:
-  `data/processed/cropandweed+acre+phenobench+oppd+groundbased_weed`, the data of the
-  two-stage configs.
+PhenoBench is in `configs/combine.yaml` (`public5`). Every plant has its instance, so it
+suits a detector well; a trial on `master` (2026-10-21) gave the plant detector 14,646 more
+train plants (+26%) over CropAndWeed and ACRE.
 
 ## Known limitations
 

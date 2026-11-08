@@ -35,4 +35,3 @@ def test_unboxed_regions_become_ignore_instances():
     (region,) = unboxed_regions(semantic, [], min_area=256)
     assert region.ignore and region.source_label == "9"
     assert region.bbox_xyxy == (0, 0, 20, 20)
-    assert region.mask.sum() == 400

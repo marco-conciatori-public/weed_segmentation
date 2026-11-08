@@ -29,17 +29,15 @@ convert:
   # What defines the COCO categories: a label-map column (species = EPPO codes, fine24,
   # crops_or_weed9, crop_or_weed2) or an EPPO rank taken from eppo_taxa (genus, family,
   # order). Instances whose label has no value (and the dataset's own "Vegetation"
-  # fallback) become ignore regions. Use species to combine datasets and choose the classes
-  # with scripts/combine_datasets.py (configs/combine.yaml).
+  # fallback) become ignore regions. Use species to merge the datasets into the detector's
+  # data with scripts/combine_datasets.py (configs/combine.yaml).
   taxonomy: species
   # Plants whose box is shorter than this on its longer side (mm, via mm_per_px_estimate)
   # become ignore regions: neither learned nor scored. The project targets plants past the
   # seedling stage. The output folder gets a _min<N>mm suffix. null = keep every plant.
   min_plant_size_mm: 20
-  # Derive per-instance masks from the semantic masks. False writes boxes only.
-  instance_masks: true
-  # Some masks contain plants without a box. Regions of at least this many pixels become
-  # ignore regions (iscrowd), so they are not learned as background. null disables this.
+  # Some semantic masks contain plants without a box. Regions of at least this many pixels
+  # become ignore regions (iscrowd), so they are not learned as background. null disables this.
   # 256 = 16x16 px, the dataset's own minimum size for an annotated plant.
   unboxed_min_area: 256
   # Images without plants (empty box file, or every plant under min_plant_size_mm) are

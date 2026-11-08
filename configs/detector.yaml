@@ -1,11 +1,91 @@
-# Plant detector of the two-stage pipeline: the Mask R-CNN of configs/maskrcnn.yaml, trained on
-# the one-class (plant) copy of the species data. Used by scripts/train_detector.py and
-# scripts/evaluate_detector.py. See docs/twostage.md.
-#
-# Only what differs from the base config is here; every other setting (model, training,
-# evaluation) comes from it, so the detector and the species model are trained alike.
-base: configs/maskrcnn.yaml
+# Plant detector: torchvision Faster R-CNN ResNet-50 FPN v2 (BSD-3-Clause), one class (plant),
+# boxes only. Used by scripts/train_detector.py, scripts/evaluate_detector.py and
+# scripts/export_detector.py. Relative paths are resolved against the project root.
+# See docs/detector.md.
+
+# Outputs (checkpoints, TensorBoard logs, metrics, evaluations) go to <output_dir>/<run_name>/.
+# Placeholders: {dataset} and {taxonomy} = the last two folders of data.dir (e.g. public5 and
+# plant_min20mm). Add your own text to tell apart runs that change other settings, e.g.
+# "{dataset}_{taxonomy}_lr0.01". A plain name works too.
+run_name: "{dataset}_{taxonomy}"
+output_dir: runs/detector
+seed: 0
+# auto = CUDA when available, else CPU (CPU is only good for a smoke test).
+device: auto
 
 data:
-  # Written by scripts/make_plant_dataset.py: a sibling of its source_dir.
-  dir: data/processed/public7/plant_min20mm
+  # Folder with train.json, val.json and test.json: the output of scripts/combine_datasets.py
+  # (<output_dir>/<name>/plant[_min<size>mm] of configs/combine.yaml).
+  dir: data/processed/public5/plant_min20mm
+  # Data-loading processes. 0 loads in the main process (slow, but simplest to debug).
+  num_workers: 6
+  # Use a random subset of N images (null = all). For a quick smoke test, e.g. 16 and 8.
+  max_train_images: null
+  max_val_images: null
+
+augment:
+  horizontal_flip: 0.5  # probability
+  vertical_flip: 0.5
+  color_jitter: {brightness: 0.2, contrast: 0.2, saturation: 0.2, hue: 0.02}
+
+model:
+  # Start from torchvision's COCO weights (~170 MB). false = random init.
+  pretrained: true
+  # File with those weights, for machines without internet access. Download it from
+  # https://download.pytorch.org/models/fasterrcnn_resnet50_fpn_v2_coco-dd69338a.pth
+  # null = torchvision downloads it once to the torch cache (~/.cache/torch/hub/checkpoints).
+  pretrained_path: weights/fasterrcnn_resnet50_fpn_v2_coco-dd69338a.pth
+  # Images are resized so the short side is min_size (one value picked at random per batch in
+  # training when several are given; the last one at evaluation), long side at most max_size.
+  # 1088/1920 keeps CropAndWeed at its native resolution: 10% of its plants are under 22 px.
+  min_size: [1088]
+  max_size: 1920
+  # Anchor size per FPN level (5 levels). torchvision's default is 32-512; one level smaller
+  # suits the small plants (median box ~50 px, 1% over 512 px).
+  anchor_sizes: [16, 32, 64, 128, 256]
+  # CropAndWeed has up to ~300 annotated regions per image.
+  detections_per_image: 300
+  # Detections below this score are dropped (low, so AP sees the whole precision curve).
+  score_threshold: 0.05
+
+train:
+  epochs: 24
+  batch_size: 4
+  # SGD; 0.005 is torchvision's reference 0.02 for 16 images, scaled to 4.
+  lr: 0.005
+  momentum: 0.9
+  weight_decay: 0.0001
+  warmup_steps: 500
+  # Max gradient norm (null = no clipping).
+  grad_clip: 10.0
+  # Mixed precision (CUDA only): faster and about half the memory.
+  amp: true
+  # Evaluate on val every N epochs (and after the last one); the best box AP is kept (best.pt).
+  eval_every: 2
+  eval_batch_size: 2
+  # Continue from <run>/last.pt when it exists. To start over, change run_name. Resuming refuses
+  # a run whose model settings or data.dir differ.
+  resume: true
+  # Log the training losses to TensorBoard every N steps.
+  log_every: 20
+  # Also save last.pt every N training steps (null = only after each epoch), so a crash
+  # (e.g. of the GPU driver) loses a few minutes rather than the epoch under way.
+  checkpoint_every: 200
+
+evaluate:
+  # Checkpoint of this run: best, last, or a path to a .pt file.
+  checkpoint: best
+  # Which data entry to evaluate: val or test. Keep test for the final numbers.
+  split: val
+  # Evaluate a random subset of N images (null = all). For a quick smoke test.
+  max_images: null
+  batch_size: 2
+  # Plants found, per dataset and per species: a labelled plant counts as found when a
+  # detection with at least this score overlaps its box with at least this IoU. AP is COCO's.
+  score_threshold: 0.5
+  iou_threshold: 0.5
+  # EPPO taxonomy: the scientific names in by_species.csv.
+  eppo_taxa: configs/eppo_taxa.csv
+  # Images with ground truth and predictions side by side (0 = none).
+  num_previews: 20
+  preview_score_threshold: 0.5

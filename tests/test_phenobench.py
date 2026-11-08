@@ -51,7 +51,7 @@ def test_records_ignore_partly_visible_plants(tmp_path):
     assert record.attributes == {"date": "2020-05-15", "photo": "P0030852", "mm_per_px": 1.0,
                                  "mm_per_px_estimated": False}
     beet, weed = record.instances
-    assert beet.bbox_xyxy == (2, 3, 10, 8) and beet.mask.sum() == 40 and not beet.ignore
+    assert beet.bbox_xyxy == (2, 3, 10, 8) and not beet.ignore
     assert weed.source_label == "partial_weed" and weed.ignore
     (kept,) = phenobench.iter_records(raw, ["train/05-15_00028_P0030852"], ignore_partial=False)
     assert not kept.instances[1].ignore and "mm_per_px" not in kept.attributes

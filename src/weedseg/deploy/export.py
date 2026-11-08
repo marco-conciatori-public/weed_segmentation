@@ -1,44 +1,39 @@
-"""Deployment package of the two-stage model: everything needed to run it outside this repo.
+"""Deployment package of the plant detector: everything needed to run it outside this repo.
 
-<output_dir>/<name>/ gets the weights of both stages as safetensors (plain tensors, no
-pickled code), model.json (the settings weed_model.py needs, the species list and the
-hand-off thresholds), weed_model.py and requirements.txt as they are, splits.csv (every
-image of the training data and the split each model put it in), and README.md, made from
-README_template.md with the species, training data and validation numbers of the runs.
-See docs/twostage.md#deployment-package.
+<output_dir>/<name>/ gets the weights as safetensors (plain tensors, no pickled code),
+model.json (the settings plant_detector.py needs), plant_detector.py and requirements.txt as
+they are, splits.csv (every image of the training data and the split it was in), and
+README.md, made from README_template.md with the training data and the validation numbers of
+the run. See docs/detector.md#deployment-package.
 """
 
 import csv
 import hashlib
 import json
 import platform
+import re
 import shutil
 from collections import Counter, defaultdict
 from datetime import date
 from pathlib import Path
 from statistics import median
 from string import Template
-from collections.abc import Collection
 from typing import Any
 
-import timm
 import torch
 import torchvision
 from safetensors.torch import save_file
 from tqdm import tqdm
 
-from weedseg.classifier.crops import FILL_RGB
-from weedseg.classifier.data import MEAN, STD
 from weedseg.config import load_config
-from weedseg.data.coco import BOX_ONLY, IGNORE_CATEGORY, OTHER_CATEGORY
-from weedseg.eppo import NAME_SEPARATOR, load_taxa
-from weedseg.maskrcnn.run import checkpoint_path
+from weedseg.data.combine import PLANT_CATEGORY, PLANT_ID, SPLITS
+from weedseg.detector.model import ARCHITECTURE
+from weedseg.detector.run import checkpoint_path
+from weedseg.eppo import load_taxa
 from weedseg.paths import resolve
 
 HERE = Path(__file__).resolve().parent
-COPIED = ("weed_model.py", "requirements.txt")
-SPLITS = ("train", "val", "test")
-STAGES = ("detector", "classifier")
+COPIED = ("plant_detector.py", "requirements.txt")
 # Papers to cite, per dataset id of the combined data (see docs/datasets/).
 PAPERS = {
     "cropandweed": "Steininger et al., \"The CropAndWeed Dataset: a Multi-Modal Learning "
@@ -59,44 +54,19 @@ PAPERS = {
     "vcd": "Lac et al., \"An annotated image dataset of vegetable crops at an early stage of "
            "growth for proximal sensing applications\", Data in Brief 2022",
 }
-# Classifier backbones by a part of their timm name: the name in the README, the licence of
-# the pretrained weights, the licence file that must go with them (and with the fine-tuned
-# ones; None: none) and the terms the README states. An unknown backbone stops the export,
-# so its licence is looked up first.
-BACKBONES = {
-    "dinov3": {
-        "name": "DINOv3", "licence": "Meta's DINOv3 License", "file": "DINOv3_LICENSE.md",
-        # the licence's section 1.b, as https://ai.meta.com/resources/models-and-libraries/
-        # dinov3-license states it (the model card of the weights links there)
-        "terms": "**Built with DINOv3.** The classifier is a fine-tuned DINOv3 model, so its "
-                 "weights (`classifier.safetensors`) come under the DINOv3 License, a copy of "
-                 "which is `DINOv3_LICENSE.md`; the licence itself is what counts. In short: "
-                 "pass the licence on with the weights, and the weights only under its terms; "
-                 "show \"Built with DINOv3\" prominently on a related website, user interface, "
-                 "blog post, about page or product documentation; acknowledge DINOv3 in "
-                 "publications; and don't use the model against trade controls or for military, "
-                 "warfare, nuclear, espionage or weapons purposes.",
-    },
-    "dinov2": {"name": "DINOv2", "licence": "Apache-2.0", "file": None, "terms": ""},
-}
+# A dataset licence that rules out commercial use.
+NON_COMMERCIAL = re.compile(r"non-commercial|\bNC\b", re.IGNORECASE)
+# Species shown in the README's table of plants found: those with at least this many val plants.
+MIN_SPECIES_PLANTS = 20
 
 
 def export_package(config: dict[str, Any]) -> Path:
-    """Write the package that `config` (configs/export_twostage.yaml) describes; its folder."""
-    twostage = load_config(config["twostage"])
-    detector_config = load_config(twostage["detector"]["config"])
-    classifier_config = load_config(twostage["classifier"]["config"])
-    detector_file = checkpoint_path(detector_config, twostage["detector"]["checkpoint"])
-    classifier_file = checkpoint_path(classifier_config, twostage["classifier"]["checkpoint"])
-    detector = torch.load(detector_file, map_location="cpu", weights_only=False)
-    classifier = torch.load(classifier_file, map_location="cpu", weights_only=False)
-    if [c["name"] for c in detector["categories"]] != ["plant"]:
+    """Write the package that `config` (configs/export_detector.yaml) describes; its folder."""
+    detector_config = load_config(config["detector"])
+    detector_file = checkpoint_path(detector_config, config["checkpoint"])
+    checkpoint = torch.load(detector_file, map_location="cpu", weights_only=False)
+    if [c["name"] for c in checkpoint["categories"]] != [PLANT_CATEGORY]:
         raise SystemExit(f"{detector_file} is not a plant detector (one class, plant)")
-    crops = classifier["config"]["crops"]
-    if crops["background"] != "keep":
-        raise SystemExit(f"weed_model.py only cuts crops with background 'keep', not "
-                         f"{crops['background']!r}")
-    backbone = backbone_family(classifier["config"]["model"]["backbone"])
 
     created = date.today().isoformat()
     out_dir = resolve(config["output_dir"]) / config["name"].format(date=created)
@@ -106,317 +76,173 @@ def export_package(config: dict[str, Any]) -> Path:
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True)
 
-    taxa = load_taxa(resolve(config["eppo_taxa"]))
-    species_dir = resolve(classifier["config"]["data"]["dir"])
-    train = json.loads((species_dir / "train.json").read_text(encoding="utf-8"))
-    detector_dir = resolve(detector["config"]["data"]["dir"])
-    # its datasets and images only: the annotations aren't needed
-    detector_train = {key: value for key, value in json.loads(
-        (detector_dir / "train.json").read_text(encoding="utf-8")).items()
-                      if key in ("info", "images")}
-    detector_settings = detector["config"]["model"]
+    data_dir = resolve(checkpoint["config"]["data"]["dir"])
+    train = json.loads((data_dir / "train.json").read_text(encoding="utf-8"))
+    settings = checkpoint["config"]["model"]
     info = {
         "name": out_dir.name,
         "created": created,
+        "kind": "plant detector (boxes)",
         "detector": {
-            "architecture": "torchvision maskrcnn_resnet50_fpn_v2, one class (plant)",
+            "architecture": f"{ARCHITECTURE}, one class (plant)",
             # several sizes are a training augmentation; evaluation uses the last
-            "min_size": detector_settings["min_size"][-1],
-            "max_size": detector_settings["max_size"],
-            "anchor_sizes": detector_settings["anchor_sizes"],
-            "detections_per_image": detector_settings["detections_per_image"],
-            "score_threshold": detector_settings["score_threshold"],
-            "mask_threshold": detector_settings["mask_threshold"],
-            "run": detector_file.parent.name, "epoch": detector["epoch"],
+            "min_size": settings["min_size"][-1],
+            "max_size": settings["max_size"],
+            "anchor_sizes": settings["anchor_sizes"],
+            "detections_per_image": settings["detections_per_image"],
+            "score_threshold": settings["score_threshold"],
+            "run": detector_file.parent.name, "epoch": checkpoint["epoch"],
         },
-        "classifier": {
-            "backbone": classifier["config"]["model"]["backbone"],
-            "backbone_licence": backbone["licence"] + (f" ({backbone['file']})"
-                                                       if backbone["file"] else ""),
-            "input_size": crops["input_size"], "margin": crops["margin"],
-            "fill_rgb": list(FILL_RGB), "mean": MEAN.flatten().tolist(),
-            "std": STD.flatten().tolist(), "batch_size": twostage["classifier"]["batch_size"],
-            "run": classifier_file.parent.name, "epoch": classifier["epoch"],
-            "partial_labels": classifier["config"]["data"].get("partial_labels", False),
-        },
-        "handoff": config["handoff"],
+        "min_plant_score": config["min_plant_score"],
         "min_plant_size_mm": train["info"]["min_plant_size_mm"],
-        "classes": [describe_class(code, taxa, {c["name"] for c in train["categories"]
-                                                if c.get("supercategory") == "crop"})
-                    for code in classifier["classes"]],
-        "training_data": training_data(detector_train, train),
+        "training_data": training_data(train),
         "versions": {"python": platform.python_version(), "torch": torch.__version__,
-                     "torchvision": torchvision.__version__, "timm": timm.__version__},
+                     "torchvision": torchvision.__version__},
     }
     (out_dir / "model.json").write_text(json.dumps(info, indent=1, ensure_ascii=False),
                                         encoding="utf-8")
-    for name, checkpoint in (("detector", detector), ("classifier", classifier)):
-        save_file({k: v.contiguous() for k, v in checkpoint["model"].items()},
-                  out_dir / f"{name}.safetensors", metadata={"run": info[name]["run"]})
-    for name in COPIED + ((backbone["file"],) if backbone["file"] else ()):
+    save_file({k: v.contiguous() for k, v in checkpoint["model"].items()},
+              out_dir / "detector.safetensors", metadata={"run": info["detector"]["run"]})
+    for name in COPIED:
         shutil.copyfile(HERE / name, out_dir / name)
-    splits = write_splits(out_dir / "splits.csv",
-                          {"detector": detector_dir, "classifier": species_dir})
+    splits = write_splits(out_dir / "splits.csv", data_dir)
 
-    twostage_eval = (resolve(twostage["output_dir"])
-                     / twostage["run_name"].format(detector=detector_file.parent.name,
-                                                   classifier=classifier_file.parent.name)
-                     / "eval" / f"{twostage['evaluate']['split']}_{classifier_file.stem}")
-    # as evaluate_classifier.py names it (weedseg.maskrcnn.run.eval_dir), next to the checkpoint
-    classifier_eval = (classifier_file.parent / "eval"
-                       / f"{classifier_config['evaluate']['split']}_{classifier_file.stem}")
-    readme = readme_text(info, train, detector_train, classifier["classes"], taxa,
-                         twostage_eval, classifier_eval, config["handoff_table"], splits)
+    # as evaluate_detector.py names it (weedseg.detector.run.eval_dir), next to the checkpoint
+    evaluation = (detector_file.parent / "eval"
+                  / f"{detector_config['evaluate']['split']}_{detector_file.stem}")
+    taxa = load_taxa(resolve(config["eppo_taxa"]))
+    readme = readme_text(info, train, evaluation, taxa, splits)
     (out_dir / "README.md").write_text(readme, encoding="utf-8")
     size = sum(f.stat().st_size for f in out_dir.iterdir()) / 1e6
     print(f"Package ({size:.0f} MB): {out_dir}")
     return out_dir
 
 
-def backbone_family(backbone: str) -> dict[str, Any]:
-    """The BACKBONES entry of a timm model name."""
-    for key, family in BACKBONES.items():
-        if key in backbone:
-            return family
-    raise SystemExit(f"No licence known for the backbone {backbone}: look it up and add it "
-                     f"to BACKBONES in {Path(__file__).name}")
-
-
-def training_data(detector_train: dict[str, Any],
-                  classifier_train: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """The datasets of both stages' training data (their train.json): name, source, licence
-    and the stages it trains, of STAGES. The detector learns only from the images with masks:
-    it leaves out those labelled with boxes only (weedseg.maskrcnn.data.load_masked_coco)."""
-    used = {"detector": {image.get("dataset") for image in detector_train["images"]
-                         if not image.get(BOX_ONLY)},
-            "classifier": {image.get("dataset") for image in classifier_train["images"]}}
-    # the classifier's entries first: older detector data may lack a dataset's name
-    datasets = {**detector_train["info"]["datasets"], **classifier_train["info"]["datasets"]}
+def training_data(train: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """The datasets of the training data (its train.json): name, source and licence."""
     return {key: {"name": d.get("name", key), "source": d["source"],
-                  "licence": d["licence"].split("; see ")[0],
-                  "trains": [stage for stage in STAGES if key in used[stage]]}
-            for key, d in datasets.items()}
+                  "licence": d["licence"].split("; see ")[0]}
+            for key, d in train["info"]["datasets"].items()}
 
 
-def describe_class(code: str, taxa: dict[str, dict[str, Any]],
-                   crops: Collection[str] = ()) -> dict[str, Any]:
-    """Code, scientific name, English names (EPPO's, which marks none as preferred), family of
-    a class, and whether the training data tags it a crop (`crops`, used by the platform's
-    species lists)."""
-    if code == OTHER_CATEGORY:
-        return {"code": code, "name": "Other plant (a species not in this list)",
-                "common_names": [], "family": "", "crop": False}
-    row = taxa[code]
-    names = [" ".join(name.split()) for name in row["common_names_en"].split(NAME_SEPARATOR)]
-    return {"code": code, "name": row["name"], "common_names": [n for n in names if n],
-            "family": row["family_name"], "crop": code in crops}
-
-
-def readme_text(info: dict[str, Any], train: dict[str, Any], detector_train: dict[str, Any],
-                classes: list[str], taxa: dict[str, dict[str, str]], twostage_eval: Path,
-                classifier_eval: Path, thresholds: list[float],
-                splits: list[dict[str, str]]) -> str:
-    """README_template.md filled in; `train`, `detector_train`: the training data of the
-    classifier and of the detector; `splits`: the rows of splits.csv."""
-    datasets = train["info"]["datasets"]
-    backbone = backbone_family(info["classifier"]["backbone"])
+def readme_text(info: dict[str, Any], train: dict[str, Any], evaluation: Path,
+                taxa: dict[str, dict[str, str]], splits: list[dict[str, str]]) -> str:
+    """README_template.md filled in; `train`: the training data; `evaluation`: the folder of
+    evaluate_detector.py's outputs; `splits`: the rows of splits.csv."""
+    datasets = info["training_data"]
     values = {
         "name": info["name"], "created": info["created"],
-        "detector_run": info["detector"]["run"], "detector_epoch": info["detector"]["epoch"],
-        "classifier_run": info["classifier"]["run"],
-        "classifier_epoch": info["classifier"]["epoch"],
-        "backbone": info["classifier"]["backbone"],
-        "backbone_family": backbone["name"],
-        "backbone_licence": backbone["licence"],
-        # each placeholder below is empty for a backbone without licence terms
-        "built_with": (f"\n**Built with {backbone['name']}** (see [Licences](#licences)).\n"
-                       if backbone["terms"] else ""),
-        "licence_file_row": (f"\n| `{backbone['file']}` | The licence of the classifier's "
-                             f"weights, which must go with them |" if backbone["file"] else ""),
-        "backbone_terms": f"\n{backbone['terms']}\n" if backbone["terms"] else "",
-        "num_species": len(classes) - (OTHER_CATEGORY in classes),
+        "run": info["detector"]["run"], "epoch": info["detector"]["epoch"],
         "min_size": info["detector"]["min_size"], "max_size": info["detector"]["max_size"],
         "min_plant_size_mm": info["min_plant_size_mm"],
-        **{key: value for key, value in info["handoff"].items()},
-        **{key: value for key, value in info["versions"].items()},
-        "species_table": species_table(train, classes, taxa, datasets, classifier_eval),
-        "other_plant_taxa": other_plant_taxa(train, taxa),
-        "handoff_table": handoff_table(classifier_eval, thresholds),
-        "results_table": results_table(twostage_eval, datasets),
-        "classifier_table": classifier_table(classifier_eval, datasets),
-        "partial_section": partial_section(classifier_eval, datasets, taxa,
-                                           info["classifier"]["partial_labels"]),
-        "dataset_table": dataset_table(detector_train["images"] + train["images"],
-                                       info["training_data"]),
+        "min_plant_score": info["min_plant_score"],
+        **info["versions"],
+        "results_table": results_table(evaluation, datasets),
+        "species_table": species_table(evaluation, taxa),
+        "dataset_table": dataset_table(train, datasets),
         "split_table": split_table(splits),
+        "licence_text": licence_text(datasets),
     }
     template = Template((HERE / "README_template.md").read_text(encoding="utf-8"))
     return template.substitute(values)
 
 
-def species_table(train: dict[str, Any], classes: list[str], taxa: dict[str, dict[str, str]],
-                  datasets: dict[str, Any], classifier_eval: Path) -> str:
-    """One row per class: names, training plants per dataset, val accuracy of the
-    classifier."""
-    counts = plants_per_class(train)
-    accuracy = {row["category"]: row for row in read_csv(classifier_eval / "per_class.csv")}
-    rows = ["| Code | Species | English names | Family | Training plants | Val accuracy |",
-            "|---|---|---|---|---|---|"]
-    for code in classes:
-        described = describe_class(code, taxa)
-        sources = ", ".join(f"{datasets[d]['name']} {n:,}"
-                            for d, n in sorted(counts[code].items(), key=lambda kv: -kv[1]))
-        row = accuracy.get(code)
-        val = (f"{float(row['accuracy']):.0%} of {int(row['crops']):,}"
-               if row and row["accuracy"] else "no val plants")
-        name = described["name"] if code == OTHER_CATEGORY else f"*{described['name']}*"
-        rows.append(f"| `{code}` | {name} | {', '.join(described['common_names'][:3])} | "
-                    f"{described['family']} | {sources} | {val} |")
-    return "\n".join(rows)
+def results_table(evaluation: Path, datasets: dict[str, Any]) -> str:
+    """The detector on the val split, per dataset (by_dataset.csv of evaluate_detector.py).
+    The first four columns are those the NeutraWeed platform reads."""
+    rows = [r for r in read_csv(evaluation / "by_dataset.csv") if r["dataset"] != "all"]
+    if not rows:
+        return "(No evaluation found.)"
+    lines = [("| Dataset | Val images | Labelled plants | Plants found | "
+              "Detections on no labelled plant | Box AP50 |"), "|---|---|---|---|---|---|"]
+    for r in rows:
+        name = datasets.get(r["dataset"], {}).get("name", r["dataset"])
+        lines.append(f"| {name} | {int(r['images']):,} | {int(r['plants']):,} | "
+                     f"{share(r['found'])} | {int(r['detections_on_no_plant']):,} | "
+                     f"{float(r['AP50']):.3f} |")
+    return "\n".join(lines)
 
 
-def plants_per_class(train: dict[str, Any]) -> dict[str, Counter]:
-    """Labelled training plants per class and dataset (box-only datasets included: the
-    classifier learns from them)."""
+def species_table(evaluation: Path, taxa: dict[str, dict[str, str]]) -> str:
+    """Plants found per species of their label (by_species.csv), for the species with at least
+    MIN_SPECIES_PLANTS val plants."""
+    rows = read_csv(evaluation / "by_species.csv")
+    if not rows:
+        return "(No evaluation found.)"
+    shown = [r for r in rows if int(r["plants"]) >= MIN_SPECIES_PLANTS]
+    lines = ["| Code | Label | Val plants | Plants found |", "|---|---|---|---|"] if shown else []
+    for r in shown:
+        name = r["name"] or r["eppo"]
+        rank = taxa.get(r["eppo"], {}).get("rank")
+        label = f"*{name}*" if rank in ("species", "genus") else name
+        lines.append(f"| `{r['eppo']}` | {label} | {int(r['plants']):,} | {share(r['found'])} |")
+    rest = len(rows) - len(shown)
+    if rest:
+        what = f"{rest} {'more ' * bool(shown)}label{'s have' if rest > 1 else ' has'}"
+        lines.append("\n" * bool(shown) + f"{what} fewer than {MIN_SPECIES_PLANTS} val plants"
+                     f"{' each' * (rest > 1)} (see by_species.csv of the evaluation).")
+    return "\n".join(lines)
+
+
+def dataset_table(train: dict[str, Any], datasets: dict[str, dict[str, Any]]) -> str:
+    """One row per training dataset: source, licence, resolution, training images and
+    plants, paper."""
+    images = defaultdict(list)
+    for image in train["images"]:
+        images[image.get("dataset")].append(image)
     dataset_of = {image["id"]: image.get("dataset") for image in train["images"]}
-    names = {c["id"]: c["name"] for c in train["categories"]}
-    counts = defaultdict(Counter)
-    for annotation in train["annotations"]:
-        name = names[annotation["category_id"]]
-        if name != IGNORE_CATEGORY and not annotation.get("iscrowd"):
-            counts[name][dataset_of[annotation["image_id"]]] += 1
-    return counts
-
-
-def other_plant_taxa(train: dict[str, Any], taxa: dict[str, dict[str, str]]) -> str:
-    """The taxa `other_plant` was trained on, by scientific name."""
-    category = next(c for c in train["categories"] if c["name"] == OTHER_CATEGORY)
-    names = sorted(taxa[code]["name"] if code in taxa else code
-                   for code in category["eppo_codes"])
-    return ", ".join(f"*{name}*" for name in names)
-
-
-def handoff_table(classifier_eval: Path, thresholds: list[float]) -> str:
-    """Per species-probability threshold: the share of plants (not other_plant) the model
-    names itself, and how often it is right on those, on the val crops."""
-    rows = [r for r in read_csv(classifier_eval / "predictions.csv")
-            if r["predicted"] != OTHER_CATEGORY]
-    if not rows:
-        return "(No classifier evaluation found.)"
-    lines = ["| Threshold | Plants named by the model | Of those, species right |",
-             "|---|---|---|"]
-    for threshold in thresholds:
-        kept = [r for r in rows if float(r["probability"]) >= threshold]
-        right = sum(r["true"] == r["predicted"] for r in kept)
-        lines.append(f"| {threshold} | {len(kept) / len(rows):.1%} | "
-                     f"{right / len(kept):.1%} |" if kept else f"| {threshold} | 0% | - |")
-    return "\n".join(lines)
-
-
-def results_table(twostage_eval: Path, datasets: dict[str, Any]) -> str:
-    """Both stages on the val split, per dataset (by_dataset.csv of predict_twostage.py)."""
-    rows = [r for r in read_csv(twostage_eval / "by_dataset.csv") if r["dataset"] != "all"]
-    if not rows:
-        return "(No two-stage evaluation found.)"
-    lines = ["| Dataset | Val images | Labelled plants | Plants found | Species right (of found) |",
-             "|---|---|---|---|---|"]
-    for r in rows:
-        lines.append(f"| {datasets[r['dataset']]['name']} | {int(r['images']):,} | "
-                     f"{int(r['plants']):,} | {share(r['found'])} | "
-                     f"{share(r['species_right'])} |")
-    return "\n".join(lines)
-
-
-def classifier_table(classifier_eval: Path, datasets: dict[str, Any]) -> str:
-    """The classifier alone on the val crops, per dataset (accuracy_by_dataset.csv)."""
-    rows = read_csv(classifier_eval / "accuracy_by_dataset.csv")
-    if not rows:
-        return "(No classifier evaluation found.)"
-    lines = ["| Dataset | Val plants | Species right | Balanced accuracy |", "|---|---|---|---|"]
-    for r in rows:
-        lines.append(f"| {datasets[r['dataset']]['name']} | {int(r['crops']):,} | "
-                     f"{share(r['accuracy'])} | {share(r['balanced_accuracy'])} |")
-    return "\n".join(lines)
-
-
-def partial_section(classifier_eval: Path, datasets: dict[str, Any],
-                    taxa: dict[str, dict[str, str]], trained: bool) -> str:
-    """How often the classifier's answer fits plants labelled without their species
-    (partial_labels.csv of evaluate_classifier.py); nothing when it has no such plants.
-    `trained`: whether the classifier learned from them (data.partial_labels)."""
-    path = classifier_eval / "partial_labels.csv"
-    if not path.is_file():
-        return ""
-    learned = ("The classifier learned from these too, as \"one of the classes the label "
-               "allows\"." if trained else "The classifier did not learn from these.")
-    intro = ("Some plants are labelled without their species: only with their genus or "
-             "family, or with the classes they can or can't be (PhenoBench's weeds: anything "
-             f"but sugar beet). {learned} They can't be scored as right or wrong, but the "
-             "classifier's answer can fit the label or not:")
-    columns = ["Dataset", "Label", "Classes it allows", "Val plants", "Answer fits",
-               "Most often called"]
-    lines = ["", intro, "", f"| {' | '.join(columns)} |", "|---" * len(columns) + "|"]
-    for r in read_csv(path):
-        taxon = taxa.get(r["eppo"], {})
-        label = (f"*{taxon['name']}*" if taxon.get("rank") in ("genus", "family", "order")
-                 else "species unknown")
-        lines.append(f"| {datasets[r['dataset']]['name']} | {label} | {r['allowed']} | "
-                     f"{int(r['crops']):,} | {share(r['label_fit'])} | "
-                     f"{r['most_predicted']} |")
-    return "\n".join(lines) + "\n"
-
-
-def dataset_table(images: list[dict[str, Any]], datasets: dict[str, dict[str, Any]]) -> str:
-    """One row per training dataset: source, licence, paper, resolution, what it trains.
-    `images`: the training images of both stages (an image in both counts once);
-    `datasets`: training_data of model.json."""
-    by_dataset = defaultdict(list)
-    for image in {image["file_name"]: image for image in images}.values():
-        by_dataset[image.get("dataset")].append(image)
-    lines = ["| Dataset | Licence | Ground resolution | Trains | Training images | Paper |",
-             "|---|---|---|---|---|---|"]
+    plants = Counter(dataset_of[a["image_id"]] for a in train["annotations"]
+                     if a["category_id"] == PLANT_ID)
+    lines = [("| Dataset | Licence | Ground resolution | Training images | Training plants | "
+              "Paper |"), "|---|---|---|---|---|---|"]
     for key, dataset in datasets.items():
-        images = by_dataset[key]
-        mm = [i["mm_per_px"] for i in images if i.get("mm_per_px")]
-        estimated = any(i.get("mm_per_px_estimated") for i in images)
+        mm = [i["mm_per_px"] for i in images[key] if i.get("mm_per_px")]
+        estimated = any(i.get("mm_per_px_estimated") for i in images[key])
         resolution = (f"{median(mm):.2f} mm/px" + (" (estimated)" if estimated else "")
                       if mm else "unknown")
-        box_only = all(i.get(BOX_ONLY) for i in images)
-        trains = " and ".join(dataset["trains"]) + (" (boxes only)" if box_only else "")
         lines.append(f"| [{dataset['name']}]({dataset['source'].split(' ')[0]}) | "
-                     f"{dataset['licence']} | {resolution} | {trains} | "
-                     f"{len(images):,} | {PAPERS.get(key, '-')} |")
+                     f"{dataset['licence']} | {resolution} | {len(images[key]):,} | "
+                     f"{plants[key]:,} | {PAPERS.get(key, '-')} |")
     return "\n".join(lines)
 
 
-def split_rows(data_dirs: dict[str, Path]) -> dict[str, dict[str, str]]:
-    """The images of the stages' datasets ({stage: folder with <split>.json}), by file name:
-    their dataset, path inside the dataset's image folder, group, and the split each stage
-    put them in (empty when the stage didn't use the image: the detector leaves out those
-    labelled with boxes only, as training_data says). No sha256 yet."""
+def licence_text(datasets: dict[str, dict[str, Any]]) -> str:
+    """What the training datasets' licences allow, for the README."""
+    restricted = [d["name"] for d in datasets.values() if NON_COMMERCIAL.search(d["licence"])]
+    if not restricted:
+        return ("No training dataset has a non-commercial licence (see the table above); "
+                "check each one's terms before commercial use, and cite the datasets (papers "
+                "above) when you present results.")
+    return ("The model was trained on datasets with non-commercial licences ("
+            f"{', '.join(restricted)}; see the table above). So **use it only for "
+            "non-commercial research and demonstration**, and cite the datasets (papers above) "
+            "when you present results. Commercial use would need a model retrained without "
+            "those datasets.")
+
+
+def split_rows(data_dir: Path) -> dict[str, dict[str, str]]:
+    """The images of the training data (data_dir/<split>.json), by file name: their dataset,
+    path inside the dataset's image folder, group and split. No sha256 yet."""
     rows = {}
-    for stage, folder in data_dirs.items():
-        for split in SPLITS:
-            coco = json.loads((folder / f"{split}.json").read_text(encoding="utf-8"))
-            image_dirs = {name: d.get("image_dir", "").rstrip("/")
-                          for name, d in coco["info"]["datasets"].items()}
-            for image in coco["images"]:
-                if stage == "detector" and image.get(BOX_ONLY):
-                    continue
-                name = image["file_name"]
-                row = rows.setdefault(name, {
-                    "dataset": image["dataset"],
-                    "image": name.removeprefix(image_dirs.get(image["dataset"], "") + "/"),
-                    "sha256": "", "group": image.get("group", ""),
-                    **{f"{s}_split": "" for s in data_dirs}})
-                row[f"{stage}_split"] = split
+    for split in SPLITS:
+        coco = json.loads((data_dir / f"{split}.json").read_text(encoding="utf-8"))
+        image_dirs = {name: d.get("image_dir", "").rstrip("/")
+                      for name, d in coco["info"]["datasets"].items()}
+        for image in coco["images"]:
+            name = image["file_name"]
+            rows[name] = {
+                "dataset": image["dataset"],
+                "image": name.removeprefix(image_dirs.get(image["dataset"], "") + "/"),
+                "sha256": "", "group": image.get("group", ""),
+                # the platform reads this column name (the two-stage export's, per stage)
+                "detector_split": split}
     return rows
 
 
-def write_splits(path: Path, data_dirs: dict[str, Path]) -> list[dict[str, str]]:
+def write_splits(path: Path, data_dir: Path) -> list[dict[str, str]]:
     """splits.csv: `split_rows` with the sha256 of each image file, sorted by dataset and
     image. Its rows."""
-    rows = split_rows(data_dirs)
+    rows = split_rows(data_dir)
     missing = 0
     for file_name, row in tqdm(rows.items(), desc="sha256 of the images", unit="image"):
         image = resolve(file_name)
@@ -436,13 +262,13 @@ def write_splits(path: Path, data_dirs: dict[str, Path]) -> list[dict[str, str]]
 
 
 def split_table(rows: list[dict[str, str]]) -> str:
-    """Images per split, for each stage of splits.csv."""
-    stages = [key.removesuffix("_split") for key in rows[0] if key.endswith("_split")]
-    lines = ["| Split | " + " | ".join(f"Images ({stage})" for stage in stages) + " |",
-             "|---" * (len(stages) + 1) + "|"]
-    for split in SPLITS:
-        counts = [sum(r[f"{stage}_split"] == split for r in rows) for stage in stages]
-        lines.append(f"| {split} | " + " | ".join(f"{n:,}" for n in counts) + " |")
+    """Images per split and dataset, from splits.csv."""
+    counts = Counter((r["dataset"], r["detector_split"]) for r in rows)
+    datasets = sorted({r["dataset"] for r in rows})
+    lines = ["| Dataset | " + " | ".join(SPLITS) + " |", "|---" * (len(SPLITS) + 1) + "|"]
+    for dataset in datasets:
+        lines.append(f"| {dataset} | "
+                     + " | ".join(f"{counts[dataset, s]:,}" for s in SPLITS) + " |")
     return "\n".join(lines)
 
 

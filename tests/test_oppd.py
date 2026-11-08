@@ -1,7 +1,7 @@
 import json
 
 from weedseg.data import oppd
-from weedseg.data.coco import BOX_ONLY, LabelMap
+from weedseg.data.coco import LabelMap
 from weedseg.data.convert import convert_dataset
 from weedseg.eppo import load_taxa
 from weedseg.paths import resolve
@@ -55,11 +55,11 @@ def test_records(tmp_path):
                                  "sown_species": "SINAR", "mm_per_px": 0.15,
                                  "mm_per_px_estimated": False}
     charlock, dicot = record.instances
-    assert charlock.bbox_xyxy == (2, 3, 10, 8) and charlock.mask is None
+    assert charlock.bbox_xyxy == (2, 3, 10, 8)
     assert dicot.source_label == "PPPDD" and not dicot.ignore
 
 
-def test_conversion_marks_box_only_and_maps_unidentified_plants(tmp_path):
+def test_conversion_keeps_trays_together_and_maps_unidentified_plants(tmp_path):
     raw = write_dataset(tmp_path)
     names = oppd.image_names(raw)
     label_map = LabelMap(resolve("configs/label_maps/oppd.csv"), "species",
@@ -72,13 +72,13 @@ def test_conversion_marks_box_only_and_maps_unidentified_plants(tmp_path):
                 "split": {"seed": 0, "fractions": {"train": 0.5, "val": 0.5}}}
     out = convert_dataset(names, oppd.tray_of, lambda name: oppd.box_labels(raw, name),
                           lambda split_names: oppd.iter_records(raw, split_names, 0.5),
-                          label_map, settings, {"name": "OPPD"}, box_only=True)
+                          label_map, settings, {"name": "OPPD"})
     files = [json.loads((out / f"{split}.json").read_text(encoding="utf-8"))
              for split in ("train", "val")]
     images = [image for coco in files for image in coco["images"]]
     # The tray without plants is dropped; the other tray's two images stay together.
     assert sorted(len(coco["images"]) for coco in files) == [0, 2]
-    assert all(image[BOX_ONLY] and image["group"] == "T01_Box053" for image in images)
+    assert all(image["group"] == "T01_Box053" for image in images)
     coco = next(coco for coco in files if coco["images"])
     names_of = {c["id"]: c["name"] for c in coco["categories"]}
     # The dicot (4 px, 2 mm at 0.5 mm/px) is under 3 mm: an ignore region.

@@ -5,15 +5,12 @@ evaluation code then reads only this format. Per-dataset notes live in [datasets
 [datasets/provenance.md](datasets/provenance.md) compares where and how each was recorded, to
 check a new dataset against the others before adding it.
 
-Status: proposed and in use by the CropAndWeed converter. It has not yet been agreed with
-the team that prepares our own dataset.
+This branch (`bounding_box_only`) trains a plant detector with boxes only, so the converted
+files hold **boxes, no masks**. A dataset that has outlines (CropAndWeed's semantic masks,
+PhenoBench's instance masks, ACRE's polygons) uses them only inside its reader: to find each
+plant's box and the ignore regions. The segmentation line (branch `master`) keeps the masks.
 
-## Why COCO with instance masks
-
-- The label format (boxes or instance masks) is not decided yet. Boxes can be computed from
-  masks, but masks can't be recovered from boxes, so masks keep both options open.
-- Masks also help to locate the plant's growing point for the weeding tool.
-- Most annotation tools (CVAT, Label Studio) and training frameworks read and write COCO.
+Most annotation tools (CVAT, Label Studio) and training frameworks read and write COCO.
 
 ## Layout
 
@@ -84,23 +81,25 @@ Standard COCO fields, plus these extras:
 | image | `group` | Split unit, e.g. a recording session. All images of a group are in the same split. |
 | image | `session`, `subset`, ... | Dataset-specific metadata, e.g. soil, moisture, lighting. |
 | image | `mm_per_px`, `mm_per_px_estimated` | Ground resolution, and whether it is only an estimate. |
-| image | `box_only` | The image's dataset is labelled with boxes only, without masks (see below). |
-| annotation | `segmentation` | Instance mask as compressed RLE. |
+| image | `dataset` | Set by combining: the source dataset. |
 | annotation | `stem` | `[x, y]` of the plant's stem / growing point, when known. |
 | annotation | `source_label` | The label as written in the source dataset. |
 | annotation | `iscrowd` | 1 = **ignore region**, see below. |
-| annotation | `hidden_plant` | Set by combining on plants that are ignore regions only because of the choice of classes (rule 3 below); the two-stage detector learns them as plants. |
-| annotation | `one_of`, `none_of` | From the label map: EPPO codes of taxa the plant belongs to one of, or to none of (see below). |
-| annotation | `allowed_classes` | Set by combining on hidden plants whose label rules out some classes: the classes they may belong to, a [partial label](#partial-labels) for the species classifier. |
-| category | `supercategory` | `crop`, `weed`, `mixed` or `ignore`. |
+| annotation | `eppo` | Set by combining: the EPPO code of the plant's own label, so the evaluation can say which plants the detector misses. |
+| category | `supercategory` | `crop`, `weed`, `mixed`, `plant` or `ignore`. |
 | category | `source_labels`, `common_names`, `scientific_names` | What the category was built from. |
+
+`info.taxonomy` names the taxonomy a file was converted with (`species` for the converted
+datasets, `plant` for the combined data).
 
 ## Categories and taxonomies
 
 - Each dataset has a label-map CSV with one row per source label. It has the columns
   `source_label`, `role` (crop/weed), `eppo`, `eppo_note`, `scientific_name`, ... and
   optionally one column per dataset-specific **taxonomy** (a class grouping). The
-  conversion config picks the taxonomy.
+  conversion config picks the taxonomy; combining into the detector's data needs `species`,
+  so each plant keeps its EPPO code. The species and groupings matter only for the reports
+  (plants found per species): the detector itself has one class.
 - The `species` taxonomy uses **EPPO codes** as category names (e.g. `CHEAL` =
   *Chenopodium album*). That gives every dataset the same key for the same species.
   Genus-level labels use EPPO genus codes (e.g. `1GERG` = *Geranium*).
@@ -116,102 +115,37 @@ Standard COCO fields, plus these extras:
 - Dataset-specific groupings (e.g. CropAndWeed's `fine24`) are label-map columns.
   Choosing a coarser grouping only takes a re-conversion, never relabelling.
 - **Plants of unknown species** use the code of the plant kingdom, `1PLAK` (*Plantae*), e.g.
-  PhenoBench's weeds, which are labelled one plant at a time but only as "weed". They
-  have no class of their own (they become ignore regions in the species files, rule 3
-  below), but the plant detector of the two-stage pipeline learns from them
-  ([twostage.md](twostage.md)), and so does the species classifier when their label rules
-  out some classes ([partial labels](#partial-labels)). Use `1PLAK` only when each label is
-  one whole plant. Its role may be `unknown` (e.g. ACRE's "unknown" plants, some of which
+  PhenoBench's and LincolnBeet's weeds, which are labelled one plant at a time but only as
+  "weed". For the detector they are plants like any other. Use `1PLAK` only when each label
+  is one whole plant. Its role may be `unknown` (e.g. ACRE's "unknown" plants, some of which
   the annotators called crops). Unclear areas (e.g. CropAndWeed's "Vegetation") get no code
-  and stay ignore regions everywhere.
-- **What a coarse label still says** goes into the optional columns `one_of` and `none_of`:
-  EPPO codes separated by spaces, of rank species to order (the taxa table records which
-  species those hold). The plant belongs to one of the `one_of` taxa and to none of the
-  `none_of` taxa. PhenoBench's weeds are `1PLAK` with `none_of` `BEAVA`: whatever they are,
-  not sugar beet. OPPD's monocots of unknown species are `one_of` the 11 monocot orders, its
-  dicots `none_of` them (EPPO has no single monocot taxon: its monocots are two clades,
-  Commelinids and Basal monocotyledons). ACRE's plants without a name keep the annotators'
-  class in their source label, e.g. `inconnu (weed)`, which is `none_of` the dataset's
-  crops. A genus or family label needs neither column: the taxonomy says which classes it
-  holds. The converter copies the columns into each annotation of that label.
+  and stay ignore regions.
 
-## Combining datasets and choosing the classes
+## Combining datasets into the detector's data
 
 Each dataset is converted on its own with taxonomy `species` (one category per EPPO code),
 the same `min_plant_size_mm`, and its own split. `scripts/combine_datasets.py`
-(`configs/combine.yaml`) then merges them and chooses the classes on the combined training
-images, so that every dataset counts (`weedseg.data.combine`):
+(`configs/combine.yaml`) then merges them into one class (`weedseg.data.combine`):
 
-1. A species with at least `min_train_images` training images is a class.
-2. A rarer species goes to `other_plant`.
-3. A label coarser than species (e.g. genus only) goes to `other_plant`, unless one of its
-   species is a class: then it becomes an ignore region, since the plant may well be of
-   that species (e.g. *Geranium* next to *Geranium pusillum*). A code above order (clade,
-   class, phylum, kingdom, e.g. `1PLAK`) always counts as holding a class, since the taxa
-   table doesn't record its species.
-4. Ignore regions stay ignore regions.
+- Every labelled plant becomes `plant`, whatever its label: a species, a genus only, or
+  `1PLAK`. It keeps its own code in `eppo`.
+- Ignore regions stay ignore regions (category `ignore`).
+- Each dataset keeps its own split; image file names become paths from the project root
+  (`info.image_dir` is "."), each image gets its `dataset`, and `info.licences` lists the
+  licences of all the datasets, since the most restrictive one applies to the combination.
 
-The decisions are printed and saved to `classes.txt`, under the list of datasets. The output
-goes to `data/processed/<name>/species_min<N>img_min<size>mm`, where `<name>` is the
-config's `name` (since 2026-10-30 `public7`) or else the dataset names joined by + (the older
-combinations, e.g. `cropandweed+acre`): a short name keeps run and preview paths under
-Windows' 260 characters. Each of the config's `variants` (the datasets plus some more) is
-combined the same way into a folder of its own, for classifier variants trained on other
-data (`public7+imageweeds`). Each plant keeps its
-own EPPO code in an `eppo` field, whatever class it ends up in; image file names become
-paths from the project root (`info.image_dir` is "."), and `info.licences` lists the
-licences of all the datasets, since the most restrictive one applies to the combination.
+The output goes to `data/processed/<name>/plant[_min<size>mm]`, where `<name>` is the config's
+`name` (`public5`) or else the dataset names joined by +. A short name keeps run and preview
+paths under Windows' 260 characters.
 
-### Partial labels
+## Only datasets whose every plant is boxed
 
-A plant hidden by rule 3 has no class, but its label may still rule out some classes.
-Combining then gives it `allowed_classes`, the classes it may belong to, and the species
-classifier learns from it that it is one of those, without being told which
-([twostage.md](twostage.md#partial-labels); added 2026-10-26 after the classifier had
-learnt to call every PhenoBench-like plant sugar beet):
-
-- A genus, family or order code allows the classes in that taxon: CropAndWeed's *Poa* can
-  be `POAAN` or `other_plant`. When the label is a crop or a weed, only classes of the same
-  role: CropAndWeed's crop poppy (*Papaver*, genus only) is not the weed *Papaver rhoeas*,
-  so it can only be `other_plant`.
-- A code above order allows every class, narrowed down by `one_of` and `none_of`.
-- `other_plant` is always allowed (a species without a class of its own), unless `one_of`
-  lists only species that are all classes.
-- A plant whose label allows every class (ACRE's "unknow", GROUNDBASED_WEED's `NR`) gets no
-  partial label: it stays a plain ignore region for the classifier.
-
-The partial labels of the training split are listed at the end of `classes.txt`, and
-`info.partial_labels` counts them in each split. Mask R-CNN and every evaluation of
-detections still treat these plants as ignore regions.
-
-## Datasets labelled with boxes only
-
-Some datasets name each plant's species but give only its box (GROUNDBASED_WEED, OPPD, and
-the Weed-AI datasets: LincolnBeet, ImageWeeds, VCD). Their converter passes `box_only=True`
-to `convert_dataset`, which marks every image `box_only`.
-They are combined with the others into the same files, with one class list (decided
-2026-10-21), and each step takes what it can use:
-
-- Their plants count when combining chooses the classes: a species may become a class only
-  thanks to them.
-- The species classifier of the two-stage pipeline learns from their plants, since a crop
-  needs only a box, and `evaluate_classifier.py` scores it on them
-  (`accuracy_by_dataset.csv`).
-- Mask R-CNN (the species model, the two-stage detector) leaves these images out, since it
-  would learn the boxes as plant outlines. So does the evaluation of instance predictions
-  (`evaluate_maskrcnn.py`, `predict_twostage.py`, `review_errors.py`): all of them read the
-  files through `weedseg.maskrcnn.data.load_masked_coco`.
-
-A labelled plant without a mask on an image not marked `box_only` stops Mask R-CNN training
-and evaluation with an error, so a converter that forgets the mark is noticed.
-
-## The other_plant category
-
-With per-species classes, species too rare to learn and labels coarser than species (e.g.
-genus only) share one `other_plant` category (supercategory `other`). It is a normal class:
-the model learns to find these plants, and at inference they go to a generic model. It is
-not for unidentified plants: those may belong to any class and stay ignore regions (with a
-partial label for the classifier when their label rules out some classes).
+A detector learns every unboxed area of an image as "not a plant". So a dataset joins the
+combination only when every plant in its images has a box or lies in an ignore region. The
+species and the outline don't matter, so datasets labelled only crop/weed, or with boxes
+only, qualify too. Datasets that box only some plants don't, however many boxes they have:
+see [detector.md](detector.md#datasets) for the ones converted and left out. Check a new
+dataset with `scripts/preview_annotations.py` before adding it.
 
 ## Ignore regions
 
@@ -220,14 +154,17 @@ treated as background:
 
 - plants the source dataset could not identify (e.g. CropAndWeed "Vegetation"),
 - labels left unmapped by the chosen taxonomy,
-- annotated plants whose mask could not be derived,
-- vegetation present in a mask but without any box.
+- plants under `min_plant_size_mm` (they keep their own category in `ignored_category_id`),
+- partly visible or untrusted plants, where the source marks them (PhenoBench, ACRE),
+- boxes whose plant pixels could not be found, and vegetation present in a mask but without
+  any box (CropAndWeed).
 
 An ignore region keeps the category of its label when that label has one, and uses the
-`ignore` category otherwise. Training code must drop ignore regions from the targets and should not
-penalise predictions on them. **Evaluation:** COCO's standard evaluation ignores crowd
-regions only for predictions of the same category, so ignore regions have to be matched
-against predictions of any class, whatever category the region kept (`weedseg.evaluation`).
+`ignore` category otherwise (always `ignore` in the combined data). Training neither learns
+from ignore regions nor penalises detections on them (`IgnoreAwareRPN`, label -1 in
+`weedseg.detector`). **Evaluation:** COCO's standard evaluation ignores crowd regions only for
+predictions of the same category, so ignore regions are matched against predictions of any
+class, whatever category the region kept (`weedseg.evaluation`).
 
 ## Splits
 

@@ -1,0 +1,29 @@
+# Run the steps of the plant detector one after the other, e.g. overnight on the training
+# machine. Used by scripts/run_detector.py. See docs/detector.md.
+#
+# Each step keeps its own config; only the order and the config files live here.
+combine: configs/combine.yaml
+detector: configs/detector.yaml
+export: configs/export_detector.yaml
+# Everything the runner prints also goes to <log_dir>/run_detector_<date>_<time>.log.
+log_dir: runs/detector/logs
+
+# Steps to run, in this order; remove those you don't need. Re-running is safe: training
+# resumes from its last.pt (a finished one does nothing), so after a failure, fix the cause and
+# start again. The datasets must be converted first (scripts/convert_*.py).
+#   combine_datasets   the converted datasets merged into one plant class (configs/combine.yaml)
+#   train_detector     the detector on the combined data
+#   evaluate_detector  AP and plants found per dataset and species, on evaluate.split
+#   export_detector    the deployment package (its name holds today's date; it stops if a
+#                      package of that name exists, unless overwrite is set)
+steps:
+  - combine_datasets
+  - train_detector
+  - evaluate_detector
+
+# Each step runs in a process of its own. When it crashes (e.g. the GPU driver resets), the
+# step is started again after restart_wait_s seconds, up to max_restarts times in all (0 = stop
+# at the first crash). Training resumes from its last checkpoint (train.checkpoint_every).
+# Python errors (wrong settings, missing files) are never retried.
+max_restarts: 10
+restart_wait_s: 60

@@ -51,8 +51,7 @@ From the paper, and measured from the Weed-AI download (2026-10-30):
 ## Conversion choices
 
 - `scripts/convert_weedai.py` (`configs/vcd.yaml`, listed in `configs/weedai.yaml`), reader
-  `weedseg.data.weedai`, shared pipeline `weedseg.data.convert`. **Box only**: the classifier
-  learns from these crops, Mask R-CNN doesn't see them.
+  `weedseg.data.weedai`, shared pipeline `weedseg.data.convert`.
 - **Stem boxes are left out** (`drop_labels`). They could become stem points later
   (`Instance.stem_xy`); nothing uses stem points yet.
 - **Group = one crop row on one day** (the file name up to the image index; the undated ones
@@ -65,7 +64,6 @@ From the paper, and measured from the Weed-AI download (2026-10-30):
   and one image is dropped for it.
 - Leek is `ALLPO` (*Allium porrum*), role crop. The dataset says *Allium ampeloprasum*, the
   species that also covers wild leek; the label map's `eppo_note` explains it.
-  `configs/rules/example.yaml` lists leek as a crop.
 - **Split 70/15/15 by group, balanced over species, seed 5.** Seed 0 put 26% of the leeks
   in val (one leek row has 206 images); seed 5, the best of 0-9, keeps every crop within 5
   points of the fractions. The authors' train/valid lists are not used: they have no test
@@ -81,17 +79,13 @@ From the paper, and measured from the Weed-AI download (2026-10-30):
 
 ## Known limitations
 
-- **No weeds.** The classifier sees only crops from this rig, so its look (hull, LED light)
-  may come to mean "crop". The weeds in these images would then be called crops; it matters
-  only for images like these, and our evaluation doesn't score them (no weed boxes).
-- **Related to ACRE** (same site and sown weeds, see above): a gain on ACRE's beans from
-  VCD may be partly site-specific.
+- **No weed boxes**, though weeds are visible: a detector trained on these images would
+  learn the weeds as background.
+- **Related to ACRE** (same site and sown weeds, see above).
 - The scale is an estimate, and unknown for the undated images.
 - Plants cut by the image border are boxed like the others (the paper gives no rule).
 
-## In the combination
+## Not in the detector's data
 
-Since 2026-10-30 in `public7` (`configs/combine.yaml`) with CropAndWeed, ACRE, PhenoBench,
-OPPD, GROUNDBASED_WEED and LincolnBeet. Leek (`ALLPO`) becomes a class; bean training images
-go from 216 to 772, maize from 1,597 to 2,327 (see [twostage.md](../twostage.md#steps),
-"Adding Weed-AI datasets").
+VCD is converted but left out of `configs/combine.yaml`, since its weeds have no box. It
+could join with "positives only" training ([detector.md](../detector.md#datasets)).

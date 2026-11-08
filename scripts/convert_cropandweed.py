@@ -1,8 +1,8 @@
 """Convert CropAndWeed to COCO (one JSON per split). Settings: configs/cropandweed.yaml (convert).
 
 The pipeline (size filter, split by session balanced over species, COCO files) is
-weedseg.data.convert. With taxonomy species, scripts/combine_datasets.py then chooses the
-classes.
+weedseg.data.convert. With taxonomy species, scripts/combine_datasets.py then merges it with
+the other datasets into the detector's data.
 """
 
 from weedseg.config import load_config
@@ -27,8 +27,7 @@ def main() -> None:
         raise SystemExit(f"No images found under {raw_dir}; run scripts/download_datasets.py")
 
     def records_of(split_names: list[str]):
-        return cropandweed.iter_records(raw_dir, split_names, settings["instance_masks"],
-                                        settings["unboxed_min_area"],
+        return cropandweed.iter_records(raw_dir, split_names, settings["unboxed_min_area"],
                                         settings["mm_per_px_estimate"])
 
     convert_dataset(names, cropandweed.session_of,

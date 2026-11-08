@@ -3,7 +3,7 @@ import json
 import pytest
 
 from weedseg.data import weedai
-from weedseg.data.coco import BOX_ONLY, LabelMap
+from weedseg.data.coco import LabelMap
 from weedseg.data.convert import convert_dataset
 from weedseg.eppo import load_taxa
 from weedseg.paths import resolve
@@ -96,8 +96,8 @@ def test_names_boxes_and_records(tmp_path):
         "2019-05-23_montoldre_bean_1")
     assert first.attributes == {"part": "beans", "source_name": "2019-05-23_montoldre_bean_1_000000",
                                 "mm_per_px": 570 / 2048, "mm_per_px_estimated": True}
-    assert [(i.source_label, i.bbox_xyxy, i.mask) for i in first.instances] == [
-        ("crop: phaseolus vulgaris (whole-plant)", (10, 10, 210, 160), None)]
+    assert [(i.source_label, i.bbox_xyxy) for i in first.instances] == [
+        ("crop: phaseolus vulgaris (whole-plant)", (10, 10, 210, 160))]
     # The "images/" folder in a file name is not repeated; a row in two uploads is one group.
     assert maize.file_name == "maize/images/2020-10-01_lanxade_bean_2_000009_jpg.rf.12ab.jpg"
     assert small.group == maize.group == "2020-10-01_lanxade_bean_2"
@@ -130,7 +130,7 @@ def test_conversion_uses_each_images_own_scale(tmp_path):
         names, lambda name: grouping.group_of(weedai.source_name(name)),
         lambda name: weedai.box_labels(raw, name, VCD_STEMS),
         lambda split_names: weedai.iter_records(raw, split_names, grouping, scale, VCD_STEMS),
-        label_map, settings, {"name": "VCD"}, box_only=True,
+        label_map, settings, {"name": "VCD"},
         mm_per_px_of=lambda name: weedai.mm_per_px(raw, name, scale))
     images = [image for split in ("train", "val")
               for image in json.loads((out / f"{split}.json").read_text(encoding="utf-8"))["images"]]
@@ -138,7 +138,6 @@ def test_conversion_uses_each_images_own_scale(tmp_path):
     # 20 mm, so the image is left without plants and dropped.
     assert sorted(i["source_name"] for i in images) == [
         "2019-05-23_montoldre_bean_1_000000", "2020-10-01_lanxade_bean_2_000009"]
-    assert all(image[BOX_ONLY] for image in images)
 
 
 @pytest.mark.parametrize("path, crop", [("lincolnbeet.csv", "BEAVA"), ("vcd.csv", "ZEAMX"),
@@ -148,7 +147,6 @@ def test_crops_keep_their_species(path, crop):
     assert crop in {c["name"] for c in label_map.categories() if c["supercategory"] == "crop"}
 
 
-def test_lincolnbeets_weeds_are_partial_labels():
+def test_lincolnbeets_weeds_are_plants_of_unknown_species():
     label_map = LabelMap(resolve("configs/label_maps/lincolnbeet.csv"), "species", TAXA)
     assert label_map.category("weed: UNSPECIFIED") == "1PLAK"
-    assert label_map.limits("weed: UNSPECIFIED") == {"none_of": ["BEAVA"]}

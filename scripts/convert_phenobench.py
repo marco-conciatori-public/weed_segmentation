@@ -3,7 +3,7 @@
 PhenoBench's own split is kept, since it separates crop rows: its train and val images are
 our train and val splits, and our test split stays empty (its test labels are not public).
 The pipeline (size filter, COCO files) is weedseg.data.convert; scripts/combine_datasets.py
-then chooses the classes.
+then merges it with the other datasets into the detector's data.
 """
 
 from weedseg.config import load_config

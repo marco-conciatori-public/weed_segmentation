@@ -41,8 +41,8 @@ download:
   keep_archives: false
 
 # Conversion to COCO (scripts/convert_weedai.py, listed in configs/weedai.yaml). See
-# docs/datasets/vcd.md. Boxes only: the images are marked box_only and reach the species
-# classifier, not Mask R-CNN.
+# docs/datasets/vcd.md. Only the crops are boxed, not the weeds, so configs/combine.yaml leaves
+# it out of the detector's data for now.
 convert:
   output_dir: data/processed/vcd
   label_map: configs/label_maps/vcd.csv
@@ -63,8 +63,8 @@ convert:
   # become ignore regions. Must match the other datasets to combine them.
   min_plant_size_mm: 20
   # Images without plants (or with only plants under min_plant_size_mm) are negative
-  # samples. false drops them: box-only images reach only the species classifier, which
-  # learns nothing from an image without plants. (Every image has boxes.)
+  # samples: they teach the detector what is not a plant. false drops them. (Every image has
+  # boxes.)
   keep_negative_images: false
   # The group is the original file name up to the last number,
   # <date>_<site>_<crop>[_<row>]_<index>: one crop row on one day (or misc_<crop>_<n>,

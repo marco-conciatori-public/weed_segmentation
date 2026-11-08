@@ -1,0 +1,26 @@
+# Run an exported plant detector on any images, labelled or not: each plant's box is drawn on
+# the image (with its plant score) and saved as JSON. Used by scripts/demo_detector.py.
+# Relative paths are resolved against the project root. See docs/detector.md.
+
+# A package made by scripts/export_detector.py. Its own plant_detector.py runs it, so the
+# results are those of the code shipped with these weights.
+model: exports/plant_detector_2026-11-06
+# An image, a folder (its images, not those of its subfolders) or a list of both.
+# Top-down photos whose short side covers about 0.45 to 1.1 m of ground (see the package's
+# README).
+images: data/raw/cropandweed/images/ave-0241-0003.jpg
+# Per image: <name>.jpg (the plants drawn on it) and <name>.json (the plants, as in the
+# package's README). Placeholder {model}: the package's folder name.
+output_dir: "runs/demo/{model}"
+# auto = CUDA when available, else CPU.
+device: auto
+# Half precision on CUDA, as the model was evaluated.
+amp: true
+# Plants with a lower plant score are left out (null = the package's min_plant_score).
+min_plant_score: null
+# Open each drawn image in the default viewer once it is saved. For a few images.
+open_results: true
+
+draw:
+  # Write each plant's score next to its box.
+  scores: true

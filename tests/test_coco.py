@@ -1,14 +1,8 @@
-import numpy as np
-import pytest
-from pycocotools import mask as mask_utils
-
 from weedseg.data.coco import (
-    BOX_ONLY,
     IGNORE_CATEGORY,
     ImageRecord,
     Instance,
     LabelMap,
-    drop_box_only,
     ignore_small_plants,
     split_by_group,
     to_coco,
@@ -55,14 +49,12 @@ def test_label_map_categories_and_ignore(tmp_path):
     assert [c["name"] for c in grouped.categories()] == ["crop", "weed", IGNORE_CATEGORY]
 
 
-def test_to_coco_writes_masks_stems_and_crowd_flags(tmp_path):
+def test_to_coco_writes_boxes_stems_and_crowd_flags(tmp_path):
     label_map = LabelMap(write_label_map(tmp_path / "map.csv"), "species")
-    mask = np.zeros((10, 20), dtype=bool)
-    mask[2:5, 3:8] = True
     record = ImageRecord(
         file_name="a.jpg", width=20, height=10, group="g1",
         instances=[
-            Instance("1", (3, 2, 8, 5), mask=mask, stem_xy=(5, 3)),
+            Instance("1", (3, 2, 8, 5), stem_xy=(5, 3)),
             Instance("3", (0, 0, 2, 2)),
             Instance("2", (10, 0, 12, 2), ignore=True),
         ],
@@ -75,35 +67,10 @@ def test_to_coco_writes_masks_stems_and_crowd_flags(tmp_path):
     assert first["area"] == 15
     assert first["stem"] == [5, 3]
     assert first["iscrowd"] == 0
-    assert (mask_utils.decode(first["segmentation"]).astype(bool) == mask).all()
-    assert vegetation["iscrowd"] == 1 and "segmentation" not in vegetation
+    assert all("segmentation" not in a for a in coco["annotations"])
+    assert vegetation["iscrowd"] == 1
     assert ignored["iscrowd"] == 1
     assert coco["images"][0]["session"] == "g1"
-
-
-def test_box_only_images_are_marked_and_left_out_of_mask_training(tmp_path):
-    label_map = LabelMap(write_label_map(tmp_path / "map.csv"), "species")
-    mask = np.zeros((10, 20), dtype=bool)
-    mask[2:5, 3:8] = True
-    masked = ImageRecord("a.jpg", 20, 10, "g1", [Instance("1", (3, 2, 8, 5), mask=mask),
-                                                 Instance("3", (0, 0, 2, 2))])
-    boxes = ImageRecord("b.jpg", 20, 10, "g2", [Instance("2", (10, 0, 12, 2))])
-    coco = to_coco([masked], label_map, {})
-    assert BOX_ONLY not in coco["images"][0]
-    assert drop_box_only(coco) is coco  # an ignore region without a mask is fine
-
-    box_coco = to_coco([boxes], label_map, {}, box_only=True)
-    assert box_coco["images"][0][BOX_ONLY] is True
-    both = {**coco, "images": coco["images"] + [{**box_coco["images"][0], "id": 2}],
-            "annotations": coco["annotations"] + [{**box_coco["annotations"][0], "id": 3,
-                                                   "image_id": 2}]}
-    kept = drop_box_only(both)
-    assert [i["file_name"] for i in kept["images"]] == ["a.jpg"]
-    assert [a["id"] for a in kept["annotations"]] == [1, 2]
-
-    unmarked = {**both, "images": [coco["images"][0], {**both["images"][1], BOX_ONLY: False}]}
-    with pytest.raises(ValueError, match="annotation 3"):
-        drop_box_only(unmarked)
 
 
 def test_ignore_small_plants_uses_mm_and_ignore_category():
@@ -136,19 +103,3 @@ def test_balanced_split_spreads_a_rare_label_over_all_splits():
     for split in splits.values():
         assert any(item.split("-")[0] in rare_groups for item in split)
     assert abs(len(splits["train"]) - 700) <= 20
-
-
-def test_label_limits_go_into_the_annotations(tmp_path):
-    path = tmp_path / "map.csv"
-    path.write_text("source_label,role,eppo,species,one_of,none_of\n"
-                    "beet,crop,BEAVA,BEAVA,,\n"
-                    "weed,weed,1PLAK,1PLAK,, BEAVA\n"
-                    "grass,weed,1PLAK,1PLAK,1POAO 1ASGO,\n", encoding="utf-8")
-    label_map = LabelMap(path, "species")
-    assert label_map.limits("beet") == {}
-    record = ImageRecord("a.jpg", 20, 10, "g1", [Instance(label, (0, 0, 2, 2))
-                                                 for label in ("beet", "weed", "grass")])
-    beet, weed, grass = to_coco([record], label_map, {})["annotations"]
-    assert "one_of" not in beet and "none_of" not in beet
-    assert weed["none_of"] == ["BEAVA"] and "one_of" not in weed
-    assert grass["one_of"] == ["1POAO", "1ASGO"]

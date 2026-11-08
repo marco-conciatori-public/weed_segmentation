@@ -1,32 +1,24 @@
 [project]
 name = "weed-segmentation"
 version = "0.1.0"
-description = "Weed detection and species recognition for robotic precision weeding"
+description = "Plant detection (boxes, one class) for robotic precision weeding"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     # Deep learning
     "torch",
     "torchvision",
-    # DINOv2 backbones for the species classifier (Apache-2.0, weights too)
-    "timm>=1.0.30",
     # Weights of the deployment package (weedseg.deploy), plain tensors without pickled code
     "safetensors",
-    # Images, annotations and augmentation
+    # Images and annotations
     "numpy",
     "pillow",
     "opencv-python-headless",
     "pycocotools",
-    "albumentations",
-    "shapely",
     # Data handling and utilities
-    "pandas",
     "pyyaml",
     "tqdm",
     "requests",
-    "huggingface-hub",
-    # Visualisation and metrics
-    "matplotlib",
-    "scikit-learn",
+    # Training logs
     "tensorboard",
 ]
 

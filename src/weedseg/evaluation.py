@@ -1,7 +1,7 @@
-"""COCO evaluation of instance predictions against our internal COCO format.
+"""COCO box evaluation of detections against our internal COCO format.
 
-Model independent: predictions are COCO results (`image_id`, `category_id`, `bbox` as
-x, y, w, h, `score` and optionally an RLE `segmentation`).
+Model independent: detections are COCO results (`image_id`, `category_id`, `bbox` as
+x, y, w, h, and `score`).
 
 Our ignore regions (iscrowd) belong to the `ignore` category, or keep the category of their
 label when it has one. Plain COCOeval matches crowd regions per category, so it would count a
@@ -33,10 +33,10 @@ def ignore_category_ids(gt: dict[str, Any]) -> set[int]:
 
 
 class IgnoreAwareCOCOeval(COCOeval):
-    """COCOeval whose ignore regions act as crowd regions for every category."""
+    """COCOeval (boxes) whose ignore regions act as crowd regions for every category."""
 
-    def __init__(self, coco_gt: COCO, coco_dt: COCO, iou_type: str, max_detections: int = 100):
-        super().__init__(coco_gt, coco_dt, iou_type)
+    def __init__(self, coco_gt: COCO, coco_dt: COCO, max_detections: int = 100):
+        super().__init__(coco_gt, coco_dt, "bbox")
         self.ignore_ids = ignore_category_ids(coco_gt.dataset)
         self.params.catIds = [c for c in sorted(coco_gt.getCatIds()) if c not in self.ignore_ids]
         self.params.maxDets = [1, 10, max_detections]
@@ -47,8 +47,6 @@ class IgnoreAwareCOCOeval(COCOeval):
         regions = [a for a in annotations
                    if a.get("iscrowd") or a["category_id"] in self.ignore_ids]
         for region in regions:
-            if self.params.iouType == "segm":
-                region = {**region, "segmentation": self.cocoGt.annToRLE(region)}
             for category_id in self.params.catIds:
                 if category_id == region["category_id"]:  # COCOeval already has it there
                     continue
@@ -65,9 +63,9 @@ def coco_from_dict(data: dict[str, Any]) -> COCO:
 
 
 def evaluate_coco(gt: dict[str, Any], results: list[dict[str, Any]],
-                  image_ids: list[int] | None = None, iou_types: tuple[str, ...] = ("bbox", "segm"),
-                  max_detections: int = 100, verbose: bool = False) -> dict[str, Any]:
-    """COCO metrics per IoU type: {"bbox": {"summary": {...}, "per_class": [...]}, ...}.
+                  image_ids: list[int] | None = None, max_detections: int = 100,
+                  verbose: bool = False) -> dict[str, Any]:
+    """COCO box metrics: {"summary": {...}, "per_class": [...]}.
 
     `image_ids` restricts the evaluation to those images (default: all images in `gt`).
     `per_class` lists every evaluated category with its number of (non-ignore) ground-truth
@@ -82,38 +80,31 @@ def evaluate_coco(gt: dict[str, Any], results: list[dict[str, Any]],
             gt_counts[annotation["category_id"]] += 1
     names = {c["id"]: c["name"] for c in gt["categories"]}
 
-    metrics = {}
-    for iou_type in iou_types:
-        dts = [r for r in results if r["image_id"] in selected]
-        if iou_type == "segm":
-            # Without a bbox, loadRes takes areas from the masks (for the APs/APm/APl ranges).
-            dts = [{k: v for k, v in r.items() if k != "bbox"} for r in dts if "segmentation" in r]
-        if not dts:
-            metrics[iou_type] = {"summary": dict.fromkeys(SUMMARY_NAMES, 0.0), "per_class": []}
-            continue
-        with contextlib.redirect_stdout(io.StringIO()):
-            coco_dt = coco_gt.loadRes(dts)
-            evaluator = IgnoreAwareCOCOeval(coco_gt, coco_dt, iou_type, max_detections)
-            evaluator.params.imgIds = image_ids
-            evaluator.evaluate()
-            evaluator.accumulate()
-        summary = _summary(evaluator)
-        if verbose:
-            print(f"{iou_type}: " + "  ".join(f"{k} {v:.3f}" for k, v in summary.items()))
+    dts = [r for r in results if r["image_id"] in selected]
+    if not dts:
+        return {"summary": dict.fromkeys(SUMMARY_NAMES, 0.0), "per_class": []}
+    with contextlib.redirect_stdout(io.StringIO()):
+        coco_dt = coco_gt.loadRes(dts)
+        evaluator = IgnoreAwareCOCOeval(coco_gt, coco_dt, max_detections)
+        evaluator.params.imgIds = image_ids
+        evaluator.evaluate()
+        evaluator.accumulate()
+    summary = _summary(evaluator)
+    if verbose:
+        print("box: " + "  ".join(f"{k} {v:.3f}" for k, v in summary.items()))
 
-        # precision: [IoU thresholds, recall points, categories, area ranges, max dets]
-        precision = evaluator.eval["precision"][:, :, :, 0, -1]
-        per_class = []
-        for k, category_id in enumerate(evaluator.params.catIds):
-            values = precision[:, :, k]
-            per_class.append({
-                "category": names[category_id],
-                "gt_instances": gt_counts[category_id],
-                "AP": _mean_valid(values),
-                "AP50": _mean_valid(values[0]),
-            })
-        metrics[iou_type] = {"summary": summary, "per_class": per_class}
-    return metrics
+    # precision: [IoU thresholds, recall points, categories, area ranges, max dets]
+    precision = evaluator.eval["precision"][:, :, :, 0, -1]
+    per_class = []
+    for k, category_id in enumerate(evaluator.params.catIds):
+        values = precision[:, :, k]
+        per_class.append({
+            "category": names[category_id],
+            "gt_instances": gt_counts[category_id],
+            "AP": _mean_valid(values),
+            "AP50": _mean_valid(values[0]),
+        })
+    return {"summary": summary, "per_class": per_class}
 
 
 def _summary(evaluator: COCOeval) -> dict[str, float]:
@@ -146,24 +137,16 @@ class Match:
     detection: dict[str, Any] | None
 
 
-MATCH_BY = ("mask", "box")
-
-
 def match_detections(gt: dict[str, Any], results: list[dict[str, Any]],
                      image_ids: list[int] | None = None, score_threshold: float = 0.5,
-                     iou_threshold: float = 0.5, match_by: str = "mask") -> list[Match]:
+                     iou_threshold: float = 0.5) -> list[Match]:
     """Pair detections with score >= `score_threshold` with labelled plants.
 
-    Matching ignores classes: greedily by score, by IoU of masks (`match_by="mask"`, when
-    every detection has one) or of boxes. Box IoU forgives rough outlines, e.g. of thin grass
-    leaves. Unmatched detections that lie on an ignore region (IoA >= `iou_threshold`) are
-    dropped.
+    Matching ignores classes: greedily by score, by box IoU. Unmatched detections that lie on
+    an ignore region (IoA >= `iou_threshold`) are dropped.
     """
-    if match_by not in MATCH_BY:
-        raise ValueError(f"match_by must be one of {MATCH_BY}, not {match_by!r}")
     ignore_ids = ignore_category_ids(gt)
     image_ids = set(image_ids if image_ids is not None else (i["id"] for i in gt["images"]))
-    sizes = {i["id"]: (i["height"], i["width"]) for i in gt["images"]}
     gts, regions, dts = defaultdict(list), defaultdict(list), defaultdict(list)
     for annotation in gt["annotations"]:
         if annotation["image_id"] in image_ids:
@@ -176,12 +159,9 @@ def match_detections(gt: dict[str, Any], results: list[dict[str, Any]],
     matches = []
     for image_id in sorted(image_ids):
         image_gts, image_dts = gts[image_id], sorted(dts[image_id], key=lambda r: -r["score"])
-        use_masks = (match_by == "mask" and bool(image_dts)
-                     and all("segmentation" in r for r in image_dts))
-        height, width = sizes[image_id]
         matched, matched_dts = set(), set()
         if image_gts and image_dts:
-            ious = _ious(image_dts, image_gts, use_masks, height, width, crowd=False)
+            ious = _ious(image_dts, image_gts, crowd=False)
             for d, dt in enumerate(image_dts):
                 candidates = [(ious[d, g], g) for g in range(len(image_gts))
                               if g not in matched and ious[d, g] >= iou_threshold]
@@ -192,7 +172,7 @@ def match_detections(gt: dict[str, Any], results: list[dict[str, Any]],
                     matches.append(Match(image_id, image_gts[g], dt))
         unmatched = [dt for d, dt in enumerate(image_dts) if d not in matched_dts]
         if unmatched and regions[image_id]:
-            ioas = _ious(unmatched, regions[image_id], use_masks, height, width, crowd=True)
+            ioas = _ious(unmatched, regions[image_id], crowd=True)
             unmatched = [dt for d, dt in enumerate(unmatched) if ioas[d].max() < iou_threshold]
         matches += [Match(image_id, None, dt) for dt in unmatched]
         matches += [Match(image_id, annotation, None)
@@ -200,47 +180,8 @@ def match_detections(gt: dict[str, Any], results: list[dict[str, Any]],
     return matches
 
 
-def confusion_matrix(gt: dict[str, Any], results: list[dict[str, Any]],
-                     image_ids: list[int] | None = None, score_threshold: float = 0.5,
-                     iou_threshold: float = 0.5,
-                     match_by: str = "mask") -> tuple[np.ndarray, list[str]]:
-    """Class confusion of detections with score >= `score_threshold`, matched to labelled
-    plants by `match_detections`. Rows are ground-truth classes, columns predicted classes;
-    the last row/column is "background": a missed plant (last column) or a detection on no
-    plant (last row).
-    """
-    ignore_ids = ignore_category_ids(gt)
-    categories = [c for c in gt["categories"] if c["id"] not in ignore_ids]
-    index = {c["id"]: i for i, c in enumerate(categories)}
-    background = len(categories)
-    matrix = np.zeros((background + 1, background + 1), np.int64)
-    for match in match_detections(gt, results, image_ids, score_threshold, iou_threshold,
-                                  match_by):
-        row = background if match.plant is None else index[match.plant["category_id"]]
-        column = background if match.detection is None else index[match.detection["category_id"]]
-        matrix[row, column] += 1
-    return matrix, [c["name"] for c in categories] + ["background"]
-
-
-def _ious(dts: list[dict[str, Any]], gts: list[dict[str, Any]], use_masks: bool,
-          height: int, width: int, crowd: bool) -> np.ndarray:
-    """IoU matrix [detections, ground truth]; with `crowd`, IoA of the detections instead."""
-    if use_masks:
-        d = [r["segmentation"] for r in dts]
-        g = [_rle(a, height, width) for a in gts]
-    else:
-        d = [r["bbox"] for r in dts]
-        g = [a["bbox"] for a in gts]
+def _ious(dts: list[dict[str, Any]], gts: list[dict[str, Any]], crowd: bool) -> np.ndarray:
+    """Box IoU matrix [detections, ground truth]; with `crowd`, IoA of the detections instead."""
+    d = [r["bbox"] for r in dts]
+    g = [a["bbox"] for a in gts]
     return np.asarray(mask_utils.iou(d, g, [int(crowd)] * len(g))).reshape(len(dts), len(gts))
-
-
-def _rle(annotation: dict[str, Any], height: int, width: int) -> dict[str, Any]:
-    segmentation = annotation.get("segmentation")
-    if not segmentation:  # box only: use the box as mask
-        x, y, w, h = annotation["bbox"]
-        return mask_utils.frPyObjects([[x, y, x + w, y, x + w, y + h, x, y + h]], height, width)[0]
-    if isinstance(segmentation, list):
-        return mask_utils.merge(mask_utils.frPyObjects(segmentation, height, width))
-    if isinstance(segmentation["counts"], list):
-        return mask_utils.frPyObjects(segmentation, height, width)
-    return segmentation

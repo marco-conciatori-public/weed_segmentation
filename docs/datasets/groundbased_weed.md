@@ -81,8 +81,6 @@ at 0.5 mm/px, 190 would.
 - `scripts/convert_groundbased_weed.py` (`configs/groundbased_weed.yaml`), shared pipeline
   `weedseg.data.convert`, reader `weedseg.data.groundbased_weed`. The VOC files are read;
   their sizes match the images.
-- **Box only** (`convert_dataset(box_only=True)`): the images reach the species classifier,
-  not Mask R-CNN ([data-format.md](../data-format.md#datasets-labelled-with-boxes-only)).
 - **Groups are blocks of 10 consecutive camera numbers** (`group_block`), i.e. stretches of
   a walk through a field. A quadrat cut-out counts by its photo's number. The data records
   no field or date that could be used instead.
@@ -94,11 +92,8 @@ at 0.5 mm/px, 190 would.
   ECHCG plants are in dense TOMATO_2 photos (~40 boxes each), so the plant fractions depend
   on the seed. Seed 0 put 34% of the ECHCG plants in val. Seed 5, the best of seeds 0–9,
   keeps every species within 5 points of the fractions.
-- `NR` becomes `1PLAK`, a plant of unknown species, with role `weed`. Once combined, these
-  plants are ignore regions ([data-format.md](../data-format.md)). They get no partial
-  label: the authors don't say that an `NR` plant can't be a tomato, and TOMATO_2 leaves
-  its tomatoes unlabelled.
-- `LYPES` (tomato) has role `crop`. `configs/rules/example.yaml` lists it as a crop.
+- `NR` becomes `1PLAK`, a plant of unknown species, with role `weed`.
+- `LYPES` (tomato) has role `crop`.
 - Image fields: `subset` (`TOMATO_1`/`TOMATO_2`) and `year`, plus `quadrat` on the cut-outs.
   Annotation fields: `truncated` and `difficult` when the VOC file sets them. Those plants
   are kept as normal plants.
@@ -122,37 +117,19 @@ at 0.5 mm/px, 190 would.
 
 The plants under 20 mm are mostly `SOLNI` (789) and `NR` (271).
 
-## In the combination
+## Not in the detector's data
 
-Since 2026-10-26 GROUNDBASED_WEED is in `configs/combine.yaml` with CropAndWeed, ACRE,
-PhenoBench and OPPD:
-`data/processed/cropandweed+acre+phenobench+oppd+groundbased_weed/species_min50img_min20mm`,
-the data of the two-stage configs. Box-only images (OPPD and GROUNDBASED_WEED) are 4,645 of
-12,233 in train, 1,152 of 3,359 in val and 1,152 of 2,570 in test. Compared with the four
-datasets without it (`min_train_images: 50`):
-
-- **Species classes grow from 64 to 68.** None is lost. The new ones are `LYPES`, `CYPRO`,
-  `SETVE` and `POROL`. The first three have training plants from GROUNDBASED_WEED only.
-- `POROL` takes CropAndWeed's 27 and ACRE's 9 training plants out of `other_plant`. As with
-  OPPD, CropAndWeed's `by_dataset` rows then stop being comparable with earlier runs.
-- Existing classes gain training plants: `ECHCG` goes from 813 to 4,679 and `SOLNI` from
-  2,555 to 6,627.
-- Training images grow from 11,398 to 12,233, all 835 new ones box-only.
-- **The detector's data doesn't change.** Box-only images are left out of it, and the plant
-  copy's images with masks and their annotations are identical with and without
-  GROUNDBASED_WEED (checked 2026-10-26). Only the classifier needs retraining; the runner
-  still retrains the detector, since its data folder has a new name.
+GROUNDBASED_WEED is converted but left out of `configs/combine.yaml`: not every plant has a
+box (TOMATO_2's tomatoes, plants of uncertain species and plants cut by the image border), and
+the detector would learn those as background. It could join with "positives only" training
+([detector.md](../detector.md#datasets)), or with TOMATO_1 alone after checking that its
+plants are all boxed.
 
 ## Known limitations
 
-- **One site, one camera, two seasons.** The classifier learns tomato, *Cyperus rotundus*
-  and *Setaria verticillata* from this dataset alone, so it may learn the dataset's look
-  (soil, light, camera) along with the plants. `SETVE` against `SETVI` (green foxtail,
-  CropAndWeed only) is the pair to watch. Scores on other datasets would show it.
+- **One site, one camera, two seasons.**
 - The val and test splits share fields and days with train (see the groups above).
-- **Unlabelled plants**, tomatoes in all of TOMATO_2 among them. The classifier is
-  unaffected, since it sees only the boxes. Scoring detections on this dataset would need
-  them labelled or masked out.
-- Box conventions differ (see `CYPRO` above). The crops of a partly boxed plant show only
-  part of it.
+- **Unlabelled plants**, tomatoes in all of TOMATO_2 among them. Training or scoring a
+  detector on this dataset would need them labelled or masked out.
+- Box conventions differ (see `CYPRO` above): some boxes cover only part of a plant.
 - The ground resolution is an estimate (see above).

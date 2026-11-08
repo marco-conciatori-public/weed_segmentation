@@ -38,12 +38,8 @@ From the paper, and measured from the Weed-AI download (2026-10-30):
 ## Conversion choices
 
 - `scripts/convert_weedai.py` (`configs/lincolnbeet.yaml`, listed in `configs/weedai.yaml`),
-  reader `weedseg.data.weedai`. **Box only**: the classifier learns from these plants,
-  Mask R-CNN doesn't see them.
-- **Weeds are partial labels, "not sugar beet"**: `1PLAK` with `none_of: BEAVA`, as for
-  PhenoBench's weeds ([data-format.md](../data-format.md#partial-labels)). With PhenoBench
-  and LincolnBeet, the classifier sees beets from three places and weeds next to beets from
-  two.
+  reader `weedseg.data.weedai`.
+- **Weeds are `1PLAK`**, plants of unknown species: plants for the detector like the beets.
 - **Group = field and day** (the file name's first part, videos and photos together): 21
   groups. Videos of one day may cross the same ground. Each field was filmed on several
   days, so val and test share fields, and older or younger plants, with train.
@@ -51,8 +47,9 @@ From the paper, and measured from the Weed-AI download (2026-10-30):
   670 mm across, and the 26 mm lens gives about the same; 670 / 1920 = 0.35. The 29 mm
   lens gives ~0.31.
 - **Many plants are under 20 mm**: 11,498 of 38,234 boxes, 10,184 of them weeds (of
-  22,208). They become ignore regions, except in the 66 images left without a larger plant,
-  which are dropped.
+  22,208). They become ignore regions. The 66 images left without a larger plant stay, as
+  negative images for the detector (`keep_negative_images: true` since 2026-11-06; the
+  numbers below are from before, without them).
 - **Split 70/15/15 by group, balanced over species, seed 9.** With 21 groups, some large
   (Near 30 on 1 June: 670 images), seed 0 put 36% of the weeds in test; seed 9, the best of
   0-9, keeps both classes within 6 points of the fractions. Test holds BBRO's first two
@@ -63,19 +60,19 @@ From the paper, and measured from the Weed-AI download (2026-10-30):
 | Images | 2,786 | 516 | 939 |
 | Groups (field days) | 12 | 3 | 6 |
 | `BEAVA` sugar beet | 9,955 | 1,737 | 3,020 |
-| `1PLAK` weed, "not beet" | 8,755 | 1,926 | 1,343 |
+| `1PLAK` weed | 8,755 | 1,926 | 1,343 |
 | Plants under 20 mm (ignore regions) | 8,329 | 1,347 | 1,626 |
 
 ## Known limitations
 
 - **The licence**, see above.
-- Weeds have no species, so they teach the classifier only what they are not.
+- Weeds have no species, so the per-species report counts them as one label.
+- Not stated by the authors whether every plant is boxed; the images we checked had none
+  left out.
 - Val and test share fields with train (see the groups).
 - The scale is an estimate, and the camera height was approximate.
 
-## In the combination
+## In the detector's data
 
-Since 2026-10-30 in `public7` (`configs/combine.yaml`) with CropAndWeed, ACRE, PhenoBench,
-OPPD, GROUNDBASED_WEED and VCD. Sugar beet training images go from 2,209 to 4,871, and its
-8,755 training weeds are partial labels, "every class but `BEAVA`" (see
-[twostage.md](../twostage.md#steps), "Adding Weed-AI datasets").
+LincolnBeet is in `configs/combine.yaml` (`public5`): beets and weeds are boxed, in fields of
+another country, with other cameras than the other datasets.

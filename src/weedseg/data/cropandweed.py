@@ -95,7 +95,7 @@ def unboxed_regions(semantic: np.ndarray, masks: list[np.ndarray],
         mask = components == k
         labels, counts = np.unique(semantic[mask], return_counts=True)
         regions.append(Instance(source_label=str(labels[counts.argmax()]),
-                                bbox_xyxy=(x, y, x + w, y + h), mask=mask, ignore=True,
+                                bbox_xyxy=(x, y, x + w, y + h), ignore=True,
                                 attributes={"unboxed": True}))
     return regions
 
@@ -126,38 +126,38 @@ def box_labels(raw_dir: Path, name: str) -> list[tuple[str, int, int]]:
             for left, top, right, bottom, label, _, _ in boxes]
 
 
-def iter_records(raw_dir: Path, names: list[str], with_masks: bool = True,
-                 unboxed_min_area: int | None = 256,
+def iter_records(raw_dir: Path, names: list[str], unboxed_min_area: int | None = 256,
                  mm_per_px_estimate: float | None = None) -> Iterator[ImageRecord]:
     """Yield one ImageRecord per image name, labels as the dataset's numeric ids.
 
-    With masks, labelled regions without a box are added as ignore instances unless
-    `unboxed_min_area` is None.
+    The semantic mask is split per box (`instance_masks`) only to check the boxes: a box with
+    no pixel of its label becomes an ignore region, and labelled regions without a box are
+    added as ignore instances (`unboxed_regions`) unless `unboxed_min_area` is None.
     """
     for name in names:
         boxes = read_boxes(raw_dir / "bboxes" / f"{name}.csv")
         semantic = cv2.imread(str(raw_dir / "labelIds" / "CropAndWeed" / f"{name}.png"),
                               cv2.IMREAD_UNCHANGED)
         height, width = semantic.shape
-        masks = instance_masks(semantic, boxes) if with_masks else [None] * len(boxes)
+        masks = instance_masks(semantic, boxes)
 
         instances = []
         for (left, top, right, bottom, label, stem_x, stem_y), mask in zip(boxes, masks):
             instance = Instance(
                 source_label=str(label),
                 bbox_xyxy=(left, top, right + 1, bottom + 1),
-                mask=mask,
                 stem_xy=(stem_x, stem_y),
             )
             if label in GROWTH_STAGES:
                 instance.attributes["growth_stage"] = GROWTH_STAGES[label]
-            if mask is not None and not mask.any():
-                # A few boxes have no pixel of their label; keep them as ignore regions.
-                instance.mask[top:bottom + 1, left:right + 1] = True
+            if not mask.any():
+                # A few boxes have no pixel of their label; keep them as ignore regions, and
+                # their box counts as covered for unboxed_regions.
+                mask[top:bottom + 1, left:right + 1] = True
                 instance.ignore = True
-                instance.attributes["mask_from_box"] = True
+                instance.attributes["no_label_pixels"] = True
             instances.append(instance)
-        if with_masks and unboxed_min_area is not None:
+        if unboxed_min_area is not None:
             instances += unboxed_regions(semantic, masks, unboxed_min_area)
 
         subset = name.split("-", 1)[0]

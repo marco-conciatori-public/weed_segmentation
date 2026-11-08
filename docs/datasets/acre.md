@@ -30,9 +30,9 @@
 | ray-grass | *Lolium perenne* | 1,002 |
 | matricaire | *Matricaria chamomilla* | 954 |
 | moutarde | *Sinapis arvensis* | 710 |
-| inconnu, empty, class "unknow" | one plant of unknown species (`1PLAK`): ignore regions for the species classes, plants for the two-stage detector | 1,244 (757 at least 20 mm) |
-| of which class "weed" | source labels `inconnu (weed)`, `unnamed (weed)`: none of the crops below | 1,083 (635) |
-| of which class "crop" | `inconnu (crop)`, `unnamed (crop)`: one of the crops below | 31 (31) |
+| inconnu, empty, class "unknow" | one plant of unknown species (`1PLAK`): a plant for the detector | 1,244 (757 at least 20 mm) |
+| of which class "weed" | source labels `inconnu (weed)`, `unnamed (weed)` | 1,083 (635) |
+| of which class "crop" | `inconnu (crop)`, `unnamed (crop)` | 31 (31) |
 | others | faba bean, pea, purslane, *Digitaria*, *Setaria* | under 25 each |
 
 ## Conversion choices
@@ -40,20 +40,17 @@
 - `scripts/convert_acre.py` (`configs/acre.yaml`), shared pipeline `weedseg.data.convert`.
 - **Group = recording batch.** Only 10 groups, so the 70/15/15 split comes out as 6/2/2
   batches. The download's `split_dictionary.json` is not used. Both validation batches are
-  bean plots, so bean is the crop there: `configs/rules/example.yaml` has listed it as a crop
-  since 2026-10-23 (see [Decisions](../maskrcnn.md#decisions)).
+  bean plots.
 - **mm/px is estimated at 0.5**: the camera height and lens are not given. Maize 10-15 cm
   tall spans a median 490 px, beans 8-10 cm about 260 px. The real value would come from the
   curator; it matters for the 20 mm size filter.
-- Polygons with fewer than 3 points (box used as mask) and plants marked untrusted become
-  ignore regions, like unidentified plants.
+- Each polygon's box is the plant's box. Polygons with fewer than 3 points (no outline) and
+  plants marked untrusted become ignore regions, like unidentified plants.
 - **Plants without a species keep the annotators' class.** A plant named "inconnu" or
   without a name still has a class, crop or weed, so its source label carries it (e.g.
-  `inconnu (weed)`). In the label map, a weed is `none_of` the dataset's crops (bean, maize,
-  faba bean, pea) and a crop `one_of` them, so the classifier learns what that rules out
-  ([partial labels](../data-format.md#partial-labels)). The faba beans and peas are classed
-  crop by the annotators, in bean plots and (3 faba beans) in a maize plot. A plant of
-  class "unknow" stays `unknow`, whatever its name, and rules out nothing.
+  `inconnu (weed)`); all are `1PLAK`, plants for the detector. The faba beans and peas are
+  classed crop by the annotators, in bean plots and (3 faba beans) in a maize plot. A plant
+  of class "unknow" stays `unknow`, whatever its name.
 
 ## Known limitations
 

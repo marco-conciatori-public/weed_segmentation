@@ -89,7 +89,7 @@ def iter_records(raw_dir: Path, names: list[str], mm_per_px: float | None = None
     become ignore regions. `mm_per_px` is the paper's ground resolution."""
     for name in names:
         plants, (height, width) = _plants(raw_dir, name)
-        instances = [Instance(source_label=label, bbox_xyxy=_box(mask), mask=mask,
+        instances = [Instance(source_label=label, bbox_xyxy=_box(mask),
                               ignore=ignore_partial and label in PARTIAL_LABELS)
                      for label, mask in plants]
         split, stem = name.split("/", 1)

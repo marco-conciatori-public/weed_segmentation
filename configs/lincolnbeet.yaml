@@ -29,8 +29,7 @@ download:
   keep_archives: false
 
 # Conversion to COCO (scripts/convert_weedai.py, listed in configs/weedai.yaml). See
-# docs/datasets/lincolnbeet.md. Boxes only: the images are marked box_only and reach the
-# species classifier, not Mask R-CNN.
+# docs/datasets/lincolnbeet.md.
 convert:
   output_dir: data/processed/lincolnbeet
   label_map: configs/label_maps/lincolnbeet.csv
@@ -48,9 +47,8 @@ convert:
   # become ignore regions. Must match the other datasets to combine them.
   min_plant_size_mm: 20
   # Images without plants (or with only plants under min_plant_size_mm) are negative
-  # samples. false drops them: box-only images reach only the species classifier, which
-  # learns nothing from an image without plants.
-  keep_negative_images: false
+  # samples: they teach the detector what is not a plant. false drops them.
+  keep_negative_images: true
   # The group is the field and the day, from the original file name
   # <field>_<field>_<dd>_<mm>_<yyyy>_<v|i>_...: the frames of that day's videos (v) and
   # photos (i). The paper took frames "sufficiently far apart" within a video, but videos of

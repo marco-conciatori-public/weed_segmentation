@@ -1,5 +1,3 @@
-import numpy as np
-
 from weedseg.data import acre
 
 XML = """<root><metadata><size><width>40</width><height>20</height></size></metadata>
@@ -45,7 +43,7 @@ def test_names_batches_and_labels(tmp_path):
         ("inconnu (crop)", 5, 4)]  # a plant without a name keeps the annotators' class
 
 
-def test_records_masks_stems_and_ignore_regions(tmp_path):
+def test_records_boxes_stems_and_ignore_regions(tmp_path):
     raw = write_dataset(tmp_path)
     (record,) = acre.iter_records(raw, ["Maize/2022-06-08-16-44/rgb-1"], 0.5)
     assert (record.file_name, record.width, record.height) == (
@@ -55,8 +53,8 @@ def test_records_masks_stems_and_ignore_regions(tmp_path):
                                  "mm_per_px": 0.5, "mm_per_px_estimated": True}
     weed, maize, unknown, unnamed, _ = record.instances
     assert weed.bbox_xyxy == (2, 2, 10, 8) and weed.stem_xy == (5.0, 5.0)
-    assert weed.mask.sum() == 8 * 6 and not weed.ignore  # filled polygon, edges included
-    assert maize.ignore and maize.stem_xy is None  # 2 points: no outline, box as mask
-    assert np.array_equal(np.argwhere(maize.mask).min(axis=0), [3, 20])
+    assert not weed.ignore
+    assert maize.ignore and maize.stem_xy is None  # 2 points: no outline
+    assert maize.bbox_xyxy[:2] == (20, 3)
     assert unknown.ignore and unknown.stem_xy is None  # untrusted; stem flag without x/y
     assert unnamed.source_label == "unnamed (weed)" and not unnamed.ignore

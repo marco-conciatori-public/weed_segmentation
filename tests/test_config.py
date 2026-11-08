@@ -17,8 +17,9 @@ def test_config_with_base_loads_on_top_of_it(tmp_path):
                                                     "data": {"dir": "plant", "workers": 2}}
 
 
-def test_detector_config_is_maskrcnn_on_plant_data():
-    detector, maskrcnn = load_config("configs/detector.yaml"), load_config("configs/maskrcnn.yaml")
-    assert detector["data"]["dir"].endswith("plant_min20mm")
-    assert {k: v for k, v in detector.items() if k != "data"} == {
-        k: v for k, v in maskrcnn.items() if k != "data"}
+def test_detector_trains_on_what_combine_writes():
+    combine, detector = load_config("configs/combine.yaml"), load_config("configs/detector.yaml")
+    assert detector["data"]["dir"] == f"{combine['output_dir']}/{combine['name']}/plant_min20mm"
+    assert load_config("configs/export_detector.yaml")["detector"] == "configs/detector.yaml"
+    run = load_config("configs/run_detector.yaml")
+    assert (run["combine"], run["detector"]) == ("configs/combine.yaml", "configs/detector.yaml")

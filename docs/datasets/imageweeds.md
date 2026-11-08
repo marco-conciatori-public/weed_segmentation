@@ -42,8 +42,7 @@ From the paper, and measured from the Weed-AI download (2026-10-30):
 ## Conversion choices
 
 - `scripts/convert_weedai.py` (`configs/imageweeds.yaml`, listed in `configs/weedai.yaml`),
-  reader `weedseg.data.weedai`. **Box only**: the classifier learns from these plants,
-  Mask R-CNN doesn't see them.
+  reader `weedseg.data.weedai`.
 - **Copies left out** (`drop_duplicate_images`): of each pair of identical photos the lower
   number is kept, so 405 photos and 1,862 weeds remain.
 - **Group = a block of 50 consecutive photo numbers**, across the crop uploads: 18 groups.
@@ -67,21 +66,16 @@ From the paper, and measured from the Weed-AI download (2026-10-30):
 
 ## Known limitations
 
-- **Potted weeds.** The classifier may learn the pot (black rim, the hole around it) as part
-  of these five species, as it may have learned OPPD's trays: species learned mostly from
-  OPPD transferred badly to CropAndWeed's fields. Four of the five species come only from
-  this dataset. Redroot pigweed is the check: it is also in CropAndWeed, so its accuracy
-  there with and without ImageWeeds shows whether the pots help or hurt.
+- **Potted weeds.** A model may learn the pot (black rim, the hole around it) as part of
+  the plant.
 - One trial design at three sites; the site of each photo is unknown, so val and test
   share sites with train.
 - Small: 260 training photos. The four new species have 187-344 training plants each, in
   92-141 photos per species (2026-10-30), and neighbouring photos can show the same pots.
 - The crops and the field's own weeds are visible but unlabelled.
 
-## In the combination
+## Not in the detector's data
 
-Since 2026-10-30 only in the variant `public7+imageweeds` of `configs/combine.yaml`, for
-`configs/classifier_imageweeds.yaml` and its second seed: common ragweed (`AMBEL`), kochia
-(`KCHSC`), horseweed (`ERICA`) and waterhemp (`AMATU`) become classes (73 in all), from
-ImageWeeds alone. It joins `public7` if it doesn't hurt the other datasets (see
-[twostage.md](../twostage.md#steps), "Adding Weed-AI datasets").
+ImageWeeds is converted but left out of `configs/combine.yaml`: only the potted weeds are
+boxed, and the detector would learn the crops and the field's own weeds as background. It
+could join with "positives only" training ([detector.md](../detector.md#datasets)).

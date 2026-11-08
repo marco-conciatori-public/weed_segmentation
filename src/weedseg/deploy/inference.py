@@ -1,5 +1,5 @@
-"""Run an exported two-stage package on any images (scripts/demo_twostage.py): the
-plants drawn on each image and saved as JSON, with no labels and no evaluation."""
+"""Run an exported plant detector on any images (scripts/demo_detector.py): the plants drawn
+on each image and saved as JSON, with no labels and no evaluation."""
 
 import importlib.util
 import json
@@ -12,7 +12,7 @@ from typing import Any
 import cv2
 
 from weedseg.paths import resolve
-from weedseg.visualize import draw_plants
+from weedseg.visualize import draw_detections
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"}
 
@@ -37,13 +37,13 @@ def image_files(images: str | list[str]) -> list[Path]:
 
 
 def load_package(folder: Path, device: str = "auto", amp: bool = True) -> Any:
-    """The WeedModel of an exported package, run by the package's own weed_model.py, so the
-    code is the one shipped with these weights even after weedseg changes."""
-    spec = importlib.util.spec_from_file_location(f"weed_model_{folder.name}",
-                                                  folder / "weed_model.py")
+    """The PlantDetector of an exported package, run by the package's own plant_detector.py,
+    so the code is the one shipped with these weights even after weedseg changes."""
+    spec = importlib.util.spec_from_file_location(f"plant_detector_{folder.name}",
+                                                  folder / "plant_detector.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.WeedModel(folder, device=None if device == "auto" else device, amp=amp)
+    return module.PlantDetector(folder, device=None if device == "auto" else device, amp=amp)
 
 
 def run_inference(config: dict[str, Any]) -> None:
@@ -57,7 +57,6 @@ def run_inference(config: dict[str, Any]) -> None:
           f"{len(files)} images")
     out_dir = resolve(config["output_dir"].format(model=folder.name))
     out_dir.mkdir(parents=True, exist_ok=True)
-    draw = config["draw"]
 
     for path in files:
         image = cv2.imread(str(path), cv2.IMREAD_COLOR)
@@ -68,16 +67,12 @@ def run_inference(config: dict[str, Any]) -> None:
                                min_plant_score=config["min_plant_score"])
         seconds = perf_counter() - start
         drawn_path = out_dir / f"{path.stem}.jpg"
-        cv2.imwrite(str(drawn_path), draw_plants(image, plants, model.codes, draw["label"],
-                                                 draw["mask_alpha"]))
+        cv2.imwrite(str(drawn_path), draw_detections(image, plants, config["draw"]["scores"]))
         record = {"image": str(path), "width": image.shape[1], "height": image.shape[0],
-                  "model": folder.name, "plants": model.to_json(plants)}
+                  "model": folder.name, "plants": plants}
         (out_dir / f"{path.stem}.json").write_text(json.dumps(record, indent=1),
                                                    encoding="utf-8")
-        named = Counter(p["species"] for p in plants if not p["send_to_zero_shot"])
-        zero_shot = len(plants) - named.total()
-        print(f"{path.name}: {len(plants)} plants in {seconds:.1f} s, {zero_shot} to zero-shot"
-              + "".join(f", {code} {n}" for code, n in named.most_common()))
+        print(f"{path.name}: {len(plants)} plants in {seconds:.1f} s")
         if config["open_results"]:
             webbrowser.open(drawn_path.as_uri())
     print(f"results in {out_dir}")

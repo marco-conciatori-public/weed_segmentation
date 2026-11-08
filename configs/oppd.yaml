@@ -31,8 +31,7 @@ download:
   # Keep the archive in <raw_dir>/.archives/ after unpacking it.
   keep_archives: false
 
-# Conversion to COCO (scripts/convert_oppd.py). See docs/datasets/oppd.md. Boxes only: the
-# images are marked box_only and reach the species classifier, not Mask R-CNN.
+# Conversion to COCO (scripts/convert_oppd.py). See docs/datasets/oppd.md.
 convert:
   output_dir: data/processed/oppd
   label_map: configs/label_maps/oppd.csv
@@ -44,8 +43,9 @@ convert:
   # are seedlings: about a third of them pass 20 mm.
   min_plant_size_mm: 20
   # Images without plants (or with only plants under min_plant_size_mm) are negative
-  # samples. false drops them: box-only images reach only the species classifier, which
-  # learns nothing from an image without plants.
+  # samples: they teach the detector what is not a plant. false drops them. OPPD's are mostly
+  # the first days of each tray's time series (only seedlings under min_plant_size_mm, which
+  # are ignore regions): many images of the same trays, with little to learn.
   keep_negative_images: false
   # Split by tray (trial + box id), never by image: a tray is photographed on many days and
   # its images show the same plants. Balanced over species; each species grew in 3 trays

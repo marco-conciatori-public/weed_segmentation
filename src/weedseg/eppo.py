@@ -15,16 +15,7 @@ TAXONOMIC_LINK = 9  # t_link_types: 9 = Taxonomic
 RANKS = {"G": "genus", "S": "subfamily", "F": "family", "O": "order", "D": "clade",
          "C": "class", "P": "phylum", "K": "kingdom"}
 PARENT_RANKS = ("genus", "family", "order")
-# Ranks above order. The taxa table doesn't record which species belong to these.
-ABOVE_ORDER = ("clade", "class", "phylum", "kingdom")
 NAME_SEPARATOR = "; "
-# Optional label-map columns that narrow down a label coarser than species, as EPPO codes
-# separated by spaces: the plant belongs to one of the `one_of` taxa and to none of the
-# `none_of` taxa (e.g. PhenoBench's weeds: none_of BEAVA). See docs/data-format.md.
-LIMIT_COLUMNS = ("one_of", "none_of")
-# Ranks whose species the taxa table records (a class is in such a taxon when the taxon is
-# its own code, genus, family or order).
-LIMIT_RANKS = ("species", *PARENT_RANKS)
 
 
 def rank_of(code: str, datatype: str) -> str:
@@ -115,11 +106,8 @@ def load_taxa(path: Path) -> dict[str, dict[str, str]]:
 
 
 def label_codes(row: dict[str, str]) -> set[str]:
-    """Every EPPO code a label-map row names: its `eppo` and its LIMIT_COLUMNS."""
-    codes = {row["eppo"]} if row.get("eppo") else set()
-    for column in LIMIT_COLUMNS:
-        codes.update((row.get(column) or "").split())
-    return codes
+    """The EPPO code a label-map row names (its `eppo`), if any."""
+    return {row["eppo"]} if row.get("eppo") else set()
 
 
 def known_names(row: dict[str, str]) -> set[str]:
@@ -130,25 +118,13 @@ def known_names(row: dict[str, str]) -> set[str]:
 
 def check_label_rows(rows: Iterable[dict[str, str]],
                      taxa: dict[str, dict[str, str]]) -> list[str]:
-    """Problems in label-map rows: EPPO codes missing or inactive, a scientific name that is
-    neither EPPO's accepted name nor a synonym, or a LIMIT_COLUMNS code above order (the taxa
-    table doesn't record which species those hold). Rows with an `eppo_note` explain a
-    deliberate mismatch and skip the name check."""
+    """Problems in label-map rows: EPPO codes missing or inactive, or a scientific name that is
+    neither EPPO's accepted name nor a synonym. Rows with an `eppo_note` explain a deliberate
+    mismatch and skip the name check."""
     problems = []
     for row in rows:
         code = row.get("eppo")
         label = row["source_label"]
-        for column in LIMIT_COLUMNS:
-            for limit in (row.get(column) or "").split():
-                taxon = taxa.get(limit)
-                if taxon is None or taxon["active"] != "yes":
-                    problems.append(f"label {label}: {column} code {limit} is not an active "
-                                    "code of the taxa table")
-                elif taxon["rank"] not in LIMIT_RANKS:
-                    problems.append(f"label {label}: {column} code {limit} is a {taxon['rank']}; "
-                                    f"use codes of rank {', '.join(LIMIT_RANKS)}")
-            if row.get(column, "").strip() and not code:
-                problems.append(f"label {label}: {column} without an EPPO code")
         if not code:
             continue
         taxon = taxa.get(code)

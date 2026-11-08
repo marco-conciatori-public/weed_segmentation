@@ -2,10 +2,9 @@
 Settings: configs/weedai.yaml lists the dataset configs to convert (configs/lincolnbeet.yaml,
 ...), each with its own `convert` section.
 
-Weed-AI's datasets are labelled with boxes only, so their images are marked box_only: they
-reach the species classifier, not Mask R-CNN. The pipeline (size filter, split by group
-balanced over species, COCO files) is weedseg.data.convert, the reader weedseg.data.weedai;
-scripts/combine_datasets.py then chooses the classes. See docs/datasets/weedai.md.
+The pipeline (size filter, split by group balanced over species, COCO files) is
+weedseg.data.convert, the reader weedseg.data.weedai; scripts/combine_datasets.py then merges
+the datasets whose every plant is boxed into the detector's data. See docs/datasets/weedai.md.
 """
 
 from pathlib import Path
@@ -48,7 +47,7 @@ def convert(config_path: str) -> Path:
         lambda name: weedai.box_labels(raw_dir, name, drop), records_of, label_map, settings,
         info={"name": config["name"], "source": config["source"], "licence": config["licence"],
               "image_dir": config["raw_dir"]},  # from the project root
-        box_only=True, mm_per_px_of=lambda name: weedai.mm_per_px(raw_dir, name, scale))
+        mm_per_px_of=lambda name: weedai.mm_per_px(raw_dir, name, scale))
 
 
 def main(config_path: str = CONFIG) -> None:

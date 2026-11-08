@@ -13,7 +13,6 @@ import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from pathlib import Path
 
-import cv2
 import numpy as np
 
 from weedseg.data.coco import ImageRecord, Instance
@@ -69,7 +68,7 @@ def iter_records(raw_dir: Path, names: list[str],
                  mm_per_px_estimate: float | None = None) -> Iterator[ImageRecord]:
     """Yield one ImageRecord per image name, labels as source labels (see `source_label`).
 
-    Each polygon becomes the plant's mask. Polygons with fewer than 3 points, and plants the
+    Each polygon's box is the plant's box. Polygons with fewer than 3 points, and plants the
     annotators did not trust, become ignore regions.
     """
     for name in names:
@@ -80,11 +79,6 @@ def iter_records(raw_dir: Path, names: list[str],
         for clipping, points in plants:
             x0, y0 = points.min(axis=0)
             x1, y1 = points.max(axis=0) + 1
-            mask = np.zeros((height, width), np.uint8)
-            if len(points) >= 3:
-                cv2.fillPoly(mask, [points], 1)
-            else:  # too few points to outline: the box is the best mask we have
-                mask[y0:y1, x0:x1] = 1
             stem = None
             x, y = clipping.findtext("center/x"), clipping.findtext("center/y")
             if clipping.findtext("center/hasNoCenter") == "false" and x and y:
@@ -93,7 +87,6 @@ def iter_records(raw_dir: Path, names: list[str],
             instances.append(Instance(
                 source_label=source_label(clipping),
                 bbox_xyxy=(int(x0), int(y0), int(x1), int(y1)),
-                mask=mask.astype(bool),
                 stem_xy=stem,
                 ignore=len(points) < 3 or not trusted,
             ))

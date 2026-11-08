@@ -108,14 +108,15 @@ but **the public download contains only the four `params` values**.
 `data/processed/cropandweed/<taxonomy>/{train,val,test}.json` (format:
 [../data-format.md](../data-format.md)).
 
-- **Instance masks.** The dataset has only semantic masks. A box's mask is the pixels
-  inside it that carry its label. Where boxes of the same label overlap (common: 872
+- **Instance masks, to check the boxes.** The dataset has only semantic masks; the converted
+  files keep only the boxes, but the reader splits the masks per box to find the two cases
+  below. A box's mask is the pixels inside it that carry its label. Where boxes of the same label overlap (common: 872
   overlapping pairs in a sample of 600 images), each shared pixel goes to the box with the
   nearest stem point. Where leaves of neighbouring plants overlap, the cut is therefore an
   approximation (a straight line between stems), not a true leaf boundary. Checked visually
   on sample images.
-- **Boxes without mask pixels** (~0.2% of boxes): kept as ignore regions with a box-shaped
-  mask (`mask_from_box: true`).
+- **Boxes without mask pixels** (~0.2% of boxes): kept as ignore regions
+  (`no_label_pixels: true`).
 - **Mask regions without a box**: some masks contain vegetation that has no box (e.g. a
   large cowslip patch). Connected regions of at least 256 px (16x16, the dataset's own
   minimum annotated size) become ignore regions (`unboxed: true`), so a model doesn't learn
@@ -134,10 +135,8 @@ but **the public download contains only the four `params` values**.
     flat-leaf and curly-leaf parsley share one EPPO code). Very long-tailed; see the
     statistics below.
     This is the project's setup: convert with `species` (folder `species_min20mm`), then
-    choose the classes with `scripts/combine_datasets.py` (see
-    [../data-format.md](../data-format.md)). With CropAndWeed alone, N = 50 and 20 mm: 29
-    species classes, each present in train, val and test; *Poa*, *Mercurialis* and
-    pumpkins (*Cucurbita*) go to `other_plant`.
+    merge it into the detector's data with `scripts/combine_datasets.py` (see
+    [../data-format.md](../data-format.md)).
   - `fine24`: the authors' 8 crop + 16 weed groups. Some species are left out (e.g.
     courgette, cowslip, purslane, cleavers, wild pansy) and become ignore regions.
   - `crops_or_weed9`, `crop_or_weed2`: coarser variants from the paper.

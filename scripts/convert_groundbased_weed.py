@@ -1,9 +1,8 @@
 """Convert GROUNDBASED_WEED to COCO (one JSON per split). Settings: configs/groundbased_weed.yaml.
 
-GROUNDBASED_WEED is labelled with boxes only, so its images are marked box_only: they reach
-the species classifier, not Mask R-CNN. The pipeline (size filter, split by block of camera
-numbers balanced over species, COCO files) is weedseg.data.convert;
-scripts/combine_datasets.py then chooses the classes.
+The pipeline (size filter, split by block of camera numbers balanced over species, COCO
+files) is weedseg.data.convert. Not every plant has a box (docs/datasets/groundbased_weed.md),
+so configs/combine.yaml leaves it out of the detector's data for now.
 """
 
 from weedseg.config import load_config
@@ -39,7 +38,7 @@ def main() -> None:
                         "source": "https://doi.org/10.20350/digitalCSIC/17475",
                         "licence": "ODbL 1.0; see docs/datasets/groundbased_weed.md",
                         "image_dir": config["raw_dir"],  # from the project root
-                    }, box_only=True)
+                    })
 
 
 if __name__ == "__main__":

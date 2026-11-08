@@ -44,22 +44,16 @@ every JPEG is complete.
 
 - `scripts/convert_oppd.py` (`configs/oppd.yaml`), shared pipeline `weedseg.data.convert`,
   reader `weedseg.data.oppd`.
-- **Box only** (`convert_dataset(box_only=True)`): the images reach the species classifier,
-  not Mask R-CNN ([data-format.md](../data-format.md#datasets-labelled-with-boxes-only)).
 - **Images without plants of at least 20 mm are dropped** (`keep_negative_images: false`):
-  the classifier, the only stage that sees these images, learns nothing from them.
+  they are mostly the first days of each tray's time series, the same trays over and over.
 - **Split by tray** (`group` = trial + box id, since box ids repeat across trials), balanced
   over species, **fractions 80/10/10**, which give 69/16/15% of the plants, close to the
   70/15/15 of the other datasets. The fractions are targets: with only 3 trays per species
   the balancing overshoots val and test, and 70/15/15 gave 58/21/21%, with 17 species
   split one tray each (decided 2026-10-22).
-- `PPPDD`, `PPPMM` and `1PLAK` become `1PLAK`, plants of unknown species: ignore regions
-  once combined ([data-format.md](../data-format.md)). `3UNCLK` gets no code: an ignore
-  region everywhere. `1COMF` stays a family label, handled by combining (rule 3).
-- What `PPPDD` and `PPPMM` still say is kept for the classifier
-  ([partial labels](../data-format.md#partial-labels)): a monocot is `one_of` the 11 EPPO
-  monocot orders (in our classes, the grasses), a dicot `none_of` them. `1COMF` allows the
-  Asteraceae classes and `other_plant`.
+- `PPPDD`, `PPPMM` and `1PLAK` become `1PLAK`, plants of unknown species: plants for the
+  detector like any other. `3UNCLK` gets no code: an ignore region. `1COMF` stays a family
+  label.
 - Brassica napus (`BRSNN`) has role `weed`: OPPD grows it as a weed (volunteer oilseed
   rape).
 - mm/px is the dataset page's 0.1508 (`mm_per_px_estimated: false`).
@@ -88,36 +82,17 @@ smallest tray for training: *Myosotis arvensis* has 72 train plants against 825 
 pass 20 mm, perhaps because of their growth conditions; the split balances images, not
 plants.
 
-## In the combination
+## In the detector's data
 
-Since 2026-10-22 OPPD is in `configs/combine.yaml` with CropAndWeed, ACRE and PhenoBench,
-and since 2026-10-26 with GROUNDBASED_WEED too ([groundbased_weed.md](groundbased_weed.md)).
-The numbers below are for the four datasets without GROUNDBASED_WEED
-(`data/processed/cropandweed+acre+phenobench+oppd/species_min50img_min20mm`). Its box-only
-images are 3,810 of 11,398 in train, 964 of 3,171 in val and
-959 of 2,377 in test. Compared with the same combination without OPPD
-(`min_train_images: 50`):
-
-- **Species classes grow from 32 to 64.** None is lost. 20 of the 32 new classes have
-  training images from OPPD only (ALOMY, APESV, BROST, BRSNN, CHYSE, EPHHE, EROCI, GERMO,
-  LOLMU, LYCAR, MATIN, MELNO, POLLA, RUMCR, SENVU, SONOL, VERAR, VERPE, VICHI, VIOAR),
-  each from 2 to 5 trays: a few dozen plants photographed day after day. 11 of the other
-  12 get most of their training images from OPPD too (FUMOF mostly from CropAndWeed).
-- `min_train_images` counts images, and for a daily time series that overstates how many
-  different plants a class has seen.
-- Classifier training plants: 64,109 → 128,056. Existing classes gain too (SINAR 540 →
-  3,107, MATCH 1,538 → 4,140, CENCY 701 → 3,923), and `other_plant` 4,427 → 3,981, since
-  some of its species become classes.
-- 6 OPPD species stay `other_plant` (under 50 training images): ANGAR, EPHPE, LAPCO, MYOAR,
-  SONAS and URTUR, all with one tray for training.
+OPPD is in `configs/combine.yaml` (`public5`). Its trays add many boxed plants, but little
+variety: one rig, one site, even lighting, and the same plants day after day. Watch its
+`by_dataset.csv` row and the other datasets' rows with and without it.
 
 ## Known limitations
 
-- **Not field images**: trays of sieved soil under even lighting, one sown species each. A
-  crop around a plant also shows its tray's soil, so the classifier could partly learn the
-  tray instead of the plant; val and test trays are never seen in training, so their scores
-  would show it (except for CENCY and GERMO, which have no OPPD tray outside train).
+- **Not field images**: trays of sieved soil under even lighting, one sown species each.
+  What the detector learns of the background here is tray soil, not field.
 - **Little variety per species**: 3 trays of one trial, one site, and the same plants on
   many days. No plant ids to cap images per plant; capping images per tray (e.g. one day in
   N) is possible if OPPD turns out to dominate.
-- Boxes only: no masks for the detector, and the evaluation of both stages leaves it out.
+- Not checked: whether plants that came up uninvited in a tray are boxed too.
