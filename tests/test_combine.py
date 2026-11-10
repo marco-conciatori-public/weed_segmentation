@@ -64,6 +64,38 @@ def test_ignore_regions_stay_ignored_and_keep_their_code():
     assert all("ignored_category_id" not in a for a in annotations)
 
 
+def test_test_only_datasets_get_a_file_of_their_own_with_all_their_images():
+    a = dataset([("ZEAMX", "crop")], [["ZEAMX"]])
+    b = dataset([("ZEAMX", "crop"), ("1PLAK", "weed")], [["ZEAMX", "1PLAK"], ["1PLAK"]],
+                image_dir="data/raw/b/images")
+    c = dataset([("BEAVA", "crop")], [["BEAVA"]], image_dir="data/raw/c")
+    c = {"test": c["train"]}  # only a test.json
+    combined = combine({"a": a}, {"b": b, "c": c})
+    assert list(combined) == ["train", "val", "test", "test_b", "test_c"]
+    assert {i["dataset"] for s in ("train", "val", "test") for i in combined[s]["images"]} == {"a"}
+    test_b = combined["test_b"]
+    # b's train images (2) and its val and test images (1 each)
+    assert [i["file_name"] for i in test_b["images"]] == [
+        "data/raw/b/images/1.jpg", "data/raw/b/images/2.jpg", "data/raw/b/images/x.jpg",
+        "data/raw/b/images/x.jpg"]
+    assert [i["id"] for i in test_b["images"]] == [1, 2, 3, 4]
+    assert [(a["eppo"], a["image_id"]) for a in test_b["annotations"]] == [
+        ("ZEAMX", 1), ("1PLAK", 1), ("1PLAK", 2)]
+    assert test_b["info"]["split"] == "test_b" and set(test_b["info"]["datasets"]) == {"b"}
+    assert [c["name"] for c in test_b["categories"]] == ["plant", IGNORE_CATEGORY]
+    assert [a["eppo"] for a in combined["test_c"]["annotations"]] == ["BEAVA"]
+
+
+def test_test_only_datasets_are_checked_too():
+    a = dataset([("ZEAMX", "crop")], [["ZEAMX"]])
+    with pytest.raises(ValueError, match="min_plant_size_mm"):
+        combine({"a": a}, {"b": dataset([("ZEAMX", "crop")], [["ZEAMX"]], size=30)})
+    with pytest.raises(ValueError, match="both trained on and test only"):
+        combine({"a": a}, {"a": a})
+    with pytest.raises(ValueError, match="no split file"):
+        combine({"a": a}, {"b": {}})
+
+
 def test_combine_refuses_mixed_sizes_other_taxonomies_and_missing_splits():
     with pytest.raises(ValueError, match="min_plant_size_mm"):
         combine({"a": dataset([("ZEAMX", "crop")], [["ZEAMX"]]),

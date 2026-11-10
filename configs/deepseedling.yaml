@@ -1,0 +1,65 @@
+# DeepSeedling (Jiang, Li, Paterson and Robertson, University of Georgia, Plant Methods 2019):
+# cotton seedlings filmed from about 0.5 m in Texas (2015) and Georgia (2015, 2018), a box for
+# every seedling and every weed (weeds without species) over about 30 px on the labelling
+# screen. Used by scripts/download_datasets.py (see configs/download.yaml) and
+# scripts/convert_deepseedling.py. Relative paths are resolved against the project root.
+# Licence: GPL 3.0+ (the figshare page). See docs/datasets/deepseedling.md.
+
+# Where the download is unpacked: TAMU2015/ and UGA2018/, each with folders of frames and their
+# VoTT label files.
+raw_dir: data/raw/deepseedling
+
+download:
+  # figshare private link https://figshare.com/s/616956f8633c17ceae9b. Its page refuses
+  # scripts, but these download links work (each redirects to a 10-second storage link, so a
+  # browser can't resume them; this downloader asks again for every piece). One zip per field
+  # and year, without a top folder, so each is unpacked into its own (extract_to). Sizes as
+  # the server reports them; no checksums are published. TAMU2015.zip also holds Row10.mp4
+  # (0.8 GB, labelled on the video, not used). UGA2015.zip (file 14776793, 0.6 GB) isn't
+  # downloaded: that set is left out (below).
+  files:
+    - url: https://ndownloader.figshare.com/files/14776991?private_link=616956f8633c17ceae9b
+      name: TAMU2015.zip
+      size: 2595489307
+      extract: true
+      extract_to: TAMU2015
+    - url: https://ndownloader.figshare.com/files/14776775?private_link=616956f8633c17ceae9b
+      name: UGA2018.zip
+      size: 843598542
+      extract: true
+      extract_to: UGA2018
+  # Keep the archives in <raw_dir>/.archives/ after unpacking them.
+  keep_archives: false
+
+# Conversion to COCO (scripts/convert_deepseedling.py). See docs/datasets/deepseedling.md.
+convert:
+  output_dir: data/processed/deepseedling
+  label_map: configs/label_maps/deepseedling.csv
+  eppo_taxa: configs/eppo_taxa.csv
+  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  taxonomy: species
+  # Plants whose box is shorter than this on its longer side (mm, via the set's mm_per_px)
+  # become ignore regions. Must match the other datasets to combine them.
+  min_plant_size_mm: 20
+  # Per set (field and year). UGA2015 is left out (Marco, 2026-11-10): in its weedy stretches
+  # many weeds over 20 mm have no box, and the detector would learn them as soil. Its reader
+  # still works: {mm_per_px: 0.35, frame_stride: 4, group_block: 60} adds it back.
+  # - mm_per_px: estimated from the plants per frame along the row and the seed spacing, and
+  #   from the camera at ~0.5 m (the paper gives no scale; docs/datasets/deepseedling.md).
+  # - frame_stride: the frames come from videos and neighbours share most of their plants;
+  #   one labelled frame in every frame_stride of a video is kept (1 keeps all). UGA2018
+  #   frames move about a quarter of the image from one to the next, so 4 shows the ground
+  #   about once; the hand-held TAMU2015 video moves ~100 px per frame on average (and
+  #   at times stands still), so 10 shows each plant about twice.
+  # - group_block: images are split by video and block of this many consecutive labelled
+  #   frames (before thinning), never by frame. A block should be several times the frames a
+  #   plant stays in view (~4; ~19 in TAMU2015), so few plants straddle two blocks.
+  sets:
+    TAMU2015: {mm_per_px: 0.4, frame_stride: 10, group_block: 180}
+    UGA2018: {mm_per_px: 0.35, frame_stride: 4, group_block: 60}
+  # Images without plants over min_plant_size_mm are dropped (false): a VoTT frame without
+  # boxes may have been skipped rather than empty, so they aren't trusted as negatives.
+  keep_negative_images: false
+  split:
+    seed: 0
+    fractions: {train: 0.70, val: 0.15, test: 0.15}

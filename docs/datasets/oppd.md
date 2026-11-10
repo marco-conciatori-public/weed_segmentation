@@ -84,7 +84,7 @@ plants.
 
 ## In the detector's data
 
-OPPD is in `configs/combine.yaml` (`public5`). Its trays add many boxed plants, but little
+OPPD is in `configs/combine.yaml` (`public7`). Its trays add many boxed plants, but little
 variety: one rig, one site, even lighting, and the same plants day after day. Watch its
 `by_dataset.csv` row and the other datasets' rows with and without it.
 

@@ -74,5 +74,5 @@ From the paper, and measured from the Weed-AI download (2026-10-30):
 
 ## In the detector's data
 
-LincolnBeet is in `configs/combine.yaml` (`public5`): beets and weeds are boxed, in fields of
+LincolnBeet is in `configs/combine.yaml` (`public7`): beets and weeds are boxed, in fields of
 another country, with other cameras than the other datasets.

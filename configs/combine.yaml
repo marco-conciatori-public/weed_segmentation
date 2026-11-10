@@ -9,16 +9,36 @@
 # Only datasets whose every plant has a box (or an ignore region): a plant without a box is
 # learned as background. Converted but left out for that reason: groundbased_weed (tomatoes
 # of TOMATO_2 and plants of uncertain species not boxed), vcd (weeds not boxed), imageweeds
-# (only the potted weeds boxed).
+# (only the potted weeds boxed). Rejected outright: docs/datasets/rejected.md.
 datasets:
   - data/processed/cropandweed/species_min20mm
   - data/processed/acre/species_min20mm
   - data/processed/phenobench/species_min20mm
   - data/processed/lincolnbeet/species_min20mm
   - data/processed/oppd/species_min20mm
+  # Added 2026-11-09 (docs/datasets/cornweed.md): every second video frame, 109k plants. Its
+  # weight in training follows its images (1,235 in train), not its plants: the model samples
+  # a fixed number of anchors and proposals per image, however many plants it holds.
+  - data/processed/cornweed/species_min20mm
+  # Added 2026-11-10 (docs/datasets/deepseedling.md): cotton seedlings, USA, two cameras
+  # (one a phone); its UGA2015 set is left out, many of its weeds have no box (Marco,
+  # 2026-11-10). Licence GPL 3.0+.
+  - data/processed/deepseedling/species_min20mm
+# Converted datasets for testing only, never trained on: all their images, from whichever of
+# train/val/test.json they have, go to test_<dataset>.json next to the combined splits. Score
+# one with evaluate.split: test_<dataset> (configs/detector.yaml); keep them out of choices
+# made on val, like test. null = none.
+test_only:
+  # The unseen-site test (Marco, 2026-11-09): commercial maize in Badajoz, Spain, a site,
+  # camera and group none of the training datasets has (docs/datasets/weedmaize.md).
+  - data/processed/weedmaize/species_min20mm
+  # Not a measure of the detector (Marco, 2026-11-09): imperfect labels, boxes from mask
+  # patches (touching beets in one box, grasses in pieces, some plants unmasked), to see how
+  # the detector and such data behave (docs/datasets/sugarbeets2016.md).
+  - data/processed/sugarbeets2016/species_min20mm
 # The combined folder's name, short: run and preview paths repeat it, and long ones pass
 # Windows' 260-character limit. null = the dataset names joined by +.
-name: public5
-# Output: <output_dir>/<name>/plant[_min<size>mm], e.g. data/processed/public5/plant_min20mm,
+name: public7
+# Output: <output_dir>/<name>/plant[_min<size>mm], e.g. data/processed/public7/plant_min20mm,
 # the data.dir of configs/detector.yaml.
 output_dir: data/processed

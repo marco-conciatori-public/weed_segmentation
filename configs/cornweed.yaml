@@ -1,0 +1,50 @@
+# CornWeed (Naeem, Manss et al., DFKI and Hochschule Osnabrück, Germany): maize rows filmed from
+# above in July-August 2021, a box for every maize plant and every weed (weeds without
+# species). Used by scripts/download_datasets.py (see configs/download.yaml) and
+# scripts/convert_cornweed.py. Relative paths are resolved against the project root.
+# Licence: CC BY 4.0 (Zenodo record). See docs/datasets/cornweed.md.
+
+# Where the download is unpacked: maize_dataset/{data,coco_annotations,testing}/.
+raw_dir: data/raw/cornweed
+
+download:
+  # Zenodo record 7961764: one zip with the labelled images (data/, COCO and YOLO boxes) and
+  # 4,981 unlabelled ones (testing/, not used). Size and MD5 as the record gives them.
+  files:
+    - url: https://zenodo.org/records/7961764/files/maize_dataset.zip?download=1
+      name: maize_dataset.zip
+      size: 8693397534
+      md5: 9b409e835b51c0f7b01524dcb1dfeda6
+      extract: true
+  # Keep the archive in <raw_dir>/.archives/ after unpacking it.
+  keep_archives: false
+
+# Conversion to COCO (scripts/convert_cornweed.py). See docs/datasets/cornweed.md.
+convert:
+  output_dir: data/processed/cornweed
+  label_map: configs/label_maps/cornweed.csv
+  eppo_taxa: configs/eppo_taxa.csv
+  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  taxonomy: species
+  # Plants whose box is shorter than this on its longer side (mm, via mm_per_px_by_width)
+  # become ignore regions. Must match the other datasets to combine them.
+  min_plant_size_mm: 20
+  # mm/px per image width, i.e. per camera setting (estimates, see docs/datasets/cornweed.md).
+  # 1280 px (tractor): two maize rows a median 699 px apart, at the usual 75 cm (the paper's
+  # 0.5 m camera height would put them 37 cm apart). 640 px (BoniRob): maize of the same day
+  # is 1.14x smaller and 1.23x closer in px, so about 1.2x the tractor's mm/px.
+  mm_per_px_by_width: {1280: 1.07, 640: 1.3}
+  # The labelled images are consecutive video frames, and the image moves about half its
+  # height from one to the next, so neighbours share half their plants. Only frames whose
+  # number is a multiple of frame_stride are kept: 2 shows the ground about once, 1 keeps
+  # every frame.
+  frame_stride: 2
+  # Images without plants (or with only plants under min_plant_size_mm) are negative
+  # samples: they teach the detector what is not a plant. false drops them.
+  keep_negative_images: true
+  # Split by run (day and machine) and block of this many consecutive video frames, never by
+  # frame: neighbouring frames show the same plants. The authors' own split is by frame.
+  group_block: 50
+  split:
+    seed: 0
+    fractions: {train: 0.70, val: 0.15, test: 0.15}

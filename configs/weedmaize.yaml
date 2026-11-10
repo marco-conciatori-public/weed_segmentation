@@ -1,0 +1,70 @@
+# WeedMaize (López Correa, Andújar et al., CSIC and UPM, Spain): commercial maize fields in
+# Badajoz, April 2020, photographed straight down from 1.3 m; a box for every maize plant and
+# every weed, weeds by species (EPPO codes). Used by scripts/download_datasets.py (see
+# configs/download.yaml) and scripts/convert_weedmaize.py. Relative paths are resolved
+# against the project root. Licence: CC BY 4.0 (Zenodo record). See
+# docs/datasets/weedmaize.md.
+
+# Where the download is unpacked: {train,test,validation}_set/IMG_<photo>_<tile>.{JPG,xml}.
+raw_dir: data/raw/weedmaize
+
+download:
+  # Zenodo record 5106795. The photos come cut into overlapping tiles, with Pascal VOC boxes.
+  # Sizes and MD5s as the record gives them.
+  files:
+    - url: https://zenodo.org/records/5106795/files/validation_set.zip?download=1
+      name: validation_set.zip
+      size: 1007763615
+      md5: aff0eacee8032aca9310b6b65b3f91c6
+      extract: true
+    - url: https://zenodo.org/records/5106795/files/test_set.zip?download=1
+      name: test_set.zip
+      size: 1682672887
+      md5: 994ae92a6448802839e24695d621dd60
+      extract: true
+    - url: https://zenodo.org/records/5106795/files/train_set.zip?download=1
+      name: train_set.zip
+      size: 3352886927
+      md5: 592384e629c8e286476a86710dbffd63
+      extract: true
+  # Keep the archives in <raw_dir>/.archives/ after unpacking them.
+  keep_archives: false
+
+# Conversion to COCO (scripts/convert_weedmaize.py). See docs/datasets/weedmaize.md.
+convert:
+  output_dir: data/processed/weedmaize
+  label_map: configs/label_maps/weedmaize.csv
+  eppo_taxa: configs/eppo_taxa.csv
+  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  taxonomy: species
+  # Plants whose box is shorter than this on its longer side (mm, via mm_per_px_estimate)
+  # become ignore regions. Must match the other datasets to combine them.
+  min_plant_size_mm: 20
+  # Not given by the dataset. Canon PowerShot SX540 HS at its widest zoom (4.3 mm, 1.19 um
+  # pixels) from 1.3 m: 1300 * 0.00119 / 4.3 = 0.36 mm/px (as for GROUNDBASED_WEED, the same
+  # group's camera).
+  mm_per_px_estimate: 0.36
+  # The tiles of one photo overlap heavily (a grid 400 px apart). Tiles are kept greedily,
+  # the one adding the most uncovered ground first, as long as each shares at most this share
+  # of its area with every tile already kept. 0.35 keeps 6 tiles of a full grid, two columns
+  # sharing a third and three rows sharing 7%: the photo covered once, a strip twice.
+  max_tile_overlap: 0.35
+  # Some plants are boxed twice; a box whose IoU with an earlier one of its tile reaches this
+  # is dropped.
+  duplicate_iou: 0.9
+  # Cyperus is boxed twice: the whole plant (CYPRO_max) and its centre (CYPRO_min, inside it).
+  # {centre label: whole-plant label}: a centre box at least centre_ioa inside a whole-plant
+  # box is dropped; one inside none (6% on the validation tiles) becomes an ignore region,
+  # since the plant's extent wasn't drawn. Plain CYPRO is a single box.
+  centres: {CYPRO_min: CYPRO_max}
+  centre_ioa: 0.5
+  # Images without plants (or with only plants under min_plant_size_mm) are negative
+  # samples: they teach the detector what is not a plant. false drops them.
+  keep_negative_images: true
+  # Split by block of this many consecutive photo numbers, never by tile: the photos were
+  # taken every 2 m along the field, so neighbouring numbers are neighbouring ground. The
+  # authors' own train/validation/test sets are not used.
+  group_block: 10
+  split:
+    seed: 0
+    fractions: {train: 0.70, val: 0.15, test: 0.15}

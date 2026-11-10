@@ -1,0 +1,4 @@
+source_label,common_name,scientific_name,name_source,eppo,eppo_note,role,species
+Plant,Cotton,Gossypium hirsutum,inferred,GOSHI,,crop,GOSHI
+Weed,Weed,Plantae,dataset,1PLAK,One plant of unknown species: weeds are one class,weed,1PLAK
+Plant+Weed,Plant,Plantae,dataset,1PLAK,"Box tagged both Plant and Weed: one plant of unknown species",weed,1PLAK

@@ -50,7 +50,7 @@
 
 ## In the detector's data
 
-PhenoBench is in `configs/combine.yaml` (`public5`). Every plant has its instance, so it
+PhenoBench is in `configs/combine.yaml` (`public7`). Every plant has its instance, so it
 suits a detector well; a trial on `master` (2026-10-21) gave the plant detector 14,646 more
 train plants (+26%) over CropAndWeed and ACRE.
 

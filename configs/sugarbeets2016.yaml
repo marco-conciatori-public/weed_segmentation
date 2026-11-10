@@ -1,0 +1,47 @@
+# Sugar Beets 2016 (Chebrolu, Lottes et al., University of Bonn; IJRR 2017): one sugar beet
+# field at Campus Klein-Altendorf, photographed straight down from the BoniRob robot; crop and
+# weed masks per pixel, no plant IDs. Only the first of the 11 parts of the labelled images is
+# used, and only as an extra test set: boxes made from the masks' connected patches merge
+# touching beets and split some weeds, so it shows how the detector and imperfect labels
+# behave, it is not trained on. Used by scripts/download_datasets.py and
+# scripts/convert_sugarbeets2016.py. Relative paths are resolved against the project root.
+# Licence: CC BY-SA 4.0 (dataset page). See docs/datasets/sugarbeets2016.md.
+
+# Where the download goes, and where it is unpacked: ijrr_sugarbeets_2016_annotations/.
+raw_dir: data/raw/sugarbeets2016
+
+download:
+  # A multi-part RAR archive (part01-part11, 22 GB); part 1 holds the day 2016-05-23. No
+  # checksum is published; the size as served on 2026-11-09. Not unpacked by the downloader
+  # (RAR): scripts/convert_sugarbeets2016.py unpacks it with 7-Zip.
+  files:
+    - url: https://www.ipb.uni-bonn.de/datasets_IJRR2017/annotations/cropweed/ijrr_sugarbeets_2016_annotations.part01.rar
+      name: ijrr_sugarbeets_2016_annotations.part01.rar
+      size: 2147483648
+  keep_archives: true
+
+# Conversion to COCO (scripts/convert_sugarbeets2016.py). See docs/datasets/sugarbeets2016.md.
+convert:
+  # 7-Zip's command-line program, to unpack the RAR part when its folder is missing. Part 1
+  # alone ends inside a file of part 2; that file is left out.
+  seven_zip: C:/Program Files/7-Zip/7z.exe
+  archive: ijrr_sugarbeets_2016_annotations.part01.rar
+  output_dir: data/processed/sugarbeets2016
+  label_map: configs/label_maps/sugarbeets2016.csv
+  eppo_taxa: configs/eppo_taxa.csv
+  # A label-map column; species = EPPO codes, as for the other datasets.
+  taxonomy: species
+  # Plants whose box is shorter than this on its longer side (mm, via mm_per_px_estimate)
+  # become ignore regions. Must match the other datasets.
+  min_plant_size_mm: 20
+  # The paper: "a ground resolution of approximately 3 px/mm" (camera ~85 cm above the soil).
+  mm_per_px_estimate: 0.33
+  # Values of the index maps (annotations/dlp/iMapCleaned): source label -> values.
+  classes:
+    beet: [10000]
+    weed: [2, 20100]
+  # Each connected patch of a class (8-connected) becomes one box; patches of fewer pixels
+  # are left out (specks of the masks).
+  min_patch_px: 50
+  # Images without plants are negative samples. false drops them.
+  keep_negative_images: true

@@ -1,9 +1,9 @@
 """Merge converted datasets into the plant detector's data (one class, plant).
 Settings: configs/combine.yaml. See weedseg.data.combine for what becomes a plant.
 
-Writes train.json, val.json and test.json to <output_dir>/<name>/plant[_min<size>mm], where
-<name> is the config's `name` or else the dataset names joined by +: the `data.dir` of
-configs/detector.yaml.
+Writes train.json, val.json and test.json, and test_<dataset>.json for each test-only dataset,
+to <output_dir>/<name>/plant[_min<size>mm], where <name> is the config's `name` or else the
+dataset names joined by +: the `data.dir` of configs/detector.yaml.
 """
 
 from collections import Counter
@@ -20,15 +20,20 @@ CONFIG = "configs/combine.yaml"
 
 def main(config_path: str = CONFIG) -> Path:
     config = load_config(config_path)
-    datasets = {}
-    for folder in config["datasets"]:
-        dataset = Path(folder).parent.name
-        if dataset in datasets:
-            raise SystemExit(f"Two datasets named {dataset!r}; combine each dataset once")
-        datasets[dataset] = {split: load_coco(resolve(folder) / f"{split}.json")
-                             for split in SPLITS}
+    datasets, test_only, seen = {}, {}, set()
+    for folders, target in ((config["datasets"], datasets),
+                            (config["test_only"] or [], test_only)):
+        for folder in folders:
+            dataset = Path(folder).parent.name
+            if dataset in seen:
+                raise SystemExit(f"Two datasets named {dataset!r}; combine each dataset once")
+            seen.add(dataset)
+            files = [resolve(folder) / f"{split}.json" for split in SPLITS]
+            # a test-only dataset may have only some of the splits (e.g. test.json alone)
+            target[dataset] = {path.stem: load_coco(path) for path in files
+                               if target is datasets or path.exists()}
     try:
-        combined = combine(datasets)
+        combined = combine(datasets, test_only)
     except ValueError as error:
         raise SystemExit(str(error)) from None
 
@@ -42,7 +47,7 @@ def main(config_path: str = CONFIG) -> Path:
         plants = Counter(dataset_of[a["image_id"]] for a in coco["annotations"]
                          if a["category_id"] == PLANT_ID)
         print(f"{split}: {len(coco['images'])} images, {plants.total()} plants -> {output_dir}")
-        for dataset in datasets:
+        for dataset in coco["info"]["datasets"]:
             print(f"  {dataset:20} {images[dataset]:6} images {plants[dataset]:7} plants")
     return output_dir
 

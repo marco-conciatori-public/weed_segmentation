@@ -5,6 +5,14 @@
 
 # Dataset configs, fetched in this order. Each one's `download` section lists its files.
 datasets:
+  # Added 2026-11-08 for the plant detector (docs/detector.md): ~6 and 8.7 GB from Zenodo.
+  - configs/weedmaize.yaml
+  - configs/cornweed.yaml
+  # Added 2026-11-09: Sugar Beets 2016, only the first of its 11 RAR parts (2 GB, an extra
+  # test set; unpacked by scripts/convert_sugarbeets2016.py).
+  - configs/sugarbeets2016.yaml
+  # Added 2026-11-10: DeepSeedling, cotton in Texas and Georgia, 4 GB from figshare.
+  - configs/deepseedling.yaml
   - configs/oppd.yaml
   - configs/phenobench.yaml
   - configs/groundbased_weed.yaml

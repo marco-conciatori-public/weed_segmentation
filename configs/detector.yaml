@@ -4,7 +4,7 @@
 # See docs/detector.md.
 
 # Outputs (checkpoints, TensorBoard logs, metrics, evaluations) go to <output_dir>/<run_name>/.
-# Placeholders: {dataset} and {taxonomy} = the last two folders of data.dir (e.g. public5 and
+# Placeholders: {dataset} and {taxonomy} = the last two folders of data.dir (e.g. public7 and
 # plant_min20mm). Add your own text to tell apart runs that change other settings, e.g.
 # "{dataset}_{taxonomy}_lr0.01". A plain name works too.
 run_name: "{dataset}_{taxonomy}"
@@ -14,9 +14,10 @@ seed: 0
 device: auto
 
 data:
-  # Folder with train.json, val.json and test.json: the output of scripts/combine_datasets.py
-  # (<output_dir>/<name>/plant[_min<size>mm] of configs/combine.yaml).
-  dir: data/processed/public5/plant_min20mm
+  # Folder with train.json, val.json and test.json (and test_<dataset>.json of the test-only
+  # datasets): the output of scripts/combine_datasets.py (<output_dir>/<name>/
+  # plant[_min<size>mm] of configs/combine.yaml).
+  dir: data/processed/public7/plant_min20mm
   # Data-loading processes. 0 loads in the main process (slow, but simplest to debug).
   num_workers: 6
   # Use a random subset of N images (null = all). For a quick smoke test, e.g. 16 and 8.
@@ -75,7 +76,10 @@ train:
 evaluate:
   # Checkpoint of this run: best, last, or a path to a .pt file.
   checkpoint: best
-  # Which data entry to evaluate: val or test. Keep test for the final numbers.
+  # Which file of data.dir to evaluate: val, test, or a test-only dataset's test_<dataset>
+  # (test_weedmaize: the unseen site; test_sugarbeets2016: imperfect labels, not a measure).
+  # Keep test and the test-only files for the final numbers. export_detector.py's README
+  # reports this split's numbers.
   split: val
   # Evaluate a random subset of N images (null = all). For a quick smoke test.
   max_images: null

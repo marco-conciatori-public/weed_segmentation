@@ -1,0 +1,19 @@
+source_label,common_name,scientific_name,name_source,eppo,eppo_note,role,species
+ZEAMX,Maize,Zea mays,dataset,ZEAMX,,crop,ZEAMX
+ZEAMX_V1,Maize at V1,Zea mays,dataset,ZEAMX,The suffix is the growth stage,crop,ZEAMX
+ZEAMX_V3,Maize at V3,Zea mays,dataset,ZEAMX,The suffix is the growth stage,crop,ZEAMX
+ZEAMX_V4,Maize at V4,Zea mays,dataset,ZEAMX,The suffix is the growth stage,crop,ZEAMX
+CYPRO,Purple nutsedge,Cyperus rotundus,dataset,CYPRO,,weed,CYPRO
+CYPRO_max,Purple nutsedge (larger),Cyperus rotundus,dataset,CYPRO,The suffix is a size or growth class,weed,CYPRO
+CYPRO_min,Purple nutsedge (smaller),Cyperus rotundus,dataset,CYPRO,The suffix is a size or growth class,weed,CYPRO
+ECHCG,Barnyard grass,Echinochloa crus-galli,dataset,ECHCG,,weed,ECHCG
+ECHCG_Ve,Barnyard grass at emergence,Echinochloa crus-galli,dataset,ECHCG,The suffix is the growth stage,weed,ECHCG
+ECHCG_V1,Barnyard grass at V1,Echinochloa crus-galli,dataset,ECHCG,The suffix is the growth stage,weed,ECHCG
+ECHCG_V2,Barnyard grass at V2,Echinochloa crus-galli,dataset,ECHCG,The suffix is the growth stage,weed,ECHCG
+SOLNI,Black nightshade,Solanum nigrum,dataset,SOLNI,,weed,SOLNI
+SOLNI_Vc,Black nightshade at cotyledons,Solanum nigrum,dataset,SOLNI,The suffix is the growth stage,weed,SOLNI
+SOLNI_V1,Black nightshade at V1,Solanum nigrum,dataset,SOLNI,The suffix is the growth stage,weed,SOLNI
+SOLNI_V2,Black nightshade at V2,Solanum nigrum,dataset,SOLNI,The suffix is the growth stage,weed,SOLNI
+POROL,Common purslane,Portulaca oleracea,dataset,POROL,,weed,POROL
+NC,Plant of unknown species,Plantae,dataset,1PLAK,The dataset's NC (not explained; plants not classified to species),weed,1PLAK
+OE,Plant of another species,Plantae,dataset,1PLAK,The dataset's OE (not explained; plants of other species),weed,1PLAK

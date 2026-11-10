@@ -1,0 +1,3 @@
+source_label,common_name,scientific_name,name_source,eppo,eppo_note,role,species
+Maize,Maize,Zea mays,dataset,ZEAMX,,crop,ZEAMX
+Weeds,Weed,Plantae,dataset,1PLAK,One plant of unknown species: weeds are one class,weed,1PLAK

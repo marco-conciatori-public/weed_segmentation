@@ -10,7 +10,7 @@ same years, same camera rig. Overlaps matter for two reasons:
   to other fields.
 
 Details and sources are in each dataset's own doc. "~" marks values we estimated or that
-the sources give only roughly. Last updated 2026-11-08.
+the sources give only roughly. Last updated 2026-11-10.
 
 **When adding a dataset:** fill a row in both tables, look for the same place, institution,
 period or rig in the other rows, and record any link under [Known links](#known-links).
@@ -29,6 +29,8 @@ period or rig in the other rows, and record any link under [Known links](#known-
 | [VCD](vcd.md) | France: INRAE Montoldre; CTIFL Prigonrieux; Fermes Larrère, Liposthey; Bordeaux Sciences Agro | 46.34 N, 3.43 E; 44.85 N, 0.41 E; 44.43 N, 0.86 W; 44.79 N, 0.61 W | Université de Bordeaux (IMS, Bordeaux Sciences Agro, ENSEIRB-Matmeca), CTIFL | 2019-2021, 9 days | rows of maize, bean, leek; sown and natural weeds |
 | [CornWeed](cornweed.md) | one field, "Langsenkamp" (the file names), Germany; the paper names no place | not given | DFKI and Hochschule Osnabrück | 22 July - 2 August 2021 (labelled: 22 and 27 July) | maize rows, natural weeds |
 | [WeedMaize](weedmaize.md) | Badajoz, Spain: commercial maize fields | 39.02 N, 6.06 W | Universidad Politécnica de Madrid; CSIC-UPM Centre for Automation and Robotics | April 2020 | commercial maize, V1-V4, natural weeds |
+| [DeepSeedling](deepseedling.md) | Corpus Christi, Texas (TAMU2015) and Watkinsville, Georgia (UGA2015, not used; UGA2018), USA; no fields named | not given | University of Georgia (Bio-Sensing and Instrumentation Lab), with Texas A&M | 12 April 2015, 15 June 2015, 13 June 2018 | cotton plots (cultivar and breeding trials), 7-11 days after planting |
+| [Sugar Beets 2016](sugarbeets2016.md) | Campus Klein-Altendorf near Bonn, Germany | ~50.62 N, 6.99 E | University of Bonn (and University of Freiburg) | spring 2016, about three days a week (part 1: 23 May) | one sugar beet field |
 
 ## How
 
@@ -42,10 +44,16 @@ period or rig in the other rows, and record any link under [Known links](#known-
 | LincolnBeet | frames of 4K videos, two cameras (12 MP 26 mm, 64 MP 29 mm, equivalent focal lengths) | ~0.5 m | ~0.35 | boxes, beet and weeds without species | none in the original; CC BY 4.0 per Weed-AI | yes |
 | ImageWeeds | drone, DJI Phantom 4 Pro V2, looking down (Weed-AI says 70 degrees; the paper gives no angle) | ~3.7 m | ~1.0 | boxes, 5 weed species, potted only; crops and field weeds not boxed | CC BY 4.0 | no: not every plant boxed |
 | VCD | covered, lit module; Basler acA2500, 4 mm lens (current module) | 35-45 cm | ~0.23-0.9 (images resized) | boxes of crops and their stems; weeds not boxed | CC BY 4.0 | no: not every plant boxed |
-| CornWeed | Intel RealSense D435i on a tractor hoe (1280x720) and on the BoniRob platform (640x480), looking down | 0.5 m | ~0.53 / ~0.81 (estimated) | boxes, maize and weeds (no species) | CC BY 4.0 | candidate (2026-11-08) |
-| WeedMaize | Canon PowerShot SX540 HS, straight down (platform not given); tiles of the photos | 1.3 m | ~0.36 (estimated) | boxes, maize and 4 weed species with growth stages | CC BY 4.0 | candidate (2026-11-08) |
+| CornWeed | Intel RealSense D435i on a tractor hoe (1280x720) and on the BoniRob platform (640x480), looking down | 0.5 m per the paper; the images suggest ~1 m (tractor) | ~1.07 / ~1.3 (estimated from the row distance, see cornweed.md) | boxes, maize and weeds (no species) | CC BY 4.0 | yes, from `public6` (2026-11-09) |
+| WeedMaize | Canon PowerShot SX540 HS, straight down (platform not given); tiles of the photos | 1.3 m | ~0.36 (estimated) | boxes, maize and 4 weed species with growth stages | CC BY 4.0 | test only: held out whole as the unseen-site test (2026-11-09) |
+| DeepSeedling | video frames: Samsung Galaxy Note3 phone by hand (TAMU2015), Panasonic DMC-G6 and Fujifilm X-A10 on a cart (UGA2015, UGA2018); close to straight down | ~0.5 m | ~0.4 / ~0.35 / ~0.35 (estimated, see deepseedling.md) | boxes, cotton and weeds (no species); seedlings under ~30 px on the labelling screen unboxed, and in UGA2015 many weeds | GPL 3.0+ | TAMU2015 and UGA2018, from `public7` (2026-11-10); UGA2015 not used |
+| Sugar Beets 2016 | BoniRob robot, JAI camera (1296x966, 8 mm lens), straight down | ~85 cm | ~0.33 (the paper's; its field of view gives 0.24) | masks per pixel, beet and weed, no plant IDs | CC BY-SA 4.0 | no: part 1 only, as an extra test set |
 
 ## Known links
+
+- **PhenoBench and Sugar Beets 2016: same site and group.** Both are sugar beet fields at
+  Campus Klein-Altendorf, by the University of Bonn: Sugar Beets 2016 from the BoniRob
+  robot in 2016, PhenoBench from a drone in 2020. Sugar Beets 2016 is only a test set.
 
 - **GROUNDBASED_WEED and WeedMaize: same group, camera and region.** D. Andújar's group
   (CSIC-UPM) photographed both in Badajoz province with a Canon PowerShot SX540 HS: tomato
@@ -62,8 +70,9 @@ period or rig in the other rows, and record any link under [Known links](#known-
 - **Maize and bean from several places**: CropAndWeed, ACRE and VCD (both crops), ImageWeeds
   (unboxed maize and soybean plots).
 - **Species from one source only**: tomato, *Cyperus rotundus* and *Setaria verticillata*
-  (GROUNDBASED_WEED); leek (VCD); ragweed, kochia, waterhemp and horseweed (ImageWeeds); many
-  of OPPD's species. A model may learn the dataset's look along with them.
+  (GROUNDBASED_WEED); leek (VCD); ragweed, kochia, waterhemp and horseweed (ImageWeeds); cotton
+  (DeepSeedling, the only set from the US South and the only phone video); many of OPPD's
+  species. A model may learn the dataset's look along with them.
 - **Plants grown in containers**: OPPD (trays) and ImageWeeds (pots set in the field). On
   `master`, species learned mostly from OPPD transferred badly to CropAndWeed's fields.
 - **Weed-AI** is a repository, not a source: its datasets come from many groups (see
@@ -72,8 +81,10 @@ period or rig in the other rows, and record any link under [Known links](#known-
 
 ## Checked and not used, for their links
 
+Every dataset set aside, with the reason, is in [rejected.md](rejected.md); these two are
+here for their links to datasets we use.
+
 | Dataset | Link | Why not used |
 |---|---|---|
 | WE3DS | BOKU experimental farm Groß-Enzersdorf, 2020-21: CropAndWeed's farm, 16 of its 17 species are CropAndWeed's | adds no diversity; semantic labels only |
 | ROSE challenge data | INRAE Montoldre, 2019-2021: ACRE's field | ACRE's site; access by a request form; label format not published |
-| Sugar Beets 2016 | University of Bonn's BoniRob, a sugar beet farm near Bonn: PhenoBench's area | PhenoBench's area and crop; a candidate for the detector all the same (crop/weed labels are enough), not added yet |

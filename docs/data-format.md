@@ -133,9 +133,12 @@ the same `min_plant_size_mm`, and its own split. `scripts/combine_datasets.py`
 - Each dataset keeps its own split; image file names become paths from the project root
   (`info.image_dir` is "."), each image gets its `dataset`, and `info.licences` lists the
   licences of all the datasets, since the most restrictive one applies to the combination.
+- Test-only datasets (`test_only`) are never trained on: all their images, from whichever of
+  train/val/test.json they have, go to `test_<dataset>.json` next to the combined splits, to
+  be scored on their own (`evaluate.split` of `configs/detector.yaml`).
 
 The output goes to `data/processed/<name>/plant[_min<size>mm]`, where `<name>` is the config's
-`name` (`public5`) or else the dataset names joined by +. A short name keeps run and preview
+`name` (`public7`) or else the dataset names joined by +. A short name keeps run and preview
 paths under Windows' 260 characters.
 
 ## Only datasets whose every plant is boxed
