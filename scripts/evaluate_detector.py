@@ -1,9 +1,10 @@
-"""Evaluate a trained plant detector on a split. Settings: configs/detector.yaml (`evaluate`,
-plus `data`, `run_name` and `output_dir` to find the run and the data).
+"""Evaluate a trained plant detector on a split, and on `evaluate.extra_splits`. Settings:
+configs/detector.yaml (`evaluate`, plus `data`, `run_name` and `output_dir` to find the run and
+the data).
 
-Writes to <run>/eval/<split>_<checkpoint>/: predictions.json (COCO results) and the outputs
-of weedseg.report.write_evaluation: COCO box metrics, plants found per dataset
-(by_dataset.csv) and per species (by_species.csv), and previews.
+Writes to <run>/eval/<split>_<checkpoint>/, one folder per split: predictions.json (COCO
+results) and the outputs of weedseg.report.write_evaluation: COCO box metrics, plants found per
+dataset (by_dataset.csv) and per species (by_species.csv), and previews.
 """
 
 from torch.utils.data import DataLoader
@@ -12,7 +13,7 @@ from weedseg.config import load_config
 from weedseg.detector.data import CocoDetectionDataset, collate, load_coco, model_categories
 from weedseg.detector.engine import predict, select_device
 from weedseg.detector.model import load_checkpoint_model
-from weedseg.detector.run import checkpoint_path, eval_dir, split_file
+from weedseg.detector.run import checkpoint_path, eval_dir, evaluated_splits, split_file
 from weedseg.report import write_evaluation
 
 CONFIG = "configs/detector.yaml"
@@ -20,14 +21,19 @@ CONFIG = "configs/detector.yaml"
 
 def main(config_path: str = CONFIG) -> None:
     config = load_config(config_path)
-    settings = config["evaluate"]
     checkpoint_file = checkpoint_path(config)
     device = select_device(config["device"])
     amp = config["train"]["amp"] and device.type == "cuda"
     model, checkpoint = load_checkpoint_model(checkpoint_file, device)
     print(f"{checkpoint_file} (epoch {checkpoint['epoch']}), device {device}")
 
-    split = settings["split"]
+    for split in evaluated_splits(config):
+        print(f"\n--- {split} ---")
+        evaluate_split(config, split, model, checkpoint, device, amp)
+
+
+def evaluate_split(config: dict, split: str, model, checkpoint: dict, device, amp: bool) -> None:
+    settings = config["evaluate"]
     coco = load_coco(split_file(config, split))
     # The model's labels follow the training categories; look them up by name in this file.
     by_name = {c["name"]: c for c in model_categories(coco)}
@@ -46,10 +52,9 @@ def main(config_path: str = CONFIG) -> None:
                         num_workers=config["data"]["num_workers"])
     results = predict(model, loader, categories, device, amp)
 
-    write_evaluation(coco, results, settings, eval_dir(config),
+    write_evaluation(coco, results, {**settings, "split": split}, eval_dir(config, split),
                      checkpoint["config"]["model"]["detections_per_image"], dataset.image_dir,
                      split_file(config, split), config["seed"])
-
 
 if __name__ == "__main__":
     main()

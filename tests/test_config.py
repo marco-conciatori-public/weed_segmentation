@@ -23,3 +23,18 @@ def test_detector_trains_on_what_combine_writes():
     assert load_config("configs/export_detector.yaml")["detector"] == "configs/detector.yaml"
     run = load_config("configs/run_detector.yaml")
     assert (run["combine"], run["detector"]) == ("configs/combine.yaml", "configs/detector.yaml")
+
+
+def test_scale_variant_differs_only_in_its_run_name_and_training_sizes():
+    run = load_config("configs/run_detector.yaml")
+    assert run["detector_variants"] == ["configs/detector_scale.yaml"]
+    assert "evaluate_scale" in run["steps"]
+    detector, variant = (load_config("configs/detector.yaml"),
+                         load_config("configs/detector_scale.yaml"))
+    assert variant["run_name"] != detector["run_name"]
+    sizes = variant["model"]["min_size"]
+    # evaluated (and exported) at the size of the detector without scale augmentation
+    assert sizes[-1] == max(sizes) == detector["model"]["min_size"][-1]
+    same = {**variant, "run_name": detector["run_name"],
+            "model": {**variant["model"], "min_size": detector["model"]["min_size"]}}
+    assert same == detector

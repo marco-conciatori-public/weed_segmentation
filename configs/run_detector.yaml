@@ -9,17 +9,30 @@ export: configs/export_detector.yaml
 log_dir: runs/detector/logs
 
 # Steps to run, in this order; remove those you don't need. Re-running is safe: training
-# resumes from its last.pt (a finished one does nothing), so after a failure, fix the cause and
-# start again. The datasets must be converted first (scripts/convert_*.py).
+# resumes from its last.pt (a finished one does nothing) and the scale test from its kept
+# detections, so after a failure, fix the cause and start again. The datasets must be
+# converted first (scripts/convert_*.py).
 #   combine_datasets   the converted datasets merged into one plant class (configs/combine.yaml)
 #   train_detector     the detector on the combined data
-#   evaluate_detector  AP and plants found per dataset and species, on evaluate.split
+#   evaluate_detector  AP and plants found per dataset and species, on evaluate.split and
+#                      evaluate.extra_splits
+#   evaluate_scale     plants found with the images shown at other scales (evaluate_scale)
 #   export_detector    the deployment package (its name holds today's date; it stops if a
 #                      package of that name exists, unless overwrite is set)
 steps:
   - combine_datasets
   - train_detector
   - evaluate_detector
+  - evaluate_scale
+
+# Detector configs trained after the steps above, one after the other, each repeating the
+# steps train_detector, evaluate_detector and evaluate_scale (those listed above) with its own
+# config: configs holding only what differs from the detector's (`base`), each with its own
+# run_name. A variant that fails is reported and the next one starts. At the end all runs are
+# compared in <log_dir>/compare_<date>_<time>.md. [] = none.
+detector_variants:
+  # Scale augmentation (training images at a short side of 640-1088 px), 2026-11-10.
+  - configs/detector_scale.yaml
 
 # Each step runs in a process of its own. When it crashes (e.g. the GPU driver resets), the
 # step is started again after restart_wait_s seconds, up to max_restarts times in all (0 = stop

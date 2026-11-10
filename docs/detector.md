@@ -24,10 +24,11 @@ Every script runs without arguments; its settings are in the config next to it.
 | `scripts/preview_annotations.py` | `configs/preview.yaml` | Draws a COCO file's boxes on its images: check that a dataset boxes every plant |
 | `scripts/combine_datasets.py` | `configs/combine.yaml` | Merges the converted datasets into one class, `plant` |
 | `scripts/train_detector.py` | `configs/detector.yaml` | Trains, evaluates on val every `eval_every` epochs, keeps the best checkpoint |
-| `scripts/evaluate_detector.py` | `configs/detector.yaml` | Evaluates a checkpoint on val or test |
+| `scripts/evaluate_detector.py` | `configs/detector.yaml` | Evaluates a checkpoint on `evaluate.split` (val) and `evaluate.extra_splits` (the test-only datasets) |
+| `scripts/evaluate_scale.py` | `configs/detector.yaml` (`evaluate_scale`) | The [scale test](#scale): plants found with the images shown at other scales |
 | `scripts/export_detector.py` | `configs/export_detector.yaml` | Writes the [deployment package](#deployment-package) |
 | `scripts/demo_detector.py` | `configs/demo_detector.yaml` | Runs a package on any images and draws the boxes |
-| `scripts/run_detector.py` | `configs/run_detector.yaml` | Combine, train, evaluate (and export) in a row, restarting a step after a crash |
+| `scripts/run_detector.py` | `configs/run_detector.yaml` | Combine, train, evaluate, scale test (and export) in a row, then the same for each detector variant, restarting a step after a crash; compares the runs at the end |
 
 ## Running it
 
@@ -41,11 +42,14 @@ Every script runs without arguments; its settings are in the config next to it.
 3. Optional smoke test, on any machine: set `max_train_images: 16`, `max_val_images: 8`,
    `epochs: 2`, `evaluate.max_images: 4` and a throwaway `run_name`, run training and
    evaluation, then undo those changes. On a CPU this takes a few minutes.
-4. Run `scripts/run_detector.py` (combine, train, evaluate), or the three scripts one by one.
-   Follow training with `uv run tensorboard --logdir runs/detector`.
-5. Evaluate on `test` only for the final numbers, so choices aren't tuned on it; the same goes
-   for the test-only datasets (`evaluate.split: test_weedmaize`, `test_sugarbeets2016`, see
-   [Datasets](#datasets)).
+4. Run `scripts/run_detector.py` (combine, train, evaluate, scale test, then the same for the
+   variants in `detector_variants`), or the scripts one by one. Follow training with
+   `uv run tensorboard --logdir runs/detector`. With variants, `runs/detector/logs/compare_<date>_<time>.md`
+   sets the runs side by side at the end.
+5. Evaluate on `test` only for the final numbers, so choices aren't tuned on it. The test-only
+   datasets (`test_weedmaize`, `test_sugarbeets2016`, see [Datasets](#datasets)) are evaluated
+   with every run (`evaluate.extra_splits`): WeedMaize, the unseen site, is a check on a
+   choice, not what it is made on.
 6. Export the package (`scripts/export_detector.py`) and upload it to the platform.
 
 An interrupted training resumes when re-run, from the last checkpoint: `last.pt` is saved
@@ -141,6 +145,9 @@ Everything goes to `runs/detector/<run_name>/` (gitignored):
     from: which plants the detector misses.
   - `predictions.json` (COCO results), `previews/` (ground truth left, predictions right),
     `evaluation.json` (the split file, seed and `evaluate` settings used).
+- `scale/<split>_<checkpoint>/`, from `evaluate_scale.py`: `report.md` and `report.csv` (plants
+  found per dataset and scale, see [Scale](#scale)), and `detections.jsonl` (kept detections,
+  so an interrupted test resumes).
 
 A plant counts as **found** when a detection with score ≥ `evaluate.score_threshold` (0.5)
 overlaps its box with IoU ≥ `evaluate.iou_threshold` (0.5); each detection matches one plant,
@@ -166,9 +173,46 @@ best score first. Detections on an ignore region count neither way.
   CropAndWeed stays at its native resolution, since 10% of its plants are under 22 px. The
   anchors start at 16 px instead of torchvision's 32.
 - **Augmentation:** horizontal and vertical flips (top-down images have no "up") and mild
-  colour jitter.
+  colour jitter. Scale augmentation is being tried as a variant ([Scale](#scale)).
 - **Optimiser:** SGD with linear warm-up and cosine decay, mixed precision on CUDA. The
   learning rate follows torchvision's reference recipe, scaled to the batch size.
+
+## Scale
+
+The detector resizes every image to 1088 px on its short side (at most 1920 on the long side),
+so the scale it sees, in mm per pixel at the detector, is the image's own mm/px divided by that
+resize. Photos from phones, drones and other robots come at scales nobody gives. In `public7`
+the training scales at the detector are (val images, 2026-11-10):
+
+| | CropAndWeed | ACRE | PhenoBench | LincolnBeet | OPPD | CornWeed | DeepSeedling | WeedMaize (test only) |
+|---|---|---|---|---|---|---|---|---|
+| mm/px at the detector | 0.41 | 0.53 | 0.94 | 0.35 | 0.42 | 0.57-0.71 | 0.35-0.40 | 0.56 |
+| median plant, px at the detector | 101 | 72 | 74 | 118 | 85 | 51 | 117 | 132 |
+
+**Scale test** (`scripts/evaluate_scale.py`, settings `evaluate_scale` in
+`configs/detector.yaml`, code `weedseg.scale_evaluation`): val images shown at 0.25-4 mm/px at
+the detector and at their own scale; coarser by shrinking the whole image (area averaging),
+finer by enlarging a centred window (a close-up, skipped where it would enlarge the image's own
+pixels over 1.5 times). Also `rescaled` (shrunk to 1.4 or 2.8, then enlarged back: what a known
+ground resolution allows) and `deployed` (the detector's own resize, as the exported model
+does). A plant is found as in the evaluation (score 0.5, IoU 0.5); also box AP, false
+detections per image and found by real size. Up to 2,000 plants or 150 images per dataset. The
+report's first lines check its native rows against the run's saved val evaluation. Ported from
+`master` (2026-11-10), where it measured the Mask R-CNN detector of the two-stage pipeline:
+coarser than training lost plants fast (at 1 mm/px, 34-60% kept by the datasets seen at
+0.35-0.53; at 1.4, 15-49%), rescaling back recovered most (so it is scale, not lost detail),
+finer down to 0.25 cost nothing, and the deployed resize cost nothing. That detector was trained
+at one size.
+
+**Scale augmentation** (`configs/detector_scale.yaml`, 2026-11-10, a variant of
+`configs/detector.yaml`): `model.min_size: [640, 704, ..., 1088]`, so torchvision resizes each
+training image to a short side picked at random from those (per image), showing plants at
+0.6-1 times their usual size in pixels: CropAndWeed as if at 0.41-0.70 mm/px, PhenoBench at
+0.94-1.6. Shrinking only, since finer was safe. Evaluation, the scale test's usual scale and
+the export use the last value, 1088, so the runs compare at the same input. `run_detector.yaml`
+trains it after the plain run (`detector_variants`) and compares the two: the val numbers per
+dataset at the usual scale (a small loss there is the cost), the scale test (the gain), and
+WeedMaize as a check. Not decided yet.
 
 ## Memory
 

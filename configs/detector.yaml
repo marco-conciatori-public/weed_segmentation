@@ -36,9 +36,11 @@ model:
   # https://download.pytorch.org/models/fasterrcnn_resnet50_fpn_v2_coco-dd69338a.pth
   # null = torchvision downloads it once to the torch cache (~/.cache/torch/hub/checkpoints).
   pretrained_path: weights/fasterrcnn_resnet50_fpn_v2_coco-dd69338a.pth
-  # Images are resized so the short side is min_size (one value picked at random per batch in
-  # training when several are given; the last one at evaluation), long side at most max_size.
-  # 1088/1920 keeps CropAndWeed at its native resolution: 10% of its plants are under 22 px.
+  # Images are resized so the short side is min_size, long side at most max_size. With several
+  # values, training picks one at random for each image (scale augmentation: plants shown at
+  # other sizes, as photos at other scales show them; see configs/detector_scale.yaml); the
+  # last one is used at evaluation and in the export. 1088/1920 keeps CropAndWeed at its native
+  # resolution: 10% of its plants are under 22 px.
   min_size: [1088]
   max_size: 1920
   # Anchor size per FPN level (5 levels). torchvision's default is 32-512; one level smaller
@@ -81,6 +83,9 @@ evaluate:
   # Keep test and the test-only files for the final numbers. export_detector.py's README
   # reports this split's numbers.
   split: val
+  # Also evaluated, each in its own folder (e.g. the test-only datasets); [] = none. These
+  # files must exist in data.dir (configs/combine.yaml's test_only).
+  extra_splits: [test_weedmaize, test_sugarbeets2016]
   # Evaluate a random subset of N images (null = all). For a quick smoke test.
   max_images: null
   batch_size: 2
@@ -93,3 +98,39 @@ evaluate:
   # Images with ground truth and predictions side by side (0 = none).
   num_previews: 20
   preview_score_threshold: 0.5
+
+# Scale test (scripts/evaluate_scale.py): the plants found when the images are shown at other
+# scales than their own, as photos from other cameras and heights show them. Writes
+# <run>/scale/<split>_<checkpoint>/report.md and report.csv. Uses evaluate.checkpoint,
+# train.amp and device. See docs/detector.md (Scale).
+evaluate_scale:
+  split: val
+  # Datasets of the split to show (their images' `dataset` field); null = all of them.
+  datasets: null
+  # Per dataset, images in a fixed random order (seed) until they hold this many labelled
+  # plants, or are max_images_per_dataset (null = no limit, for both). Each image is shown 14
+  # times (the views below); about 1 s per image on the RTX 4090 (estimate), ~70 s on a laptop
+  # CPU.
+  plants_per_dataset: 2000
+  max_images_per_dataset: 150
+  # Scales to show each image at, in mm per pixel at the detector (1 mm/px is about 1.09 m of
+  # ground across the short side at min_size 1088). Each image is also shown at its own scale
+  # (native). public7 at the detector: 0.35 (LincolnBeet, DeepSeedling) to 0.94 (PhenoBench).
+  targets: [0.25, 0.35, 0.5, 0.7, 1.0, 1.4, 2.0, 2.8, 4.0]
+  # Targets (coarser than native) also shown rescaled: shrunk to the target, then enlarged back
+  # to the usual scale, as a known ground resolution allows. [] = none.
+  rescaled: [1.4, 2.8]
+  # Also show each image at its own scale resized by the detector's own transform (bilinear,
+  # no anti-aliasing), as the exported model does, besides area averaging.
+  deployed: true
+  # A finer target enlarges a centred window (a close-up). Skipped where that would enlarge the
+  # image's own pixels more than this: a real close-up is sharp, an enlarged image is blurred.
+  max_upsample: 1.5
+  # A plant is found by a detection with at least this score whose box overlaps its box at
+  # this IoU (as the evaluate section).
+  score_threshold: 0.5
+  iou_threshold: 0.5
+  # Plants found are also counted by real size (longest side, mm), cut at these edges.
+  size_bands_mm: [40, 80]
+  # CPU threads for torch and OpenCV (image resizing).
+  threads: 4

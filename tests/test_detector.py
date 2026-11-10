@@ -6,7 +6,15 @@ import torch
 from weedseg.detector.data import IGNORE_LABEL, CocoDetectionDataset, build_augmentation, collate
 from weedseg.detector.engine import EpochSampler, predict, warmup_cosine
 from weedseg.detector.model import build_model
-from weedseg.detector.run import resolve_run_dir, run_name, split_file
+from weedseg.detector.run import (
+    eval_dir,
+    evaluated_splits,
+    resolve_run_dir,
+    run_name,
+    scale_dir,
+    shared_run_dirs,
+    split_file,
+)
 from weedseg.paths import project_root
 
 H, W = 96, 128
@@ -133,3 +141,32 @@ def test_run_dir_and_split_files_are_project_root_anchored():
     assert resolve_run_dir(config) == project_root() / "runs/detector/public5"
     assert split_file(config, "val") == (project_root() / "data/processed/public5"
                                          / "plant_min20mm/val.json")
+
+
+def test_evaluated_splits_and_output_folders_of_a_run():
+    config = {**run_config("{dataset}"),
+              "evaluate": {"checkpoint": "best", "split": "val",
+                           "extra_splits": ["test_a", "val"]},
+              "evaluate_scale": {"split": "val"}}
+    assert evaluated_splits(config) == ["val", "test_a"]
+    run = project_root() / "runs/detector/public5"
+    assert eval_dir(config) == run / "eval/val_best"
+    assert eval_dir(config, "test_a") == run / "eval/test_a_best"
+    assert scale_dir(config) == run / "scale/val_best"
+    assert evaluated_splits({"evaluate": {"split": "test"}}) == ["test"]
+
+
+def test_variants_need_run_folders_of_their_own():
+    a, b = run_config("{dataset}"), run_config("{dataset}_scale")
+    assert shared_run_dirs({"a.yaml": a, "b.yaml": b}) == []
+    problem, = shared_run_dirs({"a.yaml": a, "b.yaml": b, "c.yaml": run_config("public5")})
+    assert problem.startswith("a.yaml and c.yaml share the run folder")
+
+
+def test_scale_augmentation_trains_at_several_sizes_but_evaluates_at_the_last():
+    model = build_model(2, {**MODEL_CONFIG, "min_size": [64, 80, 96]})
+    assert model.transform.min_size == (64, 80, 96)
+    model.eval()
+    image = torch.rand(3, H, W)
+    resized, _ = model.transform([image])
+    assert resized.image_sizes[0] == (96, 128)
