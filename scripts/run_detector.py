@@ -3,11 +3,13 @@ Settings: configs/run_detector.yaml (the steps and config files); every step rea
 config, nothing is overridden here.
 
 Each step runs in a process of its own. When that process crashes (e.g. the GPU driver
-resets, which kills it without a Python error), the step is started again after
-`restart_wait_s`, up to `max_restarts` times in all: training resumes from its last checkpoint
-(saved every few minutes), the scale test from its kept detections, the other steps redo their
-work. A Python error (a wrong setting, a missing file) stops the runner, since a restart would
-fail again; after fixing the cause, run it again: a finished training is not repeated.
+resets, which kills it without a Python error) or ends with an error the machine caused (a
+CUDA error, DataLoader workers killed, memory running out: weedseg.detector.run.is_crash), the
+step is started again after `restart_wait_s`, up to `max_restarts` times in all: training
+resumes from its last checkpoint (saved every few minutes), the scale test from its kept
+detections, the other steps redo their work. Any other Python error (a wrong setting, a missing
+file) stops the runner, since a restart would fail again; after fixing the cause, run it again:
+a finished training is not repeated.
 
 Detector variants (`detector_variants`: configs holding only what differs from the detector's,
 each with its own run_name) are trained after the steps: each repeats the detector steps of
@@ -37,12 +39,12 @@ import train_detector
 from weedseg.config import load_config
 from weedseg.console import log_console
 from weedseg.detector.compare import write_comparison
-from weedseg.detector.run import resolve_run_dir, shared_run_dirs
+from weedseg.detector.run import is_crash, resolve_run_dir, shared_run_dirs
 from weedseg.paths import resolve
 
 CONFIG = "configs/run_detector.yaml"
-# Exit code of a step that raised a CUDA error as a Python exception: worth a restart.
-CUDA_ERROR_EXIT = 75
+# Exit code of a step whose Python error is a crash (is_crash): worth a restart.
+CRASH_EXIT = 75
 # The steps a detector variant repeats, with its own config.
 VARIANT_STEPS = ("train_detector", "evaluate_detector", "evaluate_scale")
 
@@ -180,7 +182,8 @@ def _run_in_process(function: Callable[[str], None], path: str, log_path: Path) 
 
 
 def _step(function: Callable[[str], None], path: str, log_path: Path) -> None:
-    """A step's process: function(path), with a CUDA error reported as worth a restart."""
+    """A step's process: function(path), with a crash (is_crash) reported as worth a
+    restart."""
     log = log_console(log_path)
     # The Python lines of a crash go to the log (the console still shows the crash itself).
     faulthandler.enable(file=log.file)
@@ -188,7 +191,7 @@ def _step(function: Callable[[str], None], path: str, log_path: Path) -> None:
         function(path)
     except Exception as error:  # noqa: BLE001 (any error ends the step; printed here)
         traceback.print_exc()
-        sys.exit(CUDA_ERROR_EXIT if "CUDA" in str(error) else 1)
+        sys.exit(CRASH_EXIT if is_crash(error) else 1)
     finally:
         log.close_line()
 

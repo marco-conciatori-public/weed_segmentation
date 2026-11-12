@@ -34,9 +34,10 @@ detector_variants:
   # Scale augmentation (training images at a short side of 640-1088 px), 2026-11-10.
   - configs/detector_scale.yaml
 
-# Each step runs in a process of its own. When it crashes (e.g. the GPU driver resets), the
-# step is started again after restart_wait_s seconds, up to max_restarts times in all (0 = stop
-# at the first crash). Training resumes from its last checkpoint (train.checkpoint_every).
-# Python errors (wrong settings, missing files) are never retried.
+# Each step runs in a process of its own. When it crashes (e.g. the GPU driver resets, or the
+# PC runs short of memory and its DataLoader workers are killed), the step is started again
+# after restart_wait_s seconds, up to max_restarts times in all (0 = stop at the first crash).
+# Training resumes from its last checkpoint (train.checkpoint_every). Other Python errors
+# (wrong settings, missing files) are never retried.
 max_restarts: 10
 restart_wait_s: 60

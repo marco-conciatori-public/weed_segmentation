@@ -1,10 +1,19 @@
 """Run directory and data files of a run config (configs/detector.yaml): its `data.dir`,
-`run_name`, `output_dir`, `evaluate` checkpoint and splits, and `evaluate_scale` split."""
+`run_name`, `output_dir`, `evaluate` checkpoint and splits, and `evaluate_scale` split. Also
+which errors of a step are crashes worth a restart (scripts/run_detector.py)."""
 
 from pathlib import Path
 from typing import Any
 
 from weedseg.paths import resolve
+
+# Words in the error message of a crash caused by the machine, not by the settings or the data:
+# a CUDA error (e.g. the GPU driver resets); DataLoader worker processes killed ("DataLoader
+# worker (pid(s) ...) exited unexpectedly"; an error in the dataset code instead reads "Caught
+# ... in DataLoader worker process 0"), or memory running out in the step itself, when the PC
+# runs short of memory (e.g. other programs on a shared PC). The last two are PyTorch's and
+# Windows' wording for running out of memory.
+CRASH_SIGNS = ("CUDA", "DataLoader worker (pid", "not enough memory", "paging file is too small")
 
 
 def split_file(config: dict[str, Any], split: str) -> Path:
@@ -36,6 +45,12 @@ def shared_run_dirs(configs: dict[str, dict[str, Any]]) -> list[str]:
         by_dir.setdefault(resolve_run_dir(settings), []).append(path)
     return [f"{' and '.join(paths)} share the run folder {run_dir}; give each its own run_name"
             for run_dir, paths in by_dir.items() if len(paths) > 1]
+
+
+def is_crash(error: BaseException) -> bool:
+    """Whether a step's error is a crash worth a restart (it may pass once the machine
+    recovers) rather than a mistake that a restart would only repeat."""
+    return isinstance(error, MemoryError) or any(sign in str(error) for sign in CRASH_SIGNS)
 
 
 def checkpoint_path(config: dict[str, Any], checkpoint: str | None = None) -> Path:

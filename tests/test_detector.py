@@ -9,6 +9,7 @@ from weedseg.detector.model import build_model
 from weedseg.detector.run import (
     eval_dir,
     evaluated_splits,
+    is_crash,
     resolve_run_dir,
     run_name,
     scale_dir,
@@ -161,6 +162,22 @@ def test_variants_need_run_folders_of_their_own():
     assert shared_run_dirs({"a.yaml": a, "b.yaml": b}) == []
     problem, = shared_run_dirs({"a.yaml": a, "b.yaml": b, "c.yaml": run_config("public5")})
     assert problem.startswith("a.yaml and c.yaml share the run folder")
+
+
+def test_crashes_the_machine_caused_are_worth_a_restart_other_errors_not():
+    # the error that ended the scale variant on the 4090 on 2026-11-11
+    assert is_crash(RuntimeError("DataLoader worker (pid(s) 68844, 40408) exited unexpectedly"))
+    assert is_crash(RuntimeError("CUDA error: unspecified launch failure"))
+    assert is_crash(RuntimeError("[enforce fail at alloc_cpu.cpp:121] DefaultCPUAllocator: "
+                                 "not enough memory: you tried to allocate 1073741824 bytes."))
+    assert is_crash(OSError("[WinError 1455] The paging file is too small for this operation "
+                            "to complete"))
+    assert is_crash(MemoryError())
+    assert not is_crash(FileNotFoundError("data/processed/public7/plant_min20mm/train.json"))
+    assert not is_crash(KeyError("min_size"))
+    # an error in the dataset code, raised again by PyTorch in the main process
+    assert not is_crash(KeyError("Caught KeyError in DataLoader worker process 0.\n"
+                                 "Original Traceback (most recent call last): ..."))
 
 
 def test_scale_augmentation_trains_at_several_sizes_but_evaluates_at_the_last():
