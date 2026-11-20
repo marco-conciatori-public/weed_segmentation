@@ -36,6 +36,11 @@ model:
   # https://download.pytorch.org/models/fasterrcnn_resnet50_fpn_v2_coco-dd69338a.pth
   # null = torchvision downloads it once to the torch cache (~/.cache/torch/hub/checkpoints).
   pretrained_path: weights/fasterrcnn_resnet50_fpn_v2_coco-dd69338a.pth
+  # ResNet parts of the backbone that train, counted from the last (0-5): 5 = all of it,
+  # including the first convolution and its normalisation; 3 = torchvision's fine-tuning
+  # default (first convolution and stage 1 frozen). Not yet compared: see docs/detector.md
+  # (Choices, Trainable layers).
+  trainable_backbone_layers: 5
   # Images are resized so the short side is min_size, long side at most max_size. With several
   # values, training picks one at random for each image (scale augmentation: plants shown at
   # other sizes, as photos at other scales show them; see configs/detector_scale.yaml); the

@@ -31,7 +31,7 @@ from weedseg.detector.engine import (
     train_one_epoch,
     warmup_cosine,
 )
-from weedseg.detector.model import build_model
+from weedseg.detector.model import build_model, model_settings
 from weedseg.detector.run import resolve_run_dir, split_file
 from weedseg.evaluation import evaluate_coco
 from weedseg.paths import resolve
@@ -81,7 +81,7 @@ def main(config_path: str = CONFIG) -> None:
     last_path, best_path = run_dir / "last.pt", run_dir / "best.pt"
     if train["resume"] and last_path.exists():
         checkpoint = torch.load(last_path, map_location="cpu", weights_only=False)
-        if checkpoint["config"]["model"] != model_config:
+        if model_settings(checkpoint["config"]["model"]) != model_settings(model_config):
             raise SystemExit(f"The model settings differ from those of {last_path}; "
                              "change run_name to train a new model")
         trained_data = checkpoint["config"]["data"]

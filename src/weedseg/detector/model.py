@@ -17,6 +17,9 @@ from weedseg.paths import resolve
 
 # The architecture as model.json of an export names it (weedseg.deploy.export).
 ARCHITECTURE = "torchvision fasterrcnn_resnet50_fpn_v2"
+# ResNet parts of the backbone, last first: model.trainable_backbone_layers = N trains the
+# first N (5 also trains bn1, the stem's normalisation), as torchvision counts them.
+BACKBONE_STAGES = ("layer4", "layer3", "layer2", "layer1", "conv1")
 
 
 class IgnoreAwareRPN(RegionProposalNetwork):
@@ -40,12 +43,39 @@ class IgnoreAwareRPN(RegionProposalNetwork):
         return labels, matched_gt_boxes
 
 
+def model_settings(config: dict[str, Any]) -> dict[str, Any]:
+    """The `model` settings with `trainable_backbone_layers` filled in for configs and
+    checkpoints from before it was a setting (2026-11-20), as torchvision chose it then: 3 for
+    weights it downloaded itself, else 5 (weights read from `pretrained_path` count for
+    torchvision as no pretraining)."""
+    if "trainable_backbone_layers" in config:
+        return config
+    downloaded = config["pretrained"] and not config.get("pretrained_path")
+    return {**config, "trainable_backbone_layers": 3 if downloaded else 5}
+
+
+def freeze_backbone(model: FasterRCNN, trainable_layers: int) -> None:
+    """Train only the last `trainable_layers` parts of the ResNet (BACKBONE_STAGES), as
+    torchvision's own setting does. Done here because torchvision ignores that setting unless
+    it loads the weights itself, which it doesn't with `pretrained_path`. The FPN and heads
+    always train."""
+    if not 0 <= trainable_layers <= len(BACKBONE_STAGES):
+        raise ValueError(f"trainable_backbone_layers must be 0-{len(BACKBONE_STAGES)}, "
+                         f"not {trainable_layers}")
+    trained = BACKBONE_STAGES[:trainable_layers] + (("bn1",) if trainable_layers == 5 else ())
+    for name, parameter in model.backbone.body.named_parameters():
+        parameter.requires_grad_(name.startswith(trained))
+
+
 def build_model(num_classes: int, config: dict[str, Any]) -> FasterRCNN:
     """Faster R-CNN with `num_classes` including background (= categories + 1).
 
     With `pretrained`, all weights except the class-specific head start from torchvision's
     COCO model: read from `pretrained_path` when set, else downloaded once to the torch cache.
+    `trainable_backbone_layers` of the ResNet train (freeze_backbone), wherever the weights
+    came from.
     """
+    config = model_settings(config)
     if len(config["anchor_sizes"]) != 5:
         raise ValueError("anchor_sizes needs one size per FPN level (5)")
     weights, weights_path = None, None
@@ -75,6 +105,7 @@ def build_model(num_classes: int, config: dict[str, Any]) -> FasterRCNN:
         tuple((size,) for size in config["anchor_sizes"]),
         ((0.5, 1.0, 2.0),) * len(config["anchor_sizes"]))
     model.rpn.__class__ = IgnoreAwareRPN
+    freeze_backbone(model, config["trainable_backbone_layers"])
 
     box_features = model.roi_heads.box_predictor.cls_score.in_features
     model.roi_heads.box_predictor = FastRCNNPredictor(box_features, num_classes)

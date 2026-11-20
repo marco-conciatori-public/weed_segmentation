@@ -159,6 +159,21 @@ best score first. Detections on an ignore region count neither way.
   It is the Mask R-CNN of `master` without the mask head, so the training code carries over;
   torchvision is BSD-3-Clause, with none of Ultralytics' AGPL terms. On COCO its box AP is
   46.7, against 37.0 for v1 (the platform's placeholder detector r50).
+- **Trainable layers:** the whole backbone trains (`model.trainable_backbone_layers: 5`), the
+  first convolution and every normalisation layer included: 43.3 M parameters. torchvision's
+  own fine-tuning default is 3: the first convolution and ResNet stage 1 stay at their COCO
+  weights (0.2 M parameters fewer; their normalisation still updates its running statistics).
+  - Until 2026-11-20 this was not a setting: torchvision decided it from where the COCO
+    weights came from. Weights it downloads itself (`pretrained_path: null`) got 3. Weights
+    read from `pretrained_path` count for torchvision as no pretraining, so they got 5, and
+    torchvision ignores the setting in that case, which is why `weedseg.detector.model`
+    freezes the layers itself.
+  - Every run so far (public5 to public7, the scale variant included) read the weights from
+    the file, so they all trained the whole backbone; 5 keeps them comparable. A config or
+    checkpoint without the setting gets what torchvision chose then.
+  - **To compare:** 5 against 3, same data and epochs, on box AP and plants found per dataset
+    and on the test-only sets, when a training GPU is available. Which is better here is
+    untested.
 - **Ignore regions** (see [data-format.md](data-format.md#ignore-regions)) get the training
   label -1. The RoI heads of torchvision already skip proposals matched to such a box; the RPN
   is replaced by `IgnoreAwareRPN`, which does the same for anchors. A plant in an ignore region
