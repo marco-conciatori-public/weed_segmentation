@@ -5,8 +5,9 @@ description = "Weed detection and species recognition for robotic precision weed
 requires-python = ">=3.12,<3.13"
 dependencies = [
     # Deep learning
-    "torch",
-    "torchvision",
+    # Pinned so every machine trains on the same version; 2.11 is the last with cu128 wheels.
+    "torch==2.11.0",
+    "torchvision==0.26.0",
     # DINOv2 backbones for the species classifier (Apache-2.0, weights too)
     "timm>=1.0.30",
     # Weights of the deployment package (weedseg.deploy), plain tensors without pickled code
@@ -54,15 +55,26 @@ dev = [
 [tool.uv]
 default-groups = ["dev"]
 
-# PyTorch CUDA builds on Windows/Linux. Change the index (e.g. cu126, cu129, cpu)
-# to match the training machine's driver once its specs are known.
+# PyTorch CUDA builds, picked per machine by `uv sync`: cu130 on ARM Linux (DGX Spark, GB10
+# Blackwell, CUDA 13 driver), cu128 on Windows and x86 Linux. macOS gets the PyPI build.
 [tool.uv.sources]
-torch = [{ index = "pytorch-cu128", marker = "sys_platform == 'win32' or sys_platform == 'linux'" }]
-torchvision = [{ index = "pytorch-cu128", marker = "sys_platform == 'win32' or sys_platform == 'linux'" }]
+torch = [
+    { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
+    { index = "pytorch-cu128", marker = "sys_platform == 'win32' or (sys_platform == 'linux' and platform_machine != 'aarch64')" },
+]
+torchvision = [
+    { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
+    { index = "pytorch-cu128", marker = "sys_platform == 'win32' or (sys_platform == 'linux' and platform_machine != 'aarch64')" },
+]
 
 [[tool.uv.index]]
 name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
 explicit = true
 
 [tool.ruff]
