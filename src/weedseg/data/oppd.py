@@ -20,13 +20,15 @@ from pathlib import Path
 from typing import Any
 
 from weedseg.data.coco import ImageRecord, Instance
+from weedseg.data.filenames import real_path
 
 ANNOTATION_SUFFIX = ".jpg.json"
 
 
 def image_names(raw_dir: Path) -> list[str]:
-    return sorted(path.name.removesuffix(ANNOTATION_SUFFIX)
-                  for path in (raw_dir / "ds0" / "ann").glob(f"*{ANNOTATION_SUFFIX}"))
+    folder = raw_dir / "ds0" / "ann"
+    return sorted(path.name[:-len(ANNOTATION_SUFFIX)]
+                  for path in folder.glob(f"*{ANNOTATION_SUFFIX}", case_sensitive=False))
 
 
 def tray_of(name: str) -> str:
@@ -36,7 +38,7 @@ def tray_of(name: str) -> str:
 
 
 def _annotation(raw_dir: Path, name: str) -> dict[str, Any]:
-    path = raw_dir / "ds0" / "ann" / f"{name}{ANNOTATION_SUFFIX}"
+    path = real_path(raw_dir / "ds0" / "ann" / f"{name}{ANNOTATION_SUFFIX}")
     return json.loads(path.read_text(encoding="utf-8"))
 
 

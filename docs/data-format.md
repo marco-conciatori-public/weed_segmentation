@@ -27,6 +27,11 @@ configs/label_maps/<dataset>.csv source label -> categories
 Images are not copied. `info.image_dir` in each JSON gives their folder, relative to the
 project root.
 
+Each image's `file_name` is spelled as the file is on disk, case included: Linux, unlike
+Windows, doesn't open `IMG_1.jpg` for `IMG_1.JPG`. The conversion pipeline looks each name
+up in its folder and fixes the case (`weedseg.data.filenames`), and the readers find raw
+annotation files whatever the case of their names.
+
 ## Downloading
 
 `scripts/download_datasets.py` fetches the datasets listed in `configs/download.yaml`; each

@@ -21,6 +21,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from weedseg.data.coco import ImageRecord, Instance
+from weedseg.data.filenames import real_path
 
 PARTS = {"TOMATO_1": 2021, "TOMATO_2": 2022}  # the year of each part, from the paper
 # IMG_4130, 02_IMG_4550 (quadrat 2); one file lacks the underscore: 25IMG_4626.
@@ -30,7 +31,7 @@ NAME = re.compile(r"(?:(\d+)_?)?IMG_(\d+)")
 def image_names(raw_dir: Path) -> list[str]:
     """The annotated images, "<part>/<file stem>"."""
     return sorted(f"{part}/{path.stem}" for part in PARTS
-                  for path in (raw_dir / part / "Annotations").glob("*.xml"))
+                  for path in (raw_dir / part / "Annotations").glob("*.xml", case_sensitive=False))
 
 
 def _parse(name: str) -> tuple[str, int | None, int]:
@@ -52,7 +53,7 @@ def group_of(name: str, block: int) -> str:
 
 def _annotation(raw_dir: Path, name: str) -> ET.Element:
     part, stem = name.split("/")
-    return ET.parse(raw_dir / part / "Annotations" / f"{stem}.xml").getroot()
+    return ET.parse(real_path(raw_dir / part / "Annotations" / f"{stem}.xml")).getroot()
 
 
 def _boxes(annotation: ET.Element) -> list[tuple[str, tuple[float, ...], dict[str, bool]]]:

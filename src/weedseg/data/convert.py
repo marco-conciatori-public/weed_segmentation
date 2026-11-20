@@ -6,7 +6,8 @@ each image (cheap, for the size filter and the split) and the full records.
 """
 
 from collections import Counter
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +22,27 @@ from weedseg.data.coco import (
     to_coco,
     write_json,
 )
+from weedseg.data.filenames import on_disk
 from weedseg.paths import resolve
+
+
+def with_names_on_disk(records: Iterable[ImageRecord], image_dir: Path) -> Iterator[ImageRecord]:
+    """The records with each file_name spelled as on disk under `image_dir`, so the COCO files
+    also work on Linux, where case matters (weedseg.data.filenames). Images not found are kept
+    as they are and reported at the end."""
+    missing, renamed = [], 0
+    for record in records:
+        name = on_disk(record.file_name, image_dir)
+        if name is None:
+            missing.append(record.file_name)
+        elif name != record.file_name:
+            renamed += 1
+            record = replace(record, file_name=name)
+        yield record
+    if renamed:
+        print(f"{renamed} image file names spelled as on disk (they differed only in case)")
+    if missing:
+        print(f"warning: {len(missing)} images not found under {image_dir}, e.g. {missing[0]}")
 
 
 def convert_dataset(names: list[str], group_of: Callable[[str], str],
@@ -81,7 +102,10 @@ def convert_dataset(names: list[str], group_of: Callable[[str], str],
             "split_seed": seed,
             "min_plant_size_mm": min_size_mm,
         }
-        records = tqdm(records_of(split_names), total=len(split_names), desc=split_name)
+        records = records_of(split_names)
+        if "image_dir" in info:  # every converter script gives it; tests may leave it out
+            records = with_names_on_disk(records, resolve(info["image_dir"]))
+        records = tqdm(records, total=len(split_names), desc=split_name)
         coco = ignore_small_plants(to_coco(records, label_map, split_info, box_only), min_size_mm)
         path = output_dir / f"{split_name}.json"
         write_json(coco, path)
