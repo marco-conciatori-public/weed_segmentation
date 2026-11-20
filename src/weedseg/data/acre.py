@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 
 from weedseg.data.coco import ImageRecord, Instance
+from weedseg.data.filenames import real_path
 
 UNKNOWN_CLASS = "unknow"  # the annotators' class for plants they could not tell
 UNNAMED = "unnamed"  # source label of a plant with an empty name
@@ -26,7 +27,7 @@ NAMELESS = ("inconnu", UNNAMED)
 
 def image_names(raw_dir: Path) -> list[str]:
     return sorted(xml.relative_to(raw_dir / "data").with_suffix("").as_posix()
-                  for xml in (raw_dir / "data").glob("*/*/*.xml"))
+                  for xml in (raw_dir / "data").glob("*/*/*.xml", case_sensitive=False))
 
 
 def batch_of(name: str) -> str:
@@ -47,7 +48,7 @@ def source_label(clipping: ET.Element) -> str:
 
 
 def _plants(raw_dir: Path, name: str) -> tuple[ET.Element, list[tuple[ET.Element, np.ndarray]]]:
-    root = ET.parse(raw_dir / "data" / f"{name}.xml").getroot()
+    root = ET.parse(real_path(raw_dir / "data" / f"{name}.xml")).getroot()
     plants = []
     for clipping in root.findall("data/clippings/clipping"):
         points = np.array([(int(p.get("x")), int(p.get("y")))

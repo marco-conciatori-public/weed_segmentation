@@ -18,6 +18,7 @@ import cv2
 import numpy as np
 
 from weedseg.data.coco import ImageRecord, Instance
+from weedseg.data.filenames import real_path
 
 VEGETATION_LABEL = 255  # the dataset's fallback for tiny or unidentifiable plants
 SUBSETS = {"ave": "application", "vwg": "experimental"}
@@ -109,8 +110,9 @@ def image_names(raw_dir: Path, keep_negative_images: bool = True,
                 require_image_file: bool = True) -> list[str]:
     """Names of the annotated images; negatives are images with an empty box file."""
     names = []
-    for box_file in sorted((raw_dir / "bboxes").glob("*.csv")):
-        if require_image_file and not (raw_dir / "images" / f"{box_file.stem}.jpg").exists():
+    for box_file in sorted((raw_dir / "bboxes").glob("*.csv", case_sensitive=False)):
+        image = real_path(raw_dir / "images" / f"{box_file.stem}.jpg")
+        if require_image_file and not image.exists():
             continue
         if not keep_negative_images and box_file.stat().st_size == 0:
             continue
@@ -121,7 +123,7 @@ def image_names(raw_dir: Path, keep_negative_images: bool = True,
 def box_labels(raw_dir: Path, name: str) -> list[tuple[str, int, int]]:
     """(source label, width, height) of each box of an image, in px. Reads only the box
     file, so it is fast; the sizes match the boxes `iter_records` writes."""
-    boxes = read_boxes(raw_dir / "bboxes" / f"{name}.csv")
+    boxes = read_boxes(real_path(raw_dir / "bboxes" / f"{name}.csv"))
     return [(str(label), right + 1 - left, bottom + 1 - top)
             for left, top, right, bottom, label, _, _ in boxes]
 
@@ -135,8 +137,8 @@ def iter_records(raw_dir: Path, names: list[str], unboxed_min_area: int | None =
     added as ignore instances (`unboxed_regions`) unless `unboxed_min_area` is None.
     """
     for name in names:
-        boxes = read_boxes(raw_dir / "bboxes" / f"{name}.csv")
-        semantic = cv2.imread(str(raw_dir / "labelIds" / "CropAndWeed" / f"{name}.png"),
+        boxes = read_boxes(real_path(raw_dir / "bboxes" / f"{name}.csv"))
+        semantic = cv2.imread(str(real_path(raw_dir / "labelIds" / "CropAndWeed" / f"{name}.png")),
                               cv2.IMREAD_UNCHANGED)
         height, width = semantic.shape
         masks = instance_masks(semantic, boxes)
@@ -162,7 +164,7 @@ def iter_records(raw_dir: Path, names: list[str], unboxed_min_area: int | None =
 
         subset = name.split("-", 1)[0]
         attributes = {"subset": SUBSETS[subset], "session": session_of(name),
-                      **read_params(raw_dir / "params" / f"{name}.csv")}
+                      **read_params(real_path(raw_dir / "params" / f"{name}.csv"))}
         if mm_per_px_estimate is not None:
             attributes["mm_per_px"] = mm_per_px_estimate
             attributes["mm_per_px_estimated"] = True

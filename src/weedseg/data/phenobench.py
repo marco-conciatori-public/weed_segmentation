@@ -21,6 +21,7 @@ import cv2
 import numpy as np
 
 from weedseg.data.coco import ImageRecord, Instance
+from weedseg.data.filenames import real_path
 
 LABELLED_SPLITS = ("train", "val")
 SOURCE_LABELS = {1: "crop", 2: "weed", 3: "partial_crop", 4: "partial_weed"}
@@ -31,7 +32,7 @@ YEAR = 2020
 def image_names(raw_dir: Path) -> list[str]:
     """The labelled images, "<split>/<file stem>"."""
     return sorted(f"{split}/{path.stem}" for split in LABELLED_SPLITS
-                  for path in (raw_dir / split / "semantics").glob("*.png"))
+                  for path in (raw_dir / split / "semantics").glob("*.png", case_sensitive=False))
 
 
 def photo_of(name: str) -> str:
@@ -51,7 +52,7 @@ def own_splits(names: list[str]) -> dict[str, list[str]]:
 def _plants(raw_dir: Path, name: str) -> tuple[list[tuple[str, np.ndarray]], tuple[int, int]]:
     """(source label, bool mask) of each plant of an image, and the image's (height, width)."""
     split, stem = name.split("/", 1)
-    paths = [raw_dir / split / folder / f"{stem}.png" for folder in ("semantics",
+    paths = [real_path(raw_dir / split / folder / f"{stem}.png") for folder in ("semantics",
                                                                     "plant_instances")]
     semantic, instances = (cv2.imread(str(path), cv2.IMREAD_UNCHANGED) for path in paths)
     for path, image in zip(paths, (semantic, instances)):

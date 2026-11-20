@@ -25,6 +25,7 @@ from pathlib import Path
 import numpy as np
 
 from weedseg.data.coco import ImageRecord, Instance
+from weedseg.data.filenames import real_path
 
 SETS = ("train_set", "validation_set", "test_set")
 GRID_STEP, GRID_COLUMNS = 400, 6  # the tile grid, see above
@@ -45,7 +46,8 @@ def image_names(raw_dir: Path) -> list[str]:
     for folder in SETS:
         if not (raw_dir / folder).is_dir():
             raise FileNotFoundError(f"{raw_dir / folder} missing; run scripts/download_datasets.py")
-        names += [f"{folder}/{path.stem}" for path in sorted((raw_dir / folder).glob("IMG_*.xml"))]
+        names += [f"{folder}/{path.stem}"
+                  for path in sorted((raw_dir / folder).glob("IMG_*.xml", case_sensitive=False))]
     return names
 
 
@@ -53,7 +55,7 @@ def image_names(raw_dir: Path) -> list[str]:
 def read_tile(raw_dir: Path, name: str) -> tuple[tuple[int, int], tuple[Box, ...]]:
     """(width, height) of a tile and its boxes, as its XML gives them (1-based inclusive
     corners turned into 0-based [x0, x1) ranges)."""
-    root = ET.parse(raw_dir / f"{name}.xml").getroot()
+    root = ET.parse(real_path(raw_dir / f"{name}.xml")).getroot()
     size = root.find("size")
     width, height = int(size.findtext("width")), int(size.findtext("height"))
     boxes = []

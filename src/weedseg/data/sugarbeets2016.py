@@ -30,6 +30,7 @@ import cv2
 import numpy as np
 
 from weedseg.data.coco import ImageRecord, Instance
+from weedseg.data.filenames import real_path
 
 ROOT = "ijrr_sugarbeets_2016_annotations"
 RGB, LABELS = "images/rgb", "annotations/dlp/iMapCleaned"
@@ -102,7 +103,7 @@ def parse(name: str) -> dict[str, Any]:
 
 
 def label_path(raw_dir: Path, name: str) -> Path:
-    return raw_dir / ROOT / name.replace(RGB, LABELS)
+    return real_path(raw_dir / ROOT / name.replace(RGB, LABELS))
 
 
 def image_names(raw_dir: Path) -> list[str]:
@@ -111,7 +112,8 @@ def image_names(raw_dir: Path) -> list[str]:
     if not root.is_dir():
         raise FileNotFoundError(f"{root} missing; run scripts/convert_sugarbeets2016.py "
                                 "(it unpacks the archive)")
-    names = (p.relative_to(root).as_posix() for p in root.glob(f"*/{RGB}/*.png"))
+    names = (p.relative_to(root).as_posix()
+             for p in root.glob(f"*/{RGB}/*.png", case_sensitive=False))
     return sorted(n for n in names if label_path(raw_dir, n).exists())
 
 

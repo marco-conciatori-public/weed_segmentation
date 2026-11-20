@@ -68,7 +68,7 @@ def _load(raw_dir: Path, sets: tuple[str, ...]) -> dict[str, dict[str, Any]]:
         set_dir = raw_dir / set_name
         if not set_dir.is_dir():
             raise FileNotFoundError(f"{set_dir} missing; run scripts/download_datasets.py")
-        for label_file in sorted(set_dir.glob("*.json")):
+        for label_file in sorted(set_dir.glob("*.json", case_sensitive=False)):
             folder = set_dir / label_file.stem
             if not folder.is_dir():  # e.g. Row10.mp4.json, labelled on the video
                 continue
