@@ -1,0 +1,58 @@
+# Detector scale test: how many plants the plant detector still finds when a photo shows the ground
+# at another scale than its training images (phones, drones, other robots). Used by
+# scripts/evaluate_scale.py. Relative paths are resolved against the project root. See
+# docs/twostage.md (Ground resolution and the detector).
+
+# The detector: that of this two-stage config (its detector.config and detector.checkpoint).
+twostage: configs/twostage.yaml
+
+# Labelled plants: boxes are enough, so the datasets labelled with boxes only count too (they are
+# new to the detector, which learns from masks). test stays out, for the final evaluation.
+split_file: data/processed/public7/species_min50img_min20mm/val.json
+datasets: [cropandweed, acre, phenobench, oppd, groundbased_weed, vcd, lincolnbeet]
+# The datasets the detector learned from (those with masks in its training data); the others are
+# marked "new" in the report.
+trained_on: [cropandweed, acre, phenobench]
+# Per dataset, images in a fixed random order until they hold this many labelled plants, or are
+# max_images_per_dataset (null = no limit, for both). A laptop CPU takes about 70 s per image for
+# all the views below (about 6 hours for these settings); a GPU is much faster, for more images.
+plants_per_dataset: 800
+max_images_per_dataset: 50
+seed: 0
+
+# Scales to show each image at, in mm per pixel at the detector (which resizes every image to
+# 1088 px on its short side: 1 mm/px is about 1.09 m of ground across it). Each image is also shown
+# at its own scale (native). Training ran from 0.41 (CropAndWeed) to 0.94 (PhenoBench).
+targets: [0.25, 0.35, 0.5, 0.7, 1.0, 1.4, 2.0, 2.8, 4.0]
+# Targets (coarser than native) also shown rescaled: shrunk to the target, then enlarged back to
+# the usual scale, as a known ground resolution allows for a photo with no pixels to spare.
+# [] = none. Each costs about as much as the native view.
+rescaled: [1.4, 2.8]
+# Also show each image at its own scale resized by the detector's own transform (bilinear, no
+# anti-aliasing), as the exported model does, besides area averaging.
+deployed: true
+# A finer target enlarges a centred window (a close-up). Skipped where that would enlarge the
+# image's own pixels more than this: a real close-up is sharp, an enlarged image is blurred.
+max_upsample: 1.5
+
+# A plant is found by a detection with at least this plant score whose box overlaps its box at
+# this IoU (as configs/twostage.yaml's evaluate section, but by box).
+score_threshold: 0.5
+iou_threshold: 0.5
+# Plants found are also counted by real size (longest side, mm), cut at these edges.
+size_bands_mm: [40, 80]
+
+# auto = CUDA when available, else CPU.
+device: auto
+# Mixed precision (CUDA only), as the saved evaluation and the exported model.
+amp: true
+# CPU threads for torch and OpenCV. Low, to leave room for other work on the machine.
+threads: 2
+# Stop when the machine has less memory available than this (MB), to leave it to other work; the
+# detections so far are kept, so running again resumes. On the CPU the detector holds about 2.5 GB.
+# null = never stop. Needs psutil (installed with the project's dependencies; without it, no check).
+min_free_memory_mb: 1000
+# Output: <output_dir>/scale_<date>_<time>.md and .csv, and the detections of every view in
+# <output_dir>/<detector run>_<checkpoint>/<split>.jsonl (a run resumes from it; delete it to
+# predict again).
+output_dir: runs/scale

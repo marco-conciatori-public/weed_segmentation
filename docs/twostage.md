@@ -930,8 +930,111 @@ as an input could combine with what the crop shows, but the upper bound above is
 the reason it fails, size tied to the session's date, applies to any learned use of the absolute
 size. Recommendation (2026-11-09, decision open): no size input for the classifier. This doesn't
 settle whether to estimate the ground resolution for the detector's sake, which expects 0.45-1.1 m
-of ground across the short side (see the export README): that is a separate question, to be
-measured by rescaling val images.
+of ground across the short side (see the export README): that is a separate question, measured in
+Ground resolution and the detector.
+
+## Ground resolution and the detector
+
+Photos from phones, drones and other robots come with no mm/px, and Marco doesn't want to ask
+every robot team for it (2026-11-09). The detector resizes every image to 1088 px on its short side
+(at most 1920 on the long side) before it looks, so the scale it sees depends on how much ground
+the photo covers, not on the camera: mm/px at the detector = the image's mm/px / that resize. In
+training that ran from 0.41 (CropAndWeed) through 0.53 (ACRE) to 0.94 mm/px (PhenoBench).
+`scripts/evaluate_scale.py` (settings: `configs/evaluate_scale.yaml`, code:
+`weedseg.scale_evaluation`) shows val images to the two-stage detector at other scales and counts
+the plants it still finds. That tells whether an estimate of the ground resolution, used to resize
+or tile the photo, is worth building.
+
+- Scales, in mm/px at the detector: 0.25 to 4 (about 0.27 to 4.4 m of ground across the short
+  side), and each image's own (native). Coarser: the whole image shrunk by area averaging, as a
+  camera with fewer pixels on the ground records it. Finer: a centred window enlarged to the usual
+  input size, a close-up; plants cut by its edge are left out, and a window that would enlarge the
+  image's own pixels more than 1.5 times is skipped (an enlarged image is blurred, a real close-up
+  isn't).
+- `rescaled` (at 1.4 and 2.8): shrunk to the scale, then enlarged back to the usual one. This is
+  what a known ground resolution allows for a coarse photo with no pixels to spare. A photo with
+  pixels to spare (most phones) can be cut into tiles at the usual scale instead, which gives the
+  native row.
+- `deployed`: native, but resized by the detector's own transform (bilinear, no anti-aliasing), as
+  the exported model resizes a photo, against area averaging. The large photos (OPPD 4096x3000,
+  GROUNDBASED_WEED 5184x3888, any phone) are shrunk about 3 to 4 times by it.
+- Found: a detection with plant score >= 0.5 on the plant's box at IoU >= 0.5. Matching by box
+  lets the datasets labelled with boxes only count: OPPD, GROUNDBASED_WEED, VCD and LincolnBeet are
+  new to the detector, which learns from masks. Also box AP, false detections per image, and found
+  by real size (under 40, 40-80, 80 mm and over).
+- Up to 800 labelled plants or 50 images per dataset, from val; the detector runs boxes only (its
+  mask head doesn't change the boxes). About 70 s per image for all views on the laptop CPU, so
+  the full config takes about 6 hours there; the detections are kept in
+  `runs/scale/<detector run>_<checkpoint>/`, so a run resumes. On the CPU the detector holds
+  about 2.5 GB, so `min_free_memory_mb` stops the run (to resume later) when the machine runs
+  short. The RTX 4090 is much faster (not measured; images are read one at a time, so the whole
+  split, `plants_per_dataset` and `max_images_per_dataset` null, is likely a matter of hours).
+
+**Results (2026-11-10, `runs/scale/scale_20261110_013305.md`).** 308 val images; the native rows
+reproduce the detector's saved evaluation (CropAndWeed 94.3%, ACRE 76.2% against 76.1-76.3%,
+PhenoBench 98.1%). Plants found, as is, in %; in brackets each dataset's own scale at the
+detector:
+
+| mm/px at the detector | ground across | CropAndWeed (0.41) | ACRE (0.53) | PhenoBench (0.94) | OPPD, new (0.42) | GROUNDBASED, new (1.07) | VCD, new (0.39) | LincolnBeet, new (0.35) |
+|---|---|---|---|---|---|---|---|---|
+| native | | 94.3 | 76.3 | 98.1 | 84.0 | 38.7 | 80.9 | 94.1 |
+| 0.35 | 0.38 m | 95.3 | 84.6 | - | 86.3 | 63.5 | 79.7 | 94.1 |
+| 0.5 | 0.54 m | 89.3 | 79.9 | - | 68.9 | 61.2 | 79.2 | 93.5 |
+| 0.7 | 0.76 m | 66.8 | 60.6 | 98.2 | 52.9 | 53.4 | 83.7 | 79.4 |
+| 1 | 1.09 m | 49.3 | 34.3 | 97.8 | 33.7 | 37.7 | 78.1 | 60.0 |
+| 1.4 | 1.52 m | 35.4 | 15.2 | 89.7 | 18.9 | 32.8 | 70.8 | 49.4 |
+| 2 | 2.18 m | 22.9 | 7.4 | 77.2 | 8.7 | 22.6 | 58.4 | 29.4 |
+| 2.8 | 3.05 m | 12.5 | 3.7 | 67.0 | 2.7 | 15.8 | 43.8 | 8.2 |
+| rescaled from 1.4 | | 89.3 | 74.3 | 97.8 | 78.8 | 40.1 | 75.3 | 94.7 |
+| rescaled from 2.8 | | 87.1 | 64.5 | 95.5 | 68.3 | 37.4 | 62.4 | 93.5 |
+
+- **Coarser than training costs plants fast.** At 1 mm/px (1.1 m across the short side), the
+  datasets whose own scale is 0.35-0.53 keep 34-60% of their plants; at 1.4 mm/px (1.5 m,
+  roughly a phone photo from standing height, my estimate) 15-49%. VCD, with large plants
+  (median about 130 mm), keeps 78 and 71%. Small plants go first: under 40 mm, CropAndWeed finds
+  2.4% at 1 mm/px against 94.3% native. PhenoBench, seen at 0.94 with large plants, holds best
+  (89.7% at 1.4).
+- **The detector learned each dataset at its own scale.** Plants of the same size in pixels fare
+  very differently: at 1.4 mm/px the 40-80 mm plants are 29-57 px, and PhenoBench finds 97.1% of
+  them, CropAndWeed 40.7% (in training it saw those at 98-195 px). Training used one input size
+  (`model.min_size: [1088]`), so no plant was ever shown at another scale.
+- **It's the scale, not the pixels.** Shrunk to 1.4 or 2.8 mm/px and enlarged back to the usual
+  scale, the same images give most plants back (CropAndWeed 89.3 and 87.1% against 35.4 and
+  12.5% as is; LincolnBeet 94.7 and 93.5%). 14-16 px of detail on a plant are mostly enough once
+  it is shown at the size the detector knows. A known ground resolution, used to resize the photo
+  (or to tile a photo with pixels to spare at the usual scale), recovers nearly all of the loss.
+- **Finer is safe down to about 0.25.** Scored on the same plants as native (the windows hold
+  fewer), close-ups at 0.25-0.35 find as many or a few more: CropAndWeed 95.3 against 92.9%,
+  ACRE 84.6 against 79.1%, OPPD 87.4 against 85.3%, LincolnBeet 96.0 against 96.0%. Only VCD's
+  large plants lose some (73.3 against 80.0% at 0.25, 45 plants). An error to the fine side
+  costs little, one to the coarse side a lot.
+- **GROUNDBASED_WEED shows it on a real camera.** Its 5184x3888 photos at 0.3 mm/px cover 1.17 m
+  on the short side, so the detector sees them at 1.07 mm/px, coarser than its training: it finds
+  38.7% (1.2% under 40 mm). On the same plants, a window at 0.5 mm/px finds 61.2% against 45.5%,
+  at 0.25 68.6% against 34.3% (35 plants). Its low precision (46%) and what is still missed at
+  fine scales are probably its labels and a new domain, but the scale alone costs it 16-34 points.
+- **The deployed resize costs nothing.** At the native scale, the detector's own resize (no
+  anti-aliasing) and area averaging differ by at most 0.4 points (OPPD 83.6 against 84.0%,
+  GROUNDBASED 38.5 against 38.7%), so the exported model's handling of large photos is fine.
+- Not measured: the classifier on plants from coarse photos (its crops would have fewer pixels),
+  and the false detections of the new datasets, whose labels may be incomplete (VCD's precision
+  is 21%).
+
+Three ways to fix it, cheapest first. Recommendation (2026-11-10, decision open): start with 1,
+since it needs no new model and helps every camera, and re-run this test on the new detector.
+
+1. **Scale augmentation in the detector's training.** `model.min_size` already takes a list (one
+   size drawn per image in training; evaluation uses the last), e.g. sizes that put each dataset
+   at about 0.3 to 2 mm/px. One detector training on the RTX 4090; the two-stage evaluation and
+   the export then need the new detector.
+2. **Multi-scale inference**, with the detector as it is: run it on the photo as is and enlarged
+   (e.g. 2x, in tiles), and merge. It needs no ground resolution, at several times the compute.
+3. **A ground resolution estimator** (Marco's idea): resize or tile every photo to the scale the
+   detector knows. The rescaled rows show that works, even for coarse photos. It is a new model,
+   though: learned on our few cameras it may learn the dataset (as `camera` did in Plant size),
+   while rescaling known images gives it as many scales as it needs. Since the fine side is
+   safe, it should aim finer than its estimate: a scale 1.2x too coarse already costs
+   CropAndWeed 5 points and ACRE 16 at 1.3x.
 
 ## Deployment package
 
