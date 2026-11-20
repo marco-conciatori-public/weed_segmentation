@@ -13,8 +13,8 @@ from safetensors.torch import save_file
 from weedseg.classifier.crops import FILL_RGB
 from weedseg.classifier.data import MEAN, STD
 from weedseg.classifier.model import build_classifier
-from weedseg.deploy import weed_model
 from weedseg.data.coco import BOX_ONLY
+from weedseg.deploy import weed_model
 from weedseg.deploy.export import (
     backbone_family,
     dataset_table,

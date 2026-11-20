@@ -14,11 +14,11 @@ import json
 import platform
 import shutil
 from collections import Counter, defaultdict
+from collections.abc import Collection
 from datetime import date
 from pathlib import Path
 from statistics import median
 from string import Template
-from collections.abc import Collection
 from typing import Any
 
 import timm
