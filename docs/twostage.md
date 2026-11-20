@@ -869,6 +869,70 @@ fewer at the border, so they would test it better, but with views agreeing this 
 there is likely small too. Closed on 2026-11-06: the pipeline stays with one frame per plant, and
 the script stays for a re-run on the robot's own sequences or should the hand-off change.
 
+## Plant size
+
+Marco's idea (2026-11-09): give the classifier the plant's real size, from a known or estimated
+ground resolution. Crops are cut around the box and resized to 224 px (see Crops), so today the
+classifier can't see the size. `scripts/evaluate_size.py` (settings: `configs/evaluate_size.yaml`,
+code: `weedseg.size_evaluation`) asks what the size would be worth, before any training. It works
+on the plain view that `evaluate_tta.py` keeps, so it needs no GPU, and it runs on the two public7
+seeds.
+
+- A stack on the classifier's log probabilities judges each plant with what it learned on other
+  plants. `control` learns a temperature and a bias per class; a stack recalibrates by itself, and
+  the control shows by how much. `size` adds, per class, a quadratic in the standardised log of the
+  box's longer side in mm: a log-normal size per species. `camera` uses the image's mm/px instead,
+  which knows the dataset but nothing about the plant, as a check on what `size` gains.
+- Folds: `other sessions` (sessions in 5 parts of about equal plants) and `other datasets` (each
+  dataset judged by a stack learned on the rest, the test of a new place).
+- An estimated ground resolution comes with an error: each image's mm/px is multiplied by
+  exp(sigma x a normal draw), one draw per image, sigma 0.1 to 0.5 (about 11% to 65%). The stack is
+  learned on the true sizes, or on sizes with the same error, as a model trained with that much
+  size jitter would be.
+- The relative size, a plant against the median of its image's crop row, was already tried in
+  Crop rows and spacing (`size_ratio`). It helped only on ACRE.
+
+**Results (2026-11-09, `runs/size/size_20261109_124236.md`).** Ranges across the two seeds; the
+classifier rows reproduce the normal evaluations (class right 94.41% and 94.47%).
+
+| plants | case | species right | balanced | harmful at <=1% / <=2% crops | log loss |
+|---|---|---|---|---|---|
+| labelled boxes, 44,740 | control, other sessions | 95.63-95.75% | 85.37-85.59% | 90.3-90.7% / 96.4-96.8% | 0.241-0.243 |
+| | size, other sessions | 95.31-95.40% | 84.06-84.53% | 88.8-90.4% / 95.5-95.7% | 0.251-0.253 |
+| | control, other datasets | 95.72-95.82% | 85.40-85.41% | 83.8-84.5% / 96.4-97.0% | 0.266-0.267 |
+| | size, other datasets | 95.21-95.31% | 83.29-83.58% | 80.1-82.7% / 93.1-93.6% | 0.288-0.289 |
+| detections found, 19,682 | control, other sessions | 96.01-96.02% | 79.67-80.46% | 70.2-72.3% / 77.4-77.5% | 0.205-0.211 |
+| | size, other sessions | 95.89-95.97% | 79.11-79.81% | 70.6-71.8% / 77.4-77.5% | 0.205-0.210 |
+
+- **The size doesn't carry over.** Against the control of the same fold, size is slightly worse on
+  the labelled boxes and level on the detections, in both seeds. It turns 554-601 right plants
+  wrong and fixes 352-359 (control: 397-443 and 320-322). On some datasets it does clear harm: VCD
+  (other sessions) 91.1-91.9% against 94.4-95.6%, and GROUNDBASED_WEED as a new dataset, where
+  15.7-17.4% of its crops would be removed against 0%. Tomato is only in that dataset, so it gets no
+  size term there, and probably the weeds' size terms learned elsewhere outbid it.
+- **There is a little information, but it belongs to the session.** Learned and judged on the same
+  plants (run 1, an upper bound no deployment gets), size lifts accuracy from 95.34% to 95.71% and
+  log loss from 0.190 to 0.177, mostly on OPPD (94.5 to 95.3%) and VCD (98.6 to 99.2%). Learned on
+  other sessions, it is lost. A plant's size is mostly its growth stage, i.e. the date of the
+  session, and that differs between sessions of the same species.
+- **ACRE is the one hint**, as with `size_ratio`: harmful at <=1% crops on the detections 32.7-36.2%
+  against 25.1-30.2%. That is about 13 beans, and ACRE's off-row "beans" may be mislabelled, so it
+  doesn't count as a gain.
+- **An error in the mm/px only lowers it further** (learned on true sizes, a 65% error: log loss
+  0.284-0.289); learned with the same error it loses less (0.258-0.260), but never reaches the
+  control. Since exact sizes already don't help, how good a ground resolution estimate would have
+  to be is moot for this.
+- **`camera` behaves as a dataset shortcut**, as expected: it calls PhenoBench's unnamed weeds beet
+  (partial-label fit 33% against 91%), and on a dataset it hasn't seen it breaks down (OPPD 0%).
+
+The test is late fusion: a size prior on top of the classifier's output. Size given to the network
+as an input could combine with what the crop shows, but the upper bound above is 0.4 points, and
+the reason it fails, size tied to the session's date, applies to any learned use of the absolute
+size. Recommendation (2026-11-09, decision open): no size input for the classifier. This doesn't
+settle whether to estimate the ground resolution for the detector's sake, which expects 0.45-1.1 m
+of ground across the short side (see the export README): that is a separate question, to be
+measured by rescaling val images.
+
 ## Deployment package
 
 `scripts/export_twostage.py` (settings: `configs/export_twostage.yaml`) packages the

@@ -1,0 +1,51 @@
+# Does a plant's real size help tell its species? A stack on the classifier's saved probabilities,
+# learned on other plants than those judged: used by scripts/evaluate_size.py. No GPU and no
+# retraining. Relative paths are resolved against the project root. See docs/twostage.md (Plant
+# size) and weedseg.size_evaluation.
+
+# The runs: a classifier config, for its run, or a run folder. Two seeds show the run-to-run noise.
+# Each needs its two-stage evaluation and the plain view that scripts/evaluate_tta.py keeps.
+runs:
+  - configs/classifier.yaml
+  - configs/classifier_dinov3_seed1.yaml
+# <twostage_dir>/<detector run>__<run>/eval/<split>_<checkpoint>. test stays out, for the final
+# evaluation of the model we choose.
+split: val
+checkpoint: last
+twostage_dir: runs/twostage
+# Where evaluate_tta.py keeps its views: <tta_dir>/<run>/<split>_<checkpoint>/crops/plain.npz and
+# detections/plain.npz. Nothing is predicted here: without them this stops.
+tta_dir: runs/tta
+
+# other_sessions: the sessions (dataset and group) in session_parts parts of about as many plants,
+# each judged by a stack learned on the others. other_datasets: each dataset judged by a stack
+# learned on the other datasets, the test of a new place.
+folds: [other_sessions, other_datasets]
+session_parts: 5
+
+# The stack: multinomial logistic regression on the classifier's log probabilities. l2 on the
+# class bias and the size terms (the loss is a mean over plants, so 1e-4 barely touches a class
+# with a few hundred plants); classes with fewer labelled plants than min_fit_plants among those
+# learned from get no bias or size term. max_iter: L-BFGS iterations per stack.
+l2: 1.0e-4
+min_fit_plants: 20
+max_iter: 300
+
+# Errors in an estimated ground resolution: each image's mm/px (and so each plant size in it) times
+# exp(sigma x a standard normal draw). sigma 0.1 is about +-10%, 0.2 +-22%, 0.35 +-42%, 0.5 +-65%
+# (one standard deviation, as a factor). seed fixes the draws.
+gsd_errors: [0.1, 0.2, 0.35, 0.5]
+seed: 0
+
+# Decisions at one crop safety: harmful weeds removed at these shares of crops removed.
+crops_removed: [0.01, 0.02, 0.05]
+# A plant whose top class is less likely than this counts as "under hand-off" (the export's
+# handoff.zero_shot_below_species_probability).
+hand_off_below: 0.7
+# Balanced accuracy: the mean over classes with at least this many plants.
+min_class_plants: 20
+
+# CPU threads for fitting the stacks. Kept low so other work on the machine isn't slowed.
+threads: 2
+# Output: <output_dir>/size_<date>_<time>.md and .csv.
+output_dir: runs/size
