@@ -24,7 +24,7 @@ def main(config_path: str = CONFIG) -> None:
     label_map = LabelMap(resolve(settings["label_map"]), settings["taxonomy"],
                          load_taxa(resolve(settings["eppo_taxa"])))
     try:
-        sb.unpack(raw_dir, settings["archive"], settings["seven_zip"])
+        sb.unpack(raw_dir, settings["archive"], settings.get("seven_zip"))
         names = sb.image_names(raw_dir)
     except FileNotFoundError as error:
         raise SystemExit(str(error)) from None

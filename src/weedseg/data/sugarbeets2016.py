@@ -19,6 +19,7 @@ one box and a plant whose leaves don't touch in the image becomes several.
 """
 
 import re
+import shutil
 import subprocess
 from collections.abc import Iterator
 from functools import cache
@@ -37,17 +38,37 @@ NAME = re.compile(r"(?P<run>bonirob_(?P<date>\d{4}-\d\d-\d\d)-\d\d-\d\d-\d\d_\d+
 
 Classes = tuple[tuple[str, tuple[int, ...]], ...]  # (source label, index map values)
 
+# 7-Zip's program names on the PATH (7zz is the official Linux build), then its default
+# Windows install folder.
+SEVEN_ZIP_NAMES = ("7z", "7zz", "7za")
+SEVEN_ZIP_WINDOWS = "C:/Program Files/7-Zip/7z.exe"
 
-def unpack(raw_dir: Path, archive: str, seven_zip: str) -> None:
+
+def find_seven_zip(configured: str | None = None) -> str:
+    """7-Zip's command-line program: `configured` (a path or a name on the PATH) if given,
+    else the first of SEVEN_ZIP_NAMES on the PATH, else the default Windows install."""
+    candidates = (configured,) if configured else (*SEVEN_ZIP_NAMES, SEVEN_ZIP_WINDOWS)
+    for candidate in candidates:
+        found = shutil.which(candidate)
+        if found:
+            return found
+    raise FileNotFoundError(
+        f"7-Zip not found (tried {', '.join(candidates)}); it unpacks the RAR archive. Install "
+        "it (Windows: 7-zip.org; Ubuntu: sudo apt install 7zip 7zip-rar) or set "
+        "convert.seven_zip in configs/sugarbeets2016.yaml to its path")
+
+
+def unpack(raw_dir: Path, archive: str, seven_zip: str | None = None) -> None:
     """Unpack a RAR part into `raw_dir` with 7-Zip, once (a marker file records it). A part on
     its own ends inside a file of the next part: files that come out shorter than the
-    archive lists them are removed."""
+    archive lists them are removed. `seven_zip` as in find_seven_zip."""
     marker = raw_dir / f".unpacked_{archive}"
     if marker.exists():
         return
     path = raw_dir / archive
     if not path.exists():
         raise FileNotFoundError(f"{path} missing; run scripts/download_datasets.py")
+    seven_zip = find_seven_zip(seven_zip)
     # 7-Zip reports an error for a part on its own (the next part is missing): its exit code
     # is not checked, the files are.
     listing = subprocess.run([seven_zip, "l", "-slt", str(path)], check=False,

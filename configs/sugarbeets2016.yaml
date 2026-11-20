@@ -23,8 +23,10 @@ download:
 # Conversion to COCO (scripts/convert_sugarbeets2016.py). See docs/datasets/sugarbeets2016.md.
 convert:
   # 7-Zip's command-line program, to unpack the RAR part when its folder is missing. Part 1
-  # alone ends inside a file of part 2; that file is left out.
-  seven_zip: C:/Program Files/7-Zip/7z.exe
+  # alone ends inside a file of part 2; that file is left out. null finds it: 7z, 7zz or 7za
+  # on the PATH, else C:/Program Files/7-Zip/7z.exe. Ubuntu/DGX OS: sudo apt install 7zip
+  # 7zip-rar (the RAR codec is a separate package). A path or program name overrides.
+  seven_zip: null
   archive: ijrr_sugarbeets_2016_annotations.part01.rar
   output_dir: data/processed/sugarbeets2016
   label_map: configs/label_maps/sugarbeets2016.csv

@@ -43,8 +43,9 @@ next to the regular test sets that measure the detector. The other 10 parts are 
 
 - `scripts/convert_sugarbeets2016.py` (`configs/sugarbeets2016.yaml`), shared pipeline
   `weedseg.data.convert`, reader `weedseg.data.sugarbeets2016`. The script first unpacks the
-  RAR part with 7-Zip (`seven_zip`; part 1 alone ends inside a file of part 2, which is left
-  out).
+  RAR part with 7-Zip (part 1 alone ends inside a file of part 2, which is left out). 7-Zip
+  is found on the PATH (`7z`, `7zz`, `7za`) or in its default Windows folder; `seven_zip`
+  overrides. On Ubuntu/DGX OS: `sudo apt install 7zip 7zip-rar`.
 - Each 8-connected patch of the beet or weed mask is one box (`min_patch_px: 50` drops
   specks), with its pixel count in the annotation field `patch_px` (a beet patch far bigger
   than the others is likely several plants). `beet` is `BEAVA` (crop), `weed` is `1PLAK`.
