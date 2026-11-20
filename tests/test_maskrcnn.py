@@ -4,10 +4,11 @@ import pytest
 import torch
 from torchvision.models.detection.roi_heads import RoIHeads
 
+from weedseg.config import load_config
 from weedseg.data.coco import encode_mask
 from weedseg.maskrcnn.data import IGNORE_LABEL, CocoInstanceDataset, build_augmentation, collate
 from weedseg.maskrcnn.engine import predict, warmup_cosine
-from weedseg.maskrcnn.model import build_model
+from weedseg.maskrcnn.model import build_model, model_settings
 from weedseg.maskrcnn.run import resolve_run_dir, run_name, split_file
 from weedseg.paths import project_root
 
@@ -117,6 +118,43 @@ def test_pretrained_weights_load_from_file(tmp_path):
     model = build_model(3, {**MODEL_CONFIG, "pretrained": True, "pretrained_path": str(path)})
     assert torch.equal(model.backbone.body.conv1.weight, coco_model.backbone.body.conv1.weight)
     assert model.roi_heads.box_predictor.cls_score.out_features == 3
+
+
+def test_trainable_backbone_layers_hold_wherever_the_weights_come_from(tmp_path):
+    path = tmp_path / "coco.pth"
+    torch.save(build_model(91, MODEL_CONFIG).state_dict(), path)
+    from_file = {**MODEL_CONFIG, "pretrained": True, "pretrained_path": str(path)}
+
+    def trained(config):
+        model = build_model(3, config)
+        return {name.split(".")[0] for name, p in model.backbone.body.named_parameters()
+                if p.requires_grad}
+
+    every = {"conv1", "bn1", "layer1", "layer2", "layer3", "layer4"}
+    assert trained({**from_file, "trainable_backbone_layers": 5}) == every
+    # torchvision alone would train everything here (weights from a file count as none)
+    assert trained({**from_file, "trainable_backbone_layers": 3}) == {"layer2", "layer3", "layer4"}
+    assert trained({**MODEL_CONFIG, "trainable_backbone_layers": 0}) == set()
+    model = build_model(3, {**from_file, "trainable_backbone_layers": 3})
+    assert model.backbone.fpn.layer_blocks[0][0].weight.requires_grad  # FPN and heads always
+    assert model.roi_heads.mask_predictor.mask_fcn_logits.weight.requires_grad
+    with pytest.raises(ValueError, match="trainable_backbone_layers"):
+        build_model(3, {**MODEL_CONFIG, "trainable_backbone_layers": 6})
+
+
+def test_settings_from_before_trainable_layers_keep_what_torchvision_chose():
+    # file weights and random init trained all 5; downloaded weights trained 3
+    assert model_settings({"pretrained": True, "pretrained_path": "w.pth"})[
+        "trainable_backbone_layers"] == 5
+    assert model_settings({"pretrained": False, "pretrained_path": None})[
+        "trainable_backbone_layers"] == 5
+    assert model_settings({"pretrained": True, "pretrained_path": None})[
+        "trainable_backbone_layers"] == 3
+    # so a run saved before the setting resumes under today's configs
+    for path in ("configs/maskrcnn.yaml", "configs/detector.yaml"):
+        config = load_config(path)["model"]
+        before = {k: v for k, v in config.items() if k != "trainable_backbone_layers"}
+        assert model_settings(before) == model_settings(config)
 
 
 def test_missing_pretrained_file_fails_clearly(tmp_path):

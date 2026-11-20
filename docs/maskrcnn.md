@@ -62,6 +62,24 @@ Everything goes to `runs/maskrcnn/<run_name>/` (gitignored):
 
 ## Choices
 
+- **Trainable layers:** the whole backbone trains (`model.trainable_backbone_layers: 5`), the
+  first convolution and every normalisation layer included. torchvision's own fine-tuning
+  default is 3: the first convolution and ResNet stage 1 stay at their COCO weights (0.2 M
+  parameters fewer; their normalisation still updates its running statistics). The plant
+  detector of the two-stage pipeline (`configs/detector.yaml`) inherits the setting.
+  - Until 2026-11-20 this was not a setting: torchvision decided it from where the COCO
+    weights came from. Weights it downloads itself (`pretrained_path: null`) got 3. Weights
+    read from `pretrained_path` count for torchvision as no pretraining, so they got 5, and
+    torchvision ignores the setting in that case, which is why `weedseg.maskrcnn.model`
+    freezes the layers itself.
+  - `pretrained_path` has been set since 2026-10-15 (the first commit of this config, the
+    day before, downloaded the weights), and the four runs kept in `runs/maskrcnn` all read
+    the file, so they trained the whole backbone; 5 keeps them comparable. So did the
+    box-only detector of the `bounding_box_only` branch, which has the same setting. A
+    config or checkpoint without the setting gets what torchvision chose then.
+  - **To compare:** 5 against 3, same data and epochs, on mask and box AP per class and on
+    the two-stage results, when a training GPU is available. Which is better here is
+    untested.
 - **Ignore regions** (see [data-format.md](data-format.md)) get the training label -1. The RoI
   heads of torchvision already skip proposals matched to such a box. The RPN is replaced by
   `IgnoreAwareRPN`, which does the same for anchors. A plant hidden in an ignore region is

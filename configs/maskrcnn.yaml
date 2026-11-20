@@ -36,6 +36,11 @@ model:
   # https://download.pytorch.org/models/maskrcnn_resnet50_fpn_v2_coco-73cbd019.pth
   # null = torchvision downloads it once to the torch cache (~/.cache/torch/hub/checkpoints).
   pretrained_path: weights/maskrcnn_resnet50_fpn_v2_coco-73cbd019.pth
+  # ResNet parts of the backbone that train, counted from the last (0-5): 5 = all of it,
+  # including the first convolution and its normalisation; 3 = torchvision's fine-tuning
+  # default (first convolution and stage 1 frozen). Not yet compared: see docs/maskrcnn.md
+  # (Choices, Trainable layers).
+  trainable_backbone_layers: 5
   # Images are resized so the short side is min_size (one value picked at random per batch in
   # training when several are given; the last one at evaluation), long side at most max_size.
   # 1088/1920 keeps CropAndWeed at its native resolution: 10% of its plants are under 22 px.
