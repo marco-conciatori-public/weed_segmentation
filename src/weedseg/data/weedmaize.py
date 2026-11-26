@@ -45,7 +45,7 @@ def image_names(raw_dir: Path) -> list[str]:
     names = []
     for folder in SETS:
         if not (raw_dir / folder).is_dir():
-            raise FileNotFoundError(f"{raw_dir / folder} missing; run scripts/download_datasets.py")
+            raise FileNotFoundError(f"{raw_dir / folder} missing; run scripts/data_prep/download_datasets.py")
         names += [f"{folder}/{path.stem}"
                   for path in sorted((raw_dir / folder).glob("IMG_*.xml", case_sensitive=False))]
     return names

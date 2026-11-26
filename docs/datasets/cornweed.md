@@ -42,7 +42,7 @@ From the paper and the download (checked 2026-11-08):
 
 ## Conversion choices
 
-- `scripts/convert_cornweed.py` (`configs/cornweed.yaml`), shared pipeline
+- `scripts/data_prep/convert_cornweed.py` (`configs/cornweed.yaml`), shared pipeline
   `weedseg.data.convert`, reader `weedseg.data.cornweed`. Both annotation files are read; the
   split is ours.
 - `Maize` is `ZEAMX` (crop), `Weeds` is `1PLAK` (plants of unknown species).

@@ -2,7 +2,7 @@
 # at random per image from 640 to 1088 px, so plants are also learned at 0.6-1 times their
 # usual size in pixels, as photos from higher up or with fewer pixels show them. Evaluation and
 # the export still use 1088. Holds only what differs from configs/detector.yaml (its `base`).
-# Trained after it by scripts/run_detector.py (detector_variants); see docs/detector.md (Scale).
+# Trained after it by scripts/detector/run_detector.py (detector_variants); see docs/detector.md (Scale).
 #
 # Why shrink only: the segmentation line's scale test (2026-11-10) found the detector loses
 # plants fast when they are shown coarser than in training (at 1 mm/px 34-60% kept) but

@@ -6,7 +6,7 @@ weedseg.scale_evaluation for what is measured, and docs/detector.md (Scale).
 Runs the detector on a split's images shown at several scales; a GPU is much faster, a CPU
 works. Writes <run>/scale/<split>_<checkpoint>/report.md and report.csv; the detections are
 kept there too (detections.jsonl), so an interrupted run resumes. Run
-scripts/evaluate_detector.py first: the report checks its numbers against that evaluation.
+scripts/evaluate/evaluate_detector.py first: the report checks its numbers against that evaluation.
 """
 
 from weedseg.config import load_config

@@ -8,7 +8,7 @@ annotations on 2026-10-13, unless marked otherwise.
   Efficient Crop and Weed Manipulation*, WACV 2023 (paper and supplementary material on the
   CVF open-access site).
 - Code and download: <https://github.com/cropandweed/cropandweed-dataset>. The data itself is
-  hosted on vitro-testing.com and fetched by `scripts/download_datasets.py`.
+  hosted on vitro-testing.com and fetched by `scripts/data_prep/download_datasets.py`.
 - Owner: AIT Austrian Institute of Technology.
 
 ## What we need from a dataset, and how CropAndWeed fits
@@ -104,7 +104,7 @@ but **the public download contains only the four `params` values**.
 
 ## How we convert it
 
-`scripts/convert_cropandweed.py` with `configs/cropandweed.yaml`. Output:
+`scripts/data_prep/convert_cropandweed.py` with `configs/cropandweed.yaml`. Output:
 `data/processed/cropandweed/<taxonomy>/{train,val,test}.json` (format:
 [../data-format.md](../data-format.md)).
 
@@ -135,7 +135,7 @@ but **the public download contains only the four `params` values**.
     flat-leaf and curly-leaf parsley share one EPPO code). Very long-tailed; see the
     statistics below.
     This is the project's setup: convert with `species` (folder `species_min20mm`), then
-    merge it into the detector's data with `scripts/combine_datasets.py` (see
+    merge it into the detector's data with `scripts/data_prep/combine_datasets.py` (see
     [../data-format.md](../data-format.md)).
   - `fine24`: the authors' 8 crop + 16 weed groups. Some species are left out (e.g.
     courgette, cowslip, purslane, cleavers, wild pansy) and become ignore regions.

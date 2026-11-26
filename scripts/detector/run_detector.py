@@ -30,17 +30,19 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-import combine_datasets
-import evaluate_detector
-import evaluate_scale
 import export_detector
-import train_detector
 
 from weedseg.config import load_config
 from weedseg.console import log_console
 from weedseg.detector.compare import write_comparison
 from weedseg.detector.run import is_crash, resolve_run_dir, shared_run_dirs
-from weedseg.paths import resolve
+from weedseg.paths import import_script, resolve
+
+# The steps' scripts that live in other scripts/ subfolders.
+combine_datasets = import_script("scripts/data_prep/combine_datasets.py")
+train_detector = import_script("scripts/train/train_detector.py")
+evaluate_detector = import_script("scripts/evaluate/evaluate_detector.py")
+evaluate_scale = import_script("scripts/experiments/evaluate_scale.py")
 
 CONFIG = "configs/run_detector.yaml"
 # Exit code of a step whose Python error is a crash (is_crash): worth a restart.

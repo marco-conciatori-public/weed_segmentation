@@ -1,6 +1,6 @@
 """Merge converted datasets into the plant detector's data: one class, `plant`.
 
-Each dataset is first converted on its own (scripts/convert_*.py with taxonomy `species`: one
+Each dataset is first converted on its own (scripts/data_prep/convert_*.py with taxonomy `species`: one
 category per EPPO code, small plants as ignore regions, its own split by group). Merging keeps
 each dataset's split and makes every labelled plant a `plant`, whatever its label: a species, a
 genus only, or a plant of unknown species (1PLAK). Ignore regions stay ignore regions: the

@@ -3,7 +3,7 @@ configs/export_detector.yaml.
 
 Writes <output_dir>/<name>/: the weights (safetensors), model.json, plant_detector.py
 (self-contained inference), requirements.txt, splits.csv and README.md, with the training data
-and validation numbers of the run (see weedseg.deploy.export). Run scripts/evaluate_detector.py
+and validation numbers of the run (see weedseg.deploy.export). Run scripts/evaluate/evaluate_detector.py
 first, or the README leaves those numbers out.
 """
 

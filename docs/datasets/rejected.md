@@ -14,7 +14,7 @@ such below.
 
 ## Rejected after downloading them and looking at the labels
 
-The labels were drawn on sample images (`scripts/preview_annotations.py`) and the dataset
+The labels were drawn on sample images (`scripts/data_prep/preview_annotations.py`) and the dataset
 deleted afterwards.
 
 | Dataset | Source | Checked | Why not |

@@ -1,6 +1,6 @@
 """Run directory and data files of a run config (configs/detector.yaml): its `data.dir`,
 `run_name`, `output_dir`, `evaluate` checkpoint and splits, and `evaluate_scale` split. Also
-which errors of a step are crashes worth a restart (scripts/run_detector.py)."""
+which errors of a step are crashes worth a restart (scripts/detector/run_detector.py)."""
 
 from pathlib import Path
 from typing import Any

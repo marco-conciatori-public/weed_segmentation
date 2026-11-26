@@ -31,7 +31,7 @@ annotation files whatever the case of their names.
 
 ## Downloading
 
-`scripts/download_datasets.py` fetches the datasets listed in `configs/download.yaml`; each
+`scripts/data_prep/download_datasets.py` fetches the datasets listed in `configs/download.yaml`; each
 dataset config's `download` section lists its files (URL, size, checksum when published,
 whether to unpack, and `extract_to`, a subfolder to unpack into, for archives with the same
 layout such as Weed-AI's), or folders of a Nextcloud public share (`share` link, folder
@@ -129,7 +129,7 @@ datasets, `plant` for the combined data).
 ## Combining datasets into the detector's data
 
 Each dataset is converted on its own with taxonomy `species` (one category per EPPO code),
-the same `min_plant_size_mm`, and its own split. `scripts/combine_datasets.py`
+the same `min_plant_size_mm`, and its own split. `scripts/data_prep/combine_datasets.py`
 (`configs/combine.yaml`) then merges them into one class (`weedseg.data.combine`):
 
 - Every labelled plant becomes `plant`, whatever its label: a species, a genus only, or
@@ -153,7 +153,7 @@ combination only when every plant in its images has a box or lies in an ignore r
 species and the outline don't matter, so datasets labelled only crop/weed, or with boxes
 only, qualify too. Datasets that box only some plants don't, however many boxes they have:
 see [detector.md](detector.md#datasets) for the ones converted and left out. Check a new
-dataset with `scripts/preview_annotations.py` before adding it.
+dataset with `scripts/data_prep/preview_annotations.py` before adding it.
 
 ## Ignore regions
 

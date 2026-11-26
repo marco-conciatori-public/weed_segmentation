@@ -1,7 +1,7 @@
 # LincolnBeet (Salazar-Gomez et al., University of Lincoln, UK; IROS 2022): sugar beet fields
 # photographed from ~50 cm, a box for each beet and each weed (weeds not by species).
 # Weed-AI's copy (WeedCOCO, see docs/datasets/weedai.md). Used by
-# scripts/download_datasets.py (see configs/download.yaml) and scripts/convert_weedai.py (see
+# scripts/data_prep/download_datasets.py (see configs/download.yaml) and scripts/data_prep/convert_weedai.py (see
 # configs/weedai.yaml). Relative paths are resolved against the project root. Licence:
 # CC BY 4.0 (Weed-AI record). Provenance: docs/datasets/provenance.md.
 
@@ -28,13 +28,13 @@ download:
   # Keep the archives in <raw_dir>/.archives/ after unpacking them.
   keep_archives: false
 
-# Conversion to COCO (scripts/convert_weedai.py, listed in configs/weedai.yaml). See
+# Conversion to COCO (scripts/data_prep/convert_weedai.py, listed in configs/weedai.yaml). See
 # docs/datasets/lincolnbeet.md.
 convert:
   output_dir: data/processed/lincolnbeet
   label_map: configs/label_maps/lincolnbeet.csv
   eppo_taxa: configs/eppo_taxa.csv
-  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  # A label-map column; species = EPPO codes, for scripts/data_prep/combine_datasets.py.
   taxonomy: species
   # The Weed-AI uploads (folders under raw_dir) that make up the dataset.
   parts: [lincolnbeet]

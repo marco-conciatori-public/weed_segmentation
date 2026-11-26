@@ -19,16 +19,16 @@ Every script runs without arguments; its settings are in the config next to it.
 
 | Script | Config | What it does |
 |---|---|---|
-| `scripts/download_datasets.py` | `configs/download.yaml` | Downloads the datasets ([data-format.md](data-format.md#downloading)) |
-| `scripts/convert_<dataset>.py`, `convert_weedai.py` | `configs/<dataset>.yaml` | Converts each dataset to our COCO format (boxes, EPPO codes, split by group) |
-| `scripts/preview_annotations.py` | `configs/preview.yaml` | Draws a COCO file's boxes on its images: check that a dataset boxes every plant |
-| `scripts/combine_datasets.py` | `configs/combine.yaml` | Merges the converted datasets into one class, `plant` |
-| `scripts/train_detector.py` | `configs/detector.yaml` | Trains, evaluates on val every `eval_every` epochs, keeps the best checkpoint |
-| `scripts/evaluate_detector.py` | `configs/detector.yaml` | Evaluates a checkpoint on `evaluate.split` (val) and `evaluate.extra_splits` (the test-only datasets) |
-| `scripts/evaluate_scale.py` | `configs/detector.yaml` (`evaluate_scale`) | The [scale test](#scale): plants found with the images shown at other scales |
-| `scripts/export_detector.py` | `configs/export_detector.yaml` | Writes the [deployment package](#deployment-package) |
-| `scripts/demo_detector.py` | `configs/demo_detector.yaml` | Runs a package on any images and draws the boxes |
-| `scripts/run_detector.py` | `configs/run_detector.yaml` | Combine, train, evaluate, scale test (and export) in a row, then the same for each detector variant, restarting a step after a crash; compares the runs at the end |
+| `scripts/data_prep/download_datasets.py` | `configs/download.yaml` | Downloads the datasets ([data-format.md](data-format.md#downloading)) |
+| `scripts/data_prep/convert_<dataset>.py`, `convert_weedai.py` | `configs/<dataset>.yaml` | Converts each dataset to our COCO format (boxes, EPPO codes, split by group) |
+| `scripts/data_prep/preview_annotations.py` | `configs/preview.yaml` | Draws a COCO file's boxes on its images: check that a dataset boxes every plant |
+| `scripts/data_prep/combine_datasets.py` | `configs/combine.yaml` | Merges the converted datasets into one class, `plant` |
+| `scripts/train/train_detector.py` | `configs/detector.yaml` | Trains, evaluates on val every `eval_every` epochs, keeps the best checkpoint |
+| `scripts/evaluate/evaluate_detector.py` | `configs/detector.yaml` | Evaluates a checkpoint on `evaluate.split` (val) and `evaluate.extra_splits` (the test-only datasets) |
+| `scripts/experiments/evaluate_scale.py` | `configs/detector.yaml` (`evaluate_scale`) | The [scale test](#scale): plants found with the images shown at other scales |
+| `scripts/detector/export_detector.py` | `configs/export_detector.yaml` | Writes the [deployment package](#deployment-package) |
+| `scripts/detector/demo_detector.py` | `configs/demo_detector.yaml` | Runs a package on any images and draws the boxes |
+| `scripts/detector/run_detector.py` | `configs/run_detector.yaml` | Combine, train, evaluate, scale test (and export) in a row, then the same for each detector variant, restarting a step after a crash; compares the runs at the end |
 
 ## Running it
 
@@ -42,7 +42,7 @@ Every script runs without arguments; its settings are in the config next to it.
 3. Optional smoke test, on any machine: set `max_train_images: 16`, `max_val_images: 8`,
    `epochs: 2`, `evaluate.max_images: 4` and a throwaway `run_name`, run training and
    evaluation, then undo those changes. On a CPU this takes a few minutes.
-4. Run `scripts/run_detector.py` (combine, train, evaluate, scale test, then the same for the
+4. Run `scripts/detector/run_detector.py` (combine, train, evaluate, scale test, then the same for the
    variants in `detector_variants`), or the scripts one by one. Follow training with
    `uv run tensorboard --logdir runs/detector`. With variants, `runs/detector/logs/compare_<date>_<time>.md`
    sets the runs side by side at the end.
@@ -50,7 +50,7 @@ Every script runs without arguments; its settings are in the config next to it.
    datasets (`test_weedmaize`, `test_sugarbeets2016`, see [Datasets](#datasets)) are evaluated
    with every run (`evaluate.extra_splits`): WeedMaize, the unseen site, is a check on a
    choice, not what it is made on.
-6. Export the package (`scripts/export_detector.py`) and upload it to the platform.
+6. Export the package (`scripts/detector/export_detector.py`) and upload it to the platform.
 
 An interrupted training resumes when re-run, from the last checkpoint: `last.pt` is saved
 after every epoch and every `train.checkpoint_every` steps (200, a few minutes), and the
@@ -204,7 +204,7 @@ the training scales at the detector are (val images, 2026-11-10):
 | mm/px at the detector | 0.41 | 0.53 | 0.94 | 0.35 | 0.42 | 0.57-0.71 | 0.35-0.40 | 0.56 |
 | median plant, px at the detector | 101 | 72 | 74 | 118 | 85 | 51 | 117 | 132 |
 
-**Scale test** (`scripts/evaluate_scale.py`, settings `evaluate_scale` in
+**Scale test** (`scripts/experiments/evaluate_scale.py`, settings `evaluate_scale` in
 `configs/detector.yaml`, code `weedseg.scale_evaluation`): val images shown at 0.25-4 mm/px at
 the detector and at their own scale; coarser by shrinking the whole image (area averaging),
 finer by enlarging a centred window (a close-up, skipped where it would enlarge the image's own
@@ -237,7 +237,7 @@ GPU; without the mask head this model needs less. If memory runs out, lower
 
 ## Deployment package
 
-`scripts/export_detector.py` writes `exports/plant_detector_<date>/`:
+`scripts/detector/export_detector.py` writes `exports/plant_detector_<date>/`:
 
 | File | Content |
 |---|---|

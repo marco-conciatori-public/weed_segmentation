@@ -58,9 +58,9 @@ From the paper (Table 4) and the download (checked 2026-11-10):
 
 ## Conversion choices
 
-- `scripts/convert_deepseedling.py` (`configs/deepseedling.yaml`), shared pipeline
+- `scripts/data_prep/convert_deepseedling.py` (`configs/deepseedling.yaml`), shared pipeline
   `weedseg.data.convert`, reader `weedseg.data.deepseedling`. Download with
-  `scripts/download_datasets.py`: the figshare page refuses scripts, but its download links
+  `scripts/data_prep/download_datasets.py`: the figshare page refuses scripts, but its download links
   work (each redirects to a 10-second storage link, so a browser can't resume an interrupted
   download, while the downloader asks again for every piece).
 - `Plant` is cotton, `GOSHI` (*Gossypium hirsutum*, upland cotton: the paper says only

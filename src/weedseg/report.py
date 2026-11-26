@@ -1,5 +1,5 @@
 """Evaluation outputs of the plant detector's predictions (COCO results) on a split, written
-by scripts/evaluate_detector.py.
+by scripts/evaluate/evaluate_detector.py.
 
 `write_evaluation` writes to one folder: predictions.json, metrics.json (COCO box metrics),
 by_dataset.csv (AP and plants found per source dataset, and for all), by_species.csv (plants

@@ -68,7 +68,7 @@ def unpack(raw_dir: Path, archive: str, seven_zip: str | None = None) -> None:
         return
     path = raw_dir / archive
     if not path.exists():
-        raise FileNotFoundError(f"{path} missing; run scripts/download_datasets.py")
+        raise FileNotFoundError(f"{path} missing; run scripts/data_prep/download_datasets.py")
     seven_zip = find_seven_zip(seven_zip)
     # 7-Zip reports an error for a part on its own (the next part is missing): its exit code
     # is not checked, the files are.
@@ -110,7 +110,7 @@ def image_names(raw_dir: Path) -> list[str]:
     """Images that have an index map, as paths under ROOT."""
     root = raw_dir / ROOT
     if not root.is_dir():
-        raise FileNotFoundError(f"{root} missing; run scripts/convert_sugarbeets2016.py "
+        raise FileNotFoundError(f"{root} missing; run scripts/data_prep/convert_sugarbeets2016.py "
                                 "(it unpacks the archive)")
     names = (p.relative_to(root).as_posix()
              for p in root.glob(f"*/{RGB}/*.png", case_sensitive=False))

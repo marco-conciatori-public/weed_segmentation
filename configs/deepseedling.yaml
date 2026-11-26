@@ -1,8 +1,8 @@
 # DeepSeedling (Jiang, Li, Paterson and Robertson, University of Georgia, Plant Methods 2019):
 # cotton seedlings filmed from about 0.5 m in Texas (2015) and Georgia (2015, 2018), a box for
 # every seedling and every weed (weeds without species) over about 30 px on the labelling
-# screen. Used by scripts/download_datasets.py (see configs/download.yaml) and
-# scripts/convert_deepseedling.py. Relative paths are resolved against the project root.
+# screen. Used by scripts/data_prep/download_datasets.py (see configs/download.yaml) and
+# scripts/data_prep/convert_deepseedling.py. Relative paths are resolved against the project root.
 # Licence: GPL 3.0+ (the figshare page). See docs/datasets/deepseedling.md.
 
 # Where the download is unpacked: TAMU2015/ and UGA2018/, each with folders of frames and their
@@ -31,12 +31,12 @@ download:
   # Keep the archives in <raw_dir>/.archives/ after unpacking them.
   keep_archives: false
 
-# Conversion to COCO (scripts/convert_deepseedling.py). See docs/datasets/deepseedling.md.
+# Conversion to COCO (scripts/data_prep/convert_deepseedling.py). See docs/datasets/deepseedling.md.
 convert:
   output_dir: data/processed/deepseedling
   label_map: configs/label_maps/deepseedling.csv
   eppo_taxa: configs/eppo_taxa.csv
-  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  # A label-map column; species = EPPO codes, for scripts/data_prep/combine_datasets.py.
   taxonomy: species
   # Plants whose box is shorter than this on its longer side (mm, via the set's mm_per_px)
   # become ignore regions. Must match the other datasets to combine them.

@@ -1,7 +1,7 @@
 # CornWeed (Naeem, Manss et al., DFKI and Hochschule Osnabrück, Germany): maize rows filmed from
 # above in July-August 2021, a box for every maize plant and every weed (weeds without
-# species). Used by scripts/download_datasets.py (see configs/download.yaml) and
-# scripts/convert_cornweed.py. Relative paths are resolved against the project root.
+# species). Used by scripts/data_prep/download_datasets.py (see configs/download.yaml) and
+# scripts/data_prep/convert_cornweed.py. Relative paths are resolved against the project root.
 # Licence: CC BY 4.0 (Zenodo record). See docs/datasets/cornweed.md.
 
 # Where the download is unpacked: maize_dataset/{data,coco_annotations,testing}/.
@@ -19,12 +19,12 @@ download:
   # Keep the archive in <raw_dir>/.archives/ after unpacking it.
   keep_archives: false
 
-# Conversion to COCO (scripts/convert_cornweed.py). See docs/datasets/cornweed.md.
+# Conversion to COCO (scripts/data_prep/convert_cornweed.py). See docs/datasets/cornweed.md.
 convert:
   output_dir: data/processed/cornweed
   label_map: configs/label_maps/cornweed.csv
   eppo_taxa: configs/eppo_taxa.csv
-  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  # A label-map column; species = EPPO codes, for scripts/data_prep/combine_datasets.py.
   taxonomy: species
   # Plants whose box is shorter than this on its longer side (mm, via mm_per_px_by_width)
   # become ignore regions. Must match the other datasets to combine them.

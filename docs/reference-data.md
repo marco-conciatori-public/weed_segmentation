@@ -13,7 +13,7 @@ built from EPPO's full export.
 | Licence | EPPO Codes Open Data Licence (2014-11-17): reuse, including commercial, is allowed **with attribution** |
 | Raw export | `data/ref/sources/eppocodes_all.sqlite` (~50 MB, gitignored) |
 | Our table | `configs/eppo_taxa.csv` (versioned) |
-| Built by | `scripts/build_eppo_taxa.py`, settings in `configs/eppo.yaml` |
+| Built by | `scripts/data_prep/build_eppo_taxa.py`, settings in `configs/eppo.yaml` |
 
 ### Required attribution
 
@@ -38,7 +38,7 @@ One row per EPPO code used by any label map (plus `extra_codes` from the config)
 
 ### Rebuilding
 
-Run `scripts/build_eppo_taxa.py`, needed after adding codes to a label map or downloading
+Run `scripts/data_prep/build_eppo_taxa.py`, needed after adding codes to a label map or downloading
 a newer export. It rewrites the table and then checks every label map against it,
 printing:
 - codes that are missing from EPPO or no longer active,

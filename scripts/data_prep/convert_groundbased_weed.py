@@ -24,7 +24,7 @@ def main() -> None:
     names = groundbased_weed.image_names(raw_dir)
     if not names:
         raise SystemExit(f"No annotations under {raw_dir}/TOMATO_*/Annotations; "
-                         "run scripts/download_datasets.py")
+                         "run scripts/data_prep/download_datasets.py")
     block = settings["group_block"]
 
     def records_of(split_names: list[str]):

@@ -41,7 +41,7 @@ next to the regular test sets that measure the detector. The other 10 parts are 
 
 ## Conversion
 
-- `scripts/convert_sugarbeets2016.py` (`configs/sugarbeets2016.yaml`), shared pipeline
+- `scripts/data_prep/convert_sugarbeets2016.py` (`configs/sugarbeets2016.yaml`), shared pipeline
   `weedseg.data.convert`, reader `weedseg.data.sugarbeets2016`. The script first unpacks the
   RAR part with 7-Zip (part 1 alone ends inside a file of part 2, which is left out). 7-Zip
   is found on the PATH (`7z`, `7zz`, `7za`) or in its default Windows folder; `seven_zip`

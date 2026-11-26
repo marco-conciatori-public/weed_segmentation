@@ -35,7 +35,7 @@ def _load(raw_dir: Path) -> dict[str, dict[str, Any]]:
     for relative in ANNOTATIONS:
         path = raw_dir / ROOT / relative
         if not path.exists():
-            raise FileNotFoundError(f"{path} missing; run scripts/download_datasets.py")
+            raise FileNotFoundError(f"{path} missing; run scripts/data_prep/download_datasets.py")
         coco = json.loads(path.read_text(encoding="utf-8"))
         categories = {c["id"]: c["name"] for c in coco["categories"]}
         by_id = {}

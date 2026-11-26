@@ -3,8 +3,8 @@
 # weed masks per pixel, no plant IDs. Only the first of the 11 parts of the labelled images is
 # used, and only as an extra test set: boxes made from the masks' connected patches merge
 # touching beets and split some weeds, so it shows how the detector and imperfect labels
-# behave, it is not trained on. Used by scripts/download_datasets.py and
-# scripts/convert_sugarbeets2016.py. Relative paths are resolved against the project root.
+# behave, it is not trained on. Used by scripts/data_prep/download_datasets.py and
+# scripts/data_prep/convert_sugarbeets2016.py. Relative paths are resolved against the project root.
 # Licence: CC BY-SA 4.0 (dataset page). See docs/datasets/sugarbeets2016.md.
 
 # Where the download goes, and where it is unpacked: ijrr_sugarbeets_2016_annotations/.
@@ -13,14 +13,14 @@ raw_dir: data/raw/sugarbeets2016
 download:
   # A multi-part RAR archive (part01-part11, 22 GB); part 1 holds the day 2016-05-23. No
   # checksum is published; the size as served on 2026-11-09. Not unpacked by the downloader
-  # (RAR): scripts/convert_sugarbeets2016.py unpacks it with 7-Zip.
+  # (RAR): scripts/data_prep/convert_sugarbeets2016.py unpacks it with 7-Zip.
   files:
     - url: https://www.ipb.uni-bonn.de/datasets_IJRR2017/annotations/cropweed/ijrr_sugarbeets_2016_annotations.part01.rar
       name: ijrr_sugarbeets_2016_annotations.part01.rar
       size: 2147483648
   keep_archives: true
 
-# Conversion to COCO (scripts/convert_sugarbeets2016.py). See docs/datasets/sugarbeets2016.md.
+# Conversion to COCO (scripts/data_prep/convert_sugarbeets2016.py). See docs/datasets/sugarbeets2016.md.
 convert:
   # 7-Zip's command-line program, to unpack the RAR part when its folder is missing. Part 1
   # alone ends inside a file of part 2; that file is left out. null finds it: 7z, 7zz or 7za

@@ -1,4 +1,4 @@
-# Dataset downloads: which datasets scripts/download_datasets.py fetches, and how it uses the
+# Dataset downloads: which datasets scripts/data_prep/download_datasets.py fetches, and how it uses the
 # connection. Relative paths are resolved against the project root. See docs/data-format.md
 # (Downloading). Safe to stop and run again at any time: finished files are skipped,
 # unfinished ones continue where they stopped.
@@ -9,7 +9,7 @@ datasets:
   - configs/weedmaize.yaml
   - configs/cornweed.yaml
   # Added 2026-11-09: Sugar Beets 2016, only the first of its 11 RAR parts (2 GB, an extra
-  # test set; unpacked by scripts/convert_sugarbeets2016.py).
+  # test set; unpacked by scripts/data_prep/convert_sugarbeets2016.py).
   - configs/sugarbeets2016.yaml
   # Added 2026-11-10: DeepSeedling, cotton in Texas and Georgia, 4 GB from figshare.
   - configs/deepseedling.yaml

@@ -1,5 +1,5 @@
 # Merge converted datasets into the plant detector's data: every labelled plant becomes
-# `plant`, ignore regions stay ignore regions. Used by scripts/combine_datasets.py. Relative
+# `plant`, ignore regions stay ignore regions. Used by scripts/data_prep/combine_datasets.py. Relative
 # paths are resolved against the project root. See docs/detector.md (Datasets).
 
 # Converted dataset folders (train.json, val.json, test.json), each converted with taxonomy

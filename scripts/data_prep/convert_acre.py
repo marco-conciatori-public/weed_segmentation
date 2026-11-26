@@ -1,7 +1,7 @@
 """Convert the ACRE Crop-Weed Dataset to COCO (one JSON per split). Settings: configs/acre.yaml.
 
 The pipeline (size filter, split by recording batch balanced over species, COCO files) is
-weedseg.data.convert. scripts/combine_datasets.py then merges it with the other datasets into
+weedseg.data.convert. scripts/data_prep/combine_datasets.py then merges it with the other datasets into
 the detector's data.
 """
 

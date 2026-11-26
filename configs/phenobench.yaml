@@ -1,6 +1,6 @@
 # PhenoBench (Weyler et al., 2024; University of Bonn): sugar beet and weeds from a UAV, with
-# plant instance masks for crops and weeds. Used by scripts/download_datasets.py (see
-# configs/download.yaml) and scripts/convert_phenobench.py. Relative paths are resolved
+# plant instance masks for crops and weeds. Used by scripts/data_prep/download_datasets.py (see
+# configs/download.yaml) and scripts/data_prep/convert_phenobench.py. Relative paths are resolved
 # against the project root.
 # Licence: CC BY-NC-SA 4.0, per the README.MD of the download (v1.1.0); the website said
 # CC BY-SA 4.0.
@@ -19,7 +19,7 @@ download:
   # Keep the archive in <raw_dir>/.archives/ after unpacking it.
   keep_archives: false
 
-# Conversion to COCO (scripts/convert_phenobench.py). See docs/datasets/phenobench.md.
+# Conversion to COCO (scripts/data_prep/convert_phenobench.py). See docs/datasets/phenobench.md.
 # PhenoBench's own split is kept, since it separates crop rows (4 rows for train, 2 for val):
 # its train and val images are our train and val splits. Its test labels are not public, so
 # it adds nothing to our test split.
@@ -27,7 +27,7 @@ convert:
   output_dir: data/processed/phenobench
   label_map: configs/label_maps/phenobench.csv
   eppo_taxa: configs/eppo_taxa.csv
-  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  # A label-map column; species = EPPO codes, for scripts/data_prep/combine_datasets.py.
   taxonomy: species
   # Plants whose box is shorter than this on its longer side (mm, via mm_per_px_estimate)
   # become ignore regions. Must match the other datasets to combine them.

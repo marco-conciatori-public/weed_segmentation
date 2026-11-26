@@ -1,6 +1,6 @@
 """Detector runs side by side: their evaluations (by_dataset.csv of each split that
 evaluate_detector.py evaluated) and scale tests (report.csv of evaluate_scale.py), as one
-Markdown file. scripts/run_detector.py writes it after its detector variants.
+Markdown file. scripts/detector/run_detector.py writes it after its detector variants.
 """
 
 import csv

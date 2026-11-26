@@ -3,7 +3,7 @@ Settings: configs/weedai.yaml lists the dataset configs to convert (configs/linc
 ...), each with its own `convert` section.
 
 The pipeline (size filter, split by group balanced over species, COCO files) is
-weedseg.data.convert, the reader weedseg.data.weedai; scripts/combine_datasets.py then merges
+weedseg.data.convert, the reader weedseg.data.weedai; scripts/data_prep/combine_datasets.py then merges
 the datasets whose every plant is boxed into the detector's data. See docs/datasets/weedai.md.
 """
 

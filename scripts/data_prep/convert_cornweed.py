@@ -1,7 +1,7 @@
 """Convert CornWeed to COCO (one JSON per split). Settings: configs/cornweed.yaml (convert).
 
 The pipeline (size filter, split by block of frames balanced over species, COCO files) is
-weedseg.data.convert; scripts/combine_datasets.py then merges it with the other datasets into
+weedseg.data.convert; scripts/data_prep/combine_datasets.py then merges it with the other datasets into
 the detector's data.
 """
 

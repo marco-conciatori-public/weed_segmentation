@@ -2,7 +2,7 @@
 
 - Source: https://vision.eng.au.dk/open-plant-phenotyping-database/ (original host
   gitlab.au.dk/AUENG-Vision/OPPD, down in October 2026). We use Dataset Ninja's copy
-  "OPPD: Full Images" in Supervisely format, one 45 GB tar (`scripts/download_datasets.py`,
+  "OPPD: Full Images" in Supervisely format, one 45 GB tar (`scripts/data_prep/download_datasets.py`,
   `configs/oppd.yaml`). Paper: Madsen et al., "Open Plant Phenotyping Database of Common
   Weeds in Denmark", Remote Sensing 2020.
 - Owner: Aarhus University.
@@ -42,7 +42,7 @@ every JPEG is complete.
 
 ## Conversion choices
 
-- `scripts/convert_oppd.py` (`configs/oppd.yaml`), shared pipeline `weedseg.data.convert`,
+- `scripts/data_prep/convert_oppd.py` (`configs/oppd.yaml`), shared pipeline `weedseg.data.convert`,
   reader `weedseg.data.oppd`.
 - **Images without plants of at least 20 mm are dropped** (`keep_negative_images: false`):
   they are mostly the first days of each tray's time series, the same trays over and over.

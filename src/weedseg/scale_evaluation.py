@@ -26,7 +26,7 @@ Two more ways to show an image:
 
 A plant counts as found when a detection with score >= `score_threshold` overlaps its box at
 IoU >= `iou_threshold`. Box AP (COCO) is free of the threshold. Detections are kept in a cache,
-so an interrupted run resumes. scripts/evaluate_scale.py runs it (settings: the
+so an interrupted run resumes. scripts/experiments/evaluate_scale.py runs it (settings: the
 `evaluate_scale` section of the detector config). Ported from the segmentation line (master,
 2026-11-09), where it measured the two-stage pipeline's detector. See docs/detector.md (Scale).
 """
@@ -411,7 +411,7 @@ def saved_check(saved_dir: Path, images: list[dict[str, Any]], truth: dict[int, 
                 detections: dict[tuple[int, str], np.ndarray], settings: dict[str, Any],
                 datasets: list[str], max_detections: int) -> list[str]:
     """The native rows against the detector's saved evaluation of the same split
-    (scripts/evaluate_detector.py: batches of images, the detector's own resize), on the
+    (scripts/evaluate/evaluate_detector.py: batches of images, the detector's own resize), on the
     images both have."""
     if not (saved_dir / "predictions.json").exists():
         return [f"no saved evaluation in {saved_dir} to check against"]

@@ -1,7 +1,7 @@
 # PhenoBench
 
 - Source: https://www.phenobench.org, version 1.1.0 (December 2023), one 7.6 GB zip
-  (`scripts/download_datasets.py`, `configs/phenobench.yaml`). Paper: Weyler et al.,
+  (`scripts/data_prep/download_datasets.py`, `configs/phenobench.yaml`). Paper: Weyler et al.,
   "PhenoBench: A Large Dataset and Benchmarks for Semantic Image Interpretation in the
   Agricultural Domain", IEEE TPAMI 2024 (arXiv 2306.04557).
 - Owner: University of Bonn.
@@ -33,7 +33,7 @@
 
 ## Conversion choices
 
-- `scripts/convert_phenobench.py` (`configs/phenobench.yaml`), shared pipeline
+- `scripts/data_prep/convert_phenobench.py` (`configs/phenobench.yaml`), shared pipeline
   `weedseg.data.convert`.
 - **PhenoBench's own split is kept**, since it separates crop rows: its train and val images
   are our train and val splits, and our test split stays empty. Its val is not divided

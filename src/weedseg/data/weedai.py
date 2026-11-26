@@ -98,7 +98,7 @@ def image_names(raw_dir: Path, parts: list[str]) -> list[str]:
     for part in parts:
         path = raw_dir / part / ANNOTATIONS
         if not path.exists():
-            raise FileNotFoundError(f"{path} missing; run scripts/download_datasets.py")
+            raise FileNotFoundError(f"{path} missing; run scripts/data_prep/download_datasets.py")
         names.extend(f"{part}/{file}" for file in _load(path))
     return sorted(names)
 

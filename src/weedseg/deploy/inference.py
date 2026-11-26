@@ -1,4 +1,4 @@
-"""Run an exported plant detector on any images (scripts/demo_detector.py): the plants drawn
+"""Run an exported plant detector on any images (scripts/detector/demo_detector.py): the plants drawn
 on each image and saved as JSON, with no labels and no evaluation."""
 
 import importlib.util

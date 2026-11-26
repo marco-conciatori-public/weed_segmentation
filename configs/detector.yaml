@@ -1,6 +1,6 @@
 # Plant detector: torchvision Faster R-CNN ResNet-50 FPN v2 (BSD-3-Clause), one class (plant),
-# boxes only. Used by scripts/train_detector.py, scripts/evaluate_detector.py and
-# scripts/export_detector.py. Relative paths are resolved against the project root.
+# boxes only. Used by scripts/train/train_detector.py, scripts/evaluate/evaluate_detector.py and
+# scripts/detector/export_detector.py. Relative paths are resolved against the project root.
 # See docs/detector.md.
 
 # Outputs (checkpoints, TensorBoard logs, metrics, evaluations) go to <output_dir>/<run_name>/.
@@ -15,7 +15,7 @@ device: auto
 
 data:
   # Folder with train.json, val.json and test.json (and test_<dataset>.json of the test-only
-  # datasets): the output of scripts/combine_datasets.py (<output_dir>/<name>/
+  # datasets): the output of scripts/data_prep/combine_datasets.py (<output_dir>/<name>/
   # plant[_min<size>mm] of configs/combine.yaml).
   dir: data/processed/public7/plant_min20mm
   # Data-loading processes. 0 loads in the main process (slow, but simplest to debug).
@@ -104,7 +104,7 @@ evaluate:
   num_previews: 20
   preview_score_threshold: 0.5
 
-# Scale test (scripts/evaluate_scale.py): the plants found when the images are shown at other
+# Scale test (scripts/experiments/evaluate_scale.py): the plants found when the images are shown at other
 # scales than their own, as photos from other cameras and heights show them. Writes
 # <run>/scale/<split>_<checkpoint>/report.md and report.csv. Uses evaluate.checkpoint,
 # train.amp and device. See docs/detector.md (Scale).

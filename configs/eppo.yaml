@@ -1,4 +1,4 @@
-# EPPO taxa table: built by scripts/build_eppo_taxa.py from the EPPO SQLite export.
+# EPPO taxa table: built by scripts/data_prep/build_eppo_taxa.py from the EPPO SQLite export.
 # Relative paths are resolved against the project root. See docs/reference-data.md.
 
 # Full EPPO export from https://data.eppo.int (gitignored, ~50 MB).

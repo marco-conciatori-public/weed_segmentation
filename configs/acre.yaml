@@ -1,5 +1,5 @@
 # ACRE Crop-Weed Dataset (INRAE Montoldre, France, June 2022): conversion to COCO.
-# Used by scripts/convert_acre.py. Relative paths are resolved against the project root.
+# Used by scripts/data_prep/convert_acre.py. Relative paths are resolved against the project root.
 # See docs/datasets/acre.md.
 
 # Where the Zenodo download (record 8102217) is extracted: data/, scripts/, ACRE_datasheet.md.
@@ -9,7 +9,7 @@ convert:
   output_dir: data/processed/acre
   label_map: configs/label_maps/acre.csv
   eppo_taxa: configs/eppo_taxa.csv
-  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  # A label-map column; species = EPPO codes, for scripts/data_prep/combine_datasets.py.
   taxonomy: species
   # Plants whose box is shorter than this on its longer side (mm, via mm_per_px_estimate)
   # become ignore regions. Must match the other datasets to combine them.

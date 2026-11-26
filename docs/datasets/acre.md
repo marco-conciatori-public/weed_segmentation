@@ -37,7 +37,7 @@
 
 ## Conversion choices
 
-- `scripts/convert_acre.py` (`configs/acre.yaml`), shared pipeline `weedseg.data.convert`.
+- `scripts/data_prep/convert_acre.py` (`configs/acre.yaml`), shared pipeline `weedseg.data.convert`.
 - **Group = recording batch.** Only 10 groups, so the 70/15/15 split comes out as 6/2/2
   batches. The download's `split_dictionary.json` is not used. Both validation batches are
   bean plots.

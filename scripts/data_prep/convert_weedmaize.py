@@ -3,7 +3,7 @@
 The photos come cut into heavily overlapping tiles; only a spread-out set of tiles of each
 photo is kept (weedseg.data.weedmaize.select_tiles), so a plant isn't learned many times
 over. The pipeline (size filter, split by block of photos balanced over species, COCO files)
-is weedseg.data.convert; scripts/combine_datasets.py then merges it with the other datasets
+is weedseg.data.convert; scripts/data_prep/combine_datasets.py then merges it with the other datasets
 into the detector's data.
 """
 

@@ -38,7 +38,7 @@
 
 ## Conversion choices
 
-- `scripts/convert_weedmaize.py` (`configs/weedmaize.yaml`), shared pipeline
+- `scripts/data_prep/convert_weedmaize.py` (`configs/weedmaize.yaml`), shared pipeline
   `weedseg.data.convert`, reader `weedseg.data.weedmaize`.
 - **A spread-out set of tiles per photo** (`max_tile_overlap: 0.35`): greedily, the tile
   adding the most uncovered ground first, as long as it shares at most 35% of its area with

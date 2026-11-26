@@ -1,8 +1,8 @@
 # Run an exported plant detector on any images, labelled or not: each plant's box is drawn on
-# the image (with its plant score) and saved as JSON. Used by scripts/demo_detector.py.
+# the image (with its plant score) and saved as JSON. Used by scripts/detector/demo_detector.py.
 # Relative paths are resolved against the project root. See docs/detector.md.
 
-# A package made by scripts/export_detector.py. Its own plant_detector.py runs it, so the
+# A package made by scripts/detector/export_detector.py. Its own plant_detector.py runs it, so the
 # results are those of the code shipped with these weights.
 model: exports/plant_detector_2026-11-06
 # An image, a folder (its images, not those of its subfolders) or a list of both.

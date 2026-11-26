@@ -1,7 +1,7 @@
 # WeedMaize (López Correa, Andújar et al., CSIC and UPM, Spain): commercial maize fields in
 # Badajoz, April 2020, photographed straight down from 1.3 m; a box for every maize plant and
-# every weed, weeds by species (EPPO codes). Used by scripts/download_datasets.py (see
-# configs/download.yaml) and scripts/convert_weedmaize.py. Relative paths are resolved
+# every weed, weeds by species (EPPO codes). Used by scripts/data_prep/download_datasets.py (see
+# configs/download.yaml) and scripts/data_prep/convert_weedmaize.py. Relative paths are resolved
 # against the project root. Licence: CC BY 4.0 (Zenodo record). See
 # docs/datasets/weedmaize.md.
 
@@ -30,12 +30,12 @@ download:
   # Keep the archives in <raw_dir>/.archives/ after unpacking them.
   keep_archives: false
 
-# Conversion to COCO (scripts/convert_weedmaize.py). See docs/datasets/weedmaize.md.
+# Conversion to COCO (scripts/data_prep/convert_weedmaize.py). See docs/datasets/weedmaize.md.
 convert:
   output_dir: data/processed/weedmaize
   label_map: configs/label_maps/weedmaize.csv
   eppo_taxa: configs/eppo_taxa.csv
-  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  # A label-map column; species = EPPO codes, for scripts/data_prep/combine_datasets.py.
   taxonomy: species
   # Plants whose box is shorter than this on its longer side (mm, via mm_per_px_estimate)
   # become ignore regions. Must match the other datasets to combine them.

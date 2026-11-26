@@ -3,7 +3,7 @@
 - Source: DIGITAL.CSIC, https://doi.org/10.20350/digitalCSIC/17475. That server sent only
   the first 512 MiB of `TOMATO_1.zip` and `TOMATO_2.zip`, so the images and their boxes come
   from the authors' Nextcloud share (sent 2026-10-26), the same folders unpacked
-  (`scripts/download_datasets.py`, `configs/groundbased_weed.yaml`; see
+  (`scripts/data_prep/download_datasets.py`, `configs/groundbased_weed.yaml`; see
   [data-format.md](../data-format.md#downloading)). Paper: Moreno, Rivera Cárdenas and
   Andújar, "Ground-based imagery dataset for early weed classification in tomato crops",
   Data in Brief 2025 (https://doi.org/10.1016/j.dib.2025.112249, open on PMC as PMC12670878).
@@ -78,7 +78,7 @@ at 0.5 mm/px, 190 would.
 
 ## Conversion choices
 
-- `scripts/convert_groundbased_weed.py` (`configs/groundbased_weed.yaml`), shared pipeline
+- `scripts/data_prep/convert_groundbased_weed.py` (`configs/groundbased_weed.yaml`), shared pipeline
   `weedseg.data.convert`, reader `weedseg.data.groundbased_weed`. The VOC files are read;
   their sizes match the images.
 - **Groups are blocks of 10 consecutive camera numbers** (`group_block`), i.e. stretches of
