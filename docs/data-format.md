@@ -34,7 +34,7 @@ annotation files whatever the case of their names.
 
 ## Downloading
 
-`scripts/download_datasets.py` fetches the datasets listed in `configs/download.yaml`; each
+`scripts/data_prep/download_datasets.py` fetches the datasets listed in `configs/download.yaml`; each
 dataset config's `download` section lists its files (URL, size, checksum when published,
 whether to unpack, and `extract_to`, a subfolder to unpack into, for archives with the same
 layout such as Weed-AI's), or folders of a Nextcloud public share (`share` link, folder
@@ -143,7 +143,7 @@ Standard COCO fields, plus these extras:
 ## Combining datasets and choosing the classes
 
 Each dataset is converted on its own with taxonomy `species` (one category per EPPO code),
-the same `min_plant_size_mm`, and its own split. `scripts/combine_datasets.py`
+the same `min_plant_size_mm`, and its own split. `scripts/data_prep/combine_datasets.py`
 (`configs/combine.yaml`) then merges them and chooses the classes on the combined training
 images, so that every dataset counts (`weedseg.data.combine`):
 

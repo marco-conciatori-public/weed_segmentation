@@ -44,7 +44,7 @@ COCO with Weed-AI's additions:
 
 ## Converter
 
-`scripts/convert_weedai.py` converts the datasets listed in `configs/weedai.yaml`, each
+`scripts/data_prep/convert_weedai.py` converts the datasets listed in `configs/weedai.yaml`, each
 described by its own config (`configs/lincolnbeet.yaml`, ...), with the shared pipeline
 `weedseg.data.convert` and the reader `weedseg.data.weedai`. All Weed-AI images are
 converted as box only ([data-format.md](../data-format.md#datasets-labelled-with-boxes-only)):
@@ -72,7 +72,7 @@ The image field `source_name` keeps the original file stem, `part` the upload.
 2. Fill its row in [provenance.md](provenance.md) and compare it with the others.
 3. Write `configs/<dataset>.yaml` (download and convert sections, as in the existing ones)
    and `configs/label_maps/<dataset>.csv` (source label = the WeedCOCO category name), then
-   run `scripts/build_eppo_taxa.py` for new EPPO codes.
+   run `scripts/data_prep/build_eppo_taxa.py` for new EPPO codes.
 4. Add the config to `configs/download.yaml` and `configs/weedai.yaml`, download, convert.
 5. Add the paper to `PAPERS` in `weedseg.deploy.export`, and a dataset doc here.
 

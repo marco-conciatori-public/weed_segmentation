@@ -1,7 +1,7 @@
 # GROUNDBASED_WEED (Moreno, Rivera and Andújar, CSIC; Data in Brief 2025): commercial tomato
 # fields in Badajoz, Spain, 2021-22, boxes for tomato and 5 weed species. Used by
-# scripts/download_datasets.py (see configs/download.yaml) and
-# scripts/convert_groundbased_weed.py. Relative paths are resolved against the project root. Licence: ODbL 1.0, per the DIGITAL.CSIC record
+# scripts/data_prep/download_datasets.py (see configs/download.yaml) and
+# scripts/data_prep/convert_groundbased_weed.py. Relative paths are resolved against the project root. Licence: ODbL 1.0, per the DIGITAL.CSIC record
 # (https://doi.org/10.20350/digitalCSIC/17475).
 
 # Where the download is unpacked.
@@ -31,14 +31,14 @@ download:
   # Keep the archives in <raw_dir>/.archives/ after unpacking them.
   keep_archives: false
 
-# Conversion to COCO (scripts/convert_groundbased_weed.py). See
+# Conversion to COCO (scripts/data_prep/convert_groundbased_weed.py). See
 # docs/datasets/groundbased_weed.md. Boxes only: the images are marked box_only and reach the
 # species classifier, not Mask R-CNN.
 convert:
   output_dir: data/processed/groundbased_weed
   label_map: configs/label_maps/groundbased_weed.csv
   eppo_taxa: configs/eppo_taxa.csv
-  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  # A label-map column; species = EPPO codes, for scripts/data_prep/combine_datasets.py.
   taxonomy: species
   # Plants whose box is shorter than this on its longer side (mm, via mm_per_px_estimate)
   # become ignore regions. Must match the other datasets to combine them.

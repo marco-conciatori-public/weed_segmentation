@@ -2,7 +2,7 @@
 
 - Source: Weed-AI's copy, seven uploads, one per crop (`configs/imageweeds.yaml` lists them;
   e.g. flax: https://weed-ai.sydney.edu.au/datasets/ab3da4ea-4cb4-407a-a007-7052ed3a7850).
-  `scripts/download_datasets.py`; format in [weedai.md](weedai.md). Original: Mendeley Data
+  `scripts/data_prep/download_datasets.py`; format in [weedai.md](weedai.md). Original: Mendeley Data
   "ImageWeeds", doi 10.17632/8kjcztbjz2.2, which also holds close-up images of single weeds
   (not used).
 - Paper: Rai et al., "ImageWeeds: an image dataset consisting of weeds in multiple formats
@@ -41,7 +41,7 @@ From the paper, and measured from the Weed-AI download (2026-10-30):
 
 ## Conversion choices
 
-- `scripts/convert_weedai.py` (`configs/imageweeds.yaml`, listed in `configs/weedai.yaml`),
+- `scripts/data_prep/convert_weedai.py` (`configs/imageweeds.yaml`, listed in `configs/weedai.yaml`),
   reader `weedseg.data.weedai`. **Box only**: the classifier learns from these plants,
   Mask R-CNN doesn't see them.
 - **Copies left out** (`drop_duplicate_images`): of each pair of identical photos the lower

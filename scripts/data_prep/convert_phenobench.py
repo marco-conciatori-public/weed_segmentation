@@ -2,7 +2,7 @@
 
 PhenoBench's own split is kept, since it separates crop rows: its train and val images are
 our train and val splits, and our test split stays empty (its test labels are not public).
-The pipeline (size filter, COCO files) is weedseg.data.convert; scripts/combine_datasets.py
+The pipeline (size filter, COCO files) is weedseg.data.convert; scripts/data_prep/combine_datasets.py
 then chooses the classes.
 """
 
@@ -24,7 +24,7 @@ def main() -> None:
                          load_taxa(resolve(settings["eppo_taxa"])))
     names = phenobench.image_names(raw_dir)
     if not names:
-        raise SystemExit(f"No labelled images under {raw_dir}; run scripts/download_datasets.py")
+        raise SystemExit(f"No labelled images under {raw_dir}; run scripts/data_prep/download_datasets.py")
 
     def records_of(split_names: list[str]):
         return phenobench.iter_records(raw_dir, split_names, settings["mm_per_px_estimate"],

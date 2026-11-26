@@ -148,7 +148,7 @@ def other_data(classifier: dict[str, Any], variant: dict[str, Any]) -> bool:
 
 def missing_data(configs: dict[str, dict[str, Any]]) -> list[str]:
     """Classifier configs ({path: config}) whose species data isn't there yet."""
-    return [f"{path}: no {config['data']['dir']}/train.json; run scripts/combine_datasets.py"
+    return [f"{path}: no {config['data']['dir']}/train.json; run scripts/data_prep/combine_datasets.py"
             for path, config in configs.items()
             if not (resolve(config["data"]["dir"]) / "train.json").exists()]
 

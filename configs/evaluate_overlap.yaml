@@ -1,9 +1,9 @@
 # Overlapping frames, on the plants of a split seen in several images: used by
-# scripts/evaluate_overlap.py. Relative paths are resolved against the project root. See
+# scripts/experiments/evaluate_overlap.py. Relative paths are resolved against the project root. See
 # docs/twostage.md (Overlapping frames).
 
 # The runs: a classifier config, for its run, or a run folder. Two seeds show the run-to-run noise.
-# Each needs its two-stage evaluation and scripts/evaluate_tta.py's kept views.
+# Each needs its two-stage evaluation and scripts/experiments/evaluate_tta.py's kept views.
 runs:
   - configs/classifier.yaml
   - configs/classifier_dinov3_seed1.yaml

@@ -1,5 +1,5 @@
 # Run the steps of the two-stage pipeline one after the other, e.g. overnight on the training
-# machine. Used by scripts/run_twostage.py. See docs/twostage.md.
+# machine. Used by scripts/twostage/run_twostage.py. See docs/twostage.md.
 #
 # Each step keeps its own config; only the order and the config files live here. The detector
 # and classifier trained are those configs/twostage.yaml names (detector.config,
@@ -15,7 +15,7 @@ compare_runs: configs/compare_runs.yaml
 # Steps to run, in this order; remove those you don't need. Re-running is safe: crops already
 # cut for the same data are skipped, and trainings resume from their last.pt (a finished one does nothing), so
 # after a failure, fix the cause and start again.
-#   make_plant_dataset   plant-only copy of the species data (scripts/make_plant_dataset.py)
+#   make_plant_dataset   plant-only copy of the species data (scripts/data_prep/make_plant_dataset.py)
 #   prepare_crops        crop cache for the classifier (CPU only)
 #   train_detector       Mask R-CNN on the plant-only data
 #   evaluate_detector    the detector alone: AP and recall of plants
@@ -38,7 +38,7 @@ steps:
 # train_classifier, evaluate_classifier, predict_twostage: those listed) with its config; its
 # prediction uses the detector of configs/twostage.yaml. A variant that fails with a Python
 # error is reported and the next one starts. At the end, <log_dir>/compare_<date>_<time>.md
-# sets all classifier runs side by side (scripts/compare_runs.py does it for any runs).
+# sets all classifier runs side by side (scripts/evaluate/compare_runs.py does it for any runs).
 # A variant may train on other species data (its own data.dir, e.g. another combination of
 # configs/combine.yaml): its prediction then runs on that data's split, with the same detector.
 # Each variant adds about an hour. [] = none. Done on 2026-10-26: classifier_seed1.yaml,

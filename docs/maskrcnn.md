@@ -8,15 +8,15 @@ All settings live in `configs/maskrcnn.yaml`; both scripts run without arguments
 
 | Script | What it does |
 |---|---|
-| `scripts/train_maskrcnn.py` | Trains, evaluates on val every `eval_every` epochs, keeps the best checkpoint |
-| `scripts/evaluate_maskrcnn.py` | Evaluates a checkpoint on val or test: metrics, confusion matrix, previews |
-| `scripts/review_errors.py` | The worst errors of an evaluation, as images plus a CSV form for a plant expert |
+| `scripts/train/train_maskrcnn.py` | Trains, evaluates on val every `eval_every` epochs, keeps the best checkpoint |
+| `scripts/evaluate/evaluate_maskrcnn.py` | Evaluates a checkpoint on val or test: metrics, confusion matrix, previews |
+| `scripts/evaluate/review_errors.py` | The worst errors of an evaluation, as images plus a CSV form for a plant expert |
 
 ## Running it
 
-1. Convert each dataset with taxonomy `species` (`scripts/convert_cropandweed.py`,
-   `scripts/convert_acre.py`, `scripts/convert_phenobench.py`; see `docs/datasets/`), combine
-   them and choose the classes (`scripts/combine_datasets.py`, see
+1. Convert each dataset with taxonomy `species` (`scripts/data_prep/convert_cropandweed.py`,
+   `scripts/data_prep/convert_acre.py`, `scripts/data_prep/convert_phenobench.py`; see `docs/datasets/`), combine
+   them and choose the classes (`scripts/data_prep/combine_datasets.py`, see
    [data-format.md](data-format.md)), and point `data.dir` at the combined folder, which
    holds `train.json`, `val.json` and `test.json`. A single converted folder works too.
 2. Optional smoke test, on any machine: set `max_train_images: 16`, `max_val_images: 8`,
@@ -26,8 +26,8 @@ All settings live in `configs/maskrcnn.yaml`; both scripts run without arguments
    (`weights/maskrcnn_resnet50_fpn_v2_coco-73cbd019.pth`, gitignored); the URL is in the
    config. This way the training machine needs no internet access. With `pretrained_path: null`
    the first run downloads them to the torch cache instead.
-4. Run `scripts/train_maskrcnn.py`. Follow it with `uv run tensorboard --logdir runs/maskrcnn`.
-5. Run `scripts/evaluate_maskrcnn.py` (`evaluate.split: val`). Use `test` only for the final
+4. Run `scripts/train/train_maskrcnn.py`. Follow it with `uv run tensorboard --logdir runs/maskrcnn`.
+5. Run `scripts/evaluate/evaluate_maskrcnn.py` (`evaluate.split: val`). Use `test` only for the final
    numbers, so model choices aren't tuned on it.
 
 An interrupted training resumes when re-run, from the last checkpoint: `last.pt` is saved
@@ -172,7 +172,7 @@ little. Missed plants, detections on no plant and pairs with `other_plant` are l
 
 ## Error review for an expert
 
-`scripts/review_errors.py` (settings: `review` in `configs/maskrcnn.yaml`) reads the
+`scripts/evaluate/review_errors.py` (settings: `review` in `configs/maskrcnn.yaml`) reads the
 predictions of an evaluation, so it needs no GPU, and writes `<eval folder>/review/`. It is
 replaced on each run. `review.eval_dir` picks another evaluation folder, e.g. the two-stage
 pipeline's; the split, images and thresholds are those recorded in its `evaluation.json`,

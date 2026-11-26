@@ -29,7 +29,7 @@ Two more ways to show an image:
 A plant counts as found when a detection with plant score >= `score_threshold` overlaps its box
 at IoU >= `iou_threshold`. Boxes, not masks, so the datasets labelled with boxes only (new to the
 detector) count too. Box AP (COCO) is free of the threshold. Detections are kept in a cache, so
-an interrupted run resumes. scripts/evaluate_scale.py runs it. See docs/twostage.md (Ground
+an interrupted run resumes. scripts/experiments/evaluate_scale.py runs it. See docs/twostage.md (Ground
 resolution and the detector).
 """
 

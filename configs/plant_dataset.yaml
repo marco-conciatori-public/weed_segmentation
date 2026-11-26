@@ -1,5 +1,5 @@
 # One-class (plant) copy of a species dataset, for the detector of the two-stage pipeline.
-# Used by scripts/make_plant_dataset.py. Relative paths are resolved against the project root.
+# Used by scripts/data_prep/make_plant_dataset.py. Relative paths are resolved against the project root.
 # See docs/twostage.md.
 
 # Species folder (train.json, val.json, test.json), e.g. a combined one.

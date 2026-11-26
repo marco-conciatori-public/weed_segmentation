@@ -3,7 +3,7 @@
 - Source: Weed-AI's copy, three uploads, one per crop: beans
   (https://weed-ai.sydney.edu.au/datasets/499647c5-fdd2-472f-bccb-ee4acda631c9), maize
   (f6e9953d-dc9c-4bf2-8309-e17d726030d1) and leeks (2adbf2e1-ebc1-48fd-bbbc-76ef8b97e255).
-  `scripts/download_datasets.py`, `configs/vcd.yaml`; format in [weedai.md](weedai.md).
+  `scripts/data_prep/download_datasets.py`, `configs/vcd.yaml`; format in [weedai.md](weedai.md).
   Original: Mendeley Data "Vegetable Crops Dataset for Proximal Sensing (VCD)", doi
   10.17632/d7kbzjr83k.1 (one 2.7 GB `DB.zip`, Pascal VOC, with the authors' train/valid
   lists).
@@ -50,7 +50,7 @@ From the paper, and measured from the Weed-AI download (2026-10-30):
 
 ## Conversion choices
 
-- `scripts/convert_weedai.py` (`configs/vcd.yaml`, listed in `configs/weedai.yaml`), reader
+- `scripts/data_prep/convert_weedai.py` (`configs/vcd.yaml`, listed in `configs/weedai.yaml`), reader
   `weedseg.data.weedai`, shared pipeline `weedseg.data.convert`. **Box only**: the classifier
   learns from these crops, Mask R-CNN doesn't see them.
 - **Stem boxes are left out** (`drop_labels`). They could become stem points later

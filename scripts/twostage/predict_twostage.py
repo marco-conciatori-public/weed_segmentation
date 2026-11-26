@@ -3,9 +3,9 @@ species classifier names them (see weedseg.twostage). Settings: configs/twostage
 
 Writes to <output_dir>/<run_name>/eval/<split>_<classifier checkpoint>/ (e.g. val_last; up
 to 2026-10-26 <split>/, always made with best.pt) the same outputs as
-scripts/evaluate_maskrcnn.py (weedseg.report.write_evaluation), so the two pipelines can be
-compared file by file; scripts/review_errors.py reviews them with `review.eval_dir`.
-Images labelled with boxes only are left out: scripts/evaluate_classifier.py scores the
+scripts/evaluate/evaluate_maskrcnn.py (weedseg.report.write_evaluation), so the two pipelines can be
+compared file by file; scripts/evaluate/review_errors.py reviews them with `review.eval_dir`.
+Images labelled with boxes only are left out: scripts/evaluate/evaluate_classifier.py scores the
 classifier on their plants.
 """
 
@@ -32,7 +32,7 @@ CONFIG = "configs/twostage.yaml"
 def main(config_path: str = CONFIG, classifier_config: str | None = None,
          data_dir: str | None = None) -> None:
     """`classifier_config` replaces the config's classifier.config, and `data_dir` its
-    data.dir: scripts/run_twostage.py pairs each classifier variant with the same detector
+    data.dir: scripts/twostage/run_twostage.py pairs each classifier variant with the same detector
     this way, on the variant's own data."""
     config = load_config(config_path)
     if classifier_config is not None:

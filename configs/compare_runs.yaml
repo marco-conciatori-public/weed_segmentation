@@ -1,4 +1,4 @@
-# Classifier runs side by side: used by scripts/compare_runs.py. Relative paths are resolved
+# Classifier runs side by side: used by scripts/evaluate/compare_runs.py. Relative paths are resolved
 # against the project root. See docs/twostage.md (Comparing runs).
 
 # The runs, in this order (columns A, B, ...): a classifier config, for its run, or a run
@@ -16,9 +16,9 @@ runs:
   - configs/classifier_dinov3_seed1.yaml
   - configs/classifier_imageweeds.yaml
   - configs/classifier_imageweeds_seed1.yaml
-# The evaluation compared: <run>/eval/<split>_<checkpoint> (scripts/evaluate_classifier.py),
+# The evaluation compared: <run>/eval/<split>_<checkpoint> (scripts/evaluate/evaluate_classifier.py),
 # and the two-stage one made with the same checkpoint of each run,
-# <twostage_dir>/<detector run>__<run>/eval/<split>_<checkpoint> (scripts/predict_twostage.py;
+# <twostage_dir>/<detector run>__<run>/eval/<split>_<checkpoint> (scripts/twostage/predict_twostage.py;
 # the newest when several detectors were used).
 split: val
 checkpoint: last

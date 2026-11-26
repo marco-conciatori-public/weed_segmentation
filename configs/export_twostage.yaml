@@ -1,6 +1,6 @@
 # Deployment package of the two-stage model: the weights of both stages, model.json, a
 # self-contained weed_model.py and a README for whoever runs the model outside this repo.
-# Used by scripts/export_twostage.py. Relative paths are resolved against the project root.
+# Used by scripts/twostage/export_twostage.py. Relative paths are resolved against the project root.
 # See docs/twostage.md#deployment-package.
 
 # The detector and classifier this two-stage config uses (its detector/classifier config

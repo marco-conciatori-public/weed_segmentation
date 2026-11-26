@@ -3,7 +3,7 @@
 GROUNDBASED_WEED is labelled with boxes only, so its images are marked box_only: they reach
 the species classifier, not Mask R-CNN. The pipeline (size filter, split by block of camera
 numbers balanced over species, COCO files) is weedseg.data.convert;
-scripts/combine_datasets.py then chooses the classes.
+scripts/data_prep/combine_datasets.py then chooses the classes.
 """
 
 from weedseg.config import load_config
@@ -25,7 +25,7 @@ def main() -> None:
     names = groundbased_weed.image_names(raw_dir)
     if not names:
         raise SystemExit(f"No annotations under {raw_dir}/TOMATO_*/Annotations; "
-                         "run scripts/download_datasets.py")
+                         "run scripts/data_prep/download_datasets.py")
     block = settings["group_block"]
 
     def records_of(split_names: list[str]):

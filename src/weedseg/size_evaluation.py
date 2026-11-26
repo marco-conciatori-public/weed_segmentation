@@ -25,9 +25,9 @@ about as many plants each, and judges each part with a stack learned on the othe
 Only classes with at least `min_fit_plants` labelled plants among those learned from get a bias
 or a size term; the others keep what the classifier gave them, at the stack's temperature.
 
-The plants are scripts/evaluate_tta.py's plain view, kept as weedseg.tta keeps them: the labelled
+The plants are scripts/experiments/evaluate_tta.py's plain view, kept as weedseg.tta keeps them: the labelled
 boxes of the crop cache (all datasets) and the two-stage evaluation's detections (datasets with
-masks). scripts/evaluate_size.py runs it. See docs/twostage.md (Plant size).
+masks). scripts/experiments/evaluate_size.py runs it. See docs/twostage.md (Plant size).
 """
 
 import json
@@ -281,10 +281,10 @@ def score_cases(plants: Plants, settings: dict[str, Any]) -> list[dict[str, Any]
 
 
 def plain_view(folder: Path, ids: np.ndarray, classes: list[str]) -> np.ndarray:
-    """The plain view's probabilities kept in `folder` by scripts/evaluate_tta.py, in the order of
+    """The plain view's probabilities kept in `folder` by scripts/experiments/evaluate_tta.py, in the order of
     `classes`."""
     def missing(view: dict[str, Any]) -> tuple[np.ndarray, list[str]]:
-        raise SystemExit(f"No plain view of these plants in {folder}: run scripts/evaluate_tta.py "
+        raise SystemExit(f"No plain view of these plants in {folder}: run scripts/experiments/evaluate_tta.py "
                          "on this run first (max_plants null)")
     return collect_views(folder, ids, {PLAIN: {}}, missing, classes)[PLAIN]
 

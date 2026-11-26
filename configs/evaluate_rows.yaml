@@ -1,5 +1,5 @@
 # A plant's place against the crop rows and the spacing along them, next to the classifier,
-# evaluated on saved predictions: used by scripts/evaluate_rows.py. Relative paths are resolved
+# evaluated on saved predictions: used by scripts/experiments/evaluate_rows.py. Relative paths are resolved
 # against the project root. See docs/twostage.md (Crop rows and spacing).
 
 # Two-stage evaluations of these runs, per group: a classifier config, for its run, or a run
@@ -20,7 +20,7 @@ checkpoint: last
 twostage_dir: runs/twostage
 
 # The test of a new site: labelled boxes of datasets a run never trained on. It needs the
-# probabilities of scripts/evaluate_unseen.py; a run without them is listed at the end of the
+# probabilities of scripts/evaluate/evaluate_unseen.py; a run without them is listed at the end of the
 # report and left out, so this works without them.
 unseen:
   # That script's output_dir: <probabilities>/<run>/<split>_<checkpoint>.npz.

@@ -1,5 +1,5 @@
-"""Classifier runs side by side: the evaluation of each (scripts/evaluate_classifier.py) and the
-two-stage prediction made with it (scripts/predict_twostage.py), on the same split.
+"""Classifier runs side by side: the evaluation of each (scripts/evaluate/evaluate_classifier.py) and the
+two-stage prediction made with it (scripts/twostage/predict_twostage.py), on the same split.
 
 The rows are the settings in which the runs differ, then the overall numbers (classifier
 accuracy overall and per dataset, and both stages' plants found, species right and decisions),

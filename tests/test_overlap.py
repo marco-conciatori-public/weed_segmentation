@@ -487,7 +487,7 @@ def test_workers_dont_import_torch():
     # On Windows a worker runs the script's top level and imports its job's module. With torch in
     # there, the laptop ran out of memory with four workers (2026-11-05).
     code = ("import runpy, sys; "
-            f"runpy.run_path(r'{resolve('scripts/evaluate_overlap.py')}', run_name='__mp_main__'); "
+            f"runpy.run_path(r'{resolve('scripts/experiments/evaluate_overlap.py')}', run_name='__mp_main__'); "
             "import weedseg.frames; "
             "sys.exit('torch' in sys.modules)")
     assert subprocess.run([sys.executable, "-c", code], check=False).returncode == 0

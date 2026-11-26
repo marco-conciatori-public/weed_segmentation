@@ -1,12 +1,12 @@
 # CropAndWeed dataset (Steininger et al., WACV 2023): download and conversion to COCO.
-# Used by scripts/download_datasets.py and scripts/convert_cropandweed.py.
+# Used by scripts/data_prep/download_datasets.py and scripts/data_prep/convert_cropandweed.py.
 # Relative paths are resolved against the project root. See docs/datasets/cropandweed.md.
 
 # Where the original archives are extracted (images/, bboxes/, labelIds/, params/).
 raw_dir: data/raw/cropandweed
 
 download:
-  # Fetched by scripts/download_datasets.py (see configs/download.yaml for the connection
+  # Fetched by scripts/data_prep/download_datasets.py (see configs/download.yaml for the connection
   # settings). cropandweed_annotations is ~110 MB; each images part is ~3 GB (~12 GB in all).
   files:
     - url: https://vitro-testing.com/wp-content/uploads/2022/12/cropandweed_annotations.tar
@@ -30,7 +30,7 @@ convert:
   # crops_or_weed9, crop_or_weed2) or an EPPO rank taken from eppo_taxa (genus, family,
   # order). Instances whose label has no value (and the dataset's own "Vegetation"
   # fallback) become ignore regions. Use species to combine datasets and choose the classes
-  # with scripts/combine_datasets.py (configs/combine.yaml).
+  # with scripts/data_prep/combine_datasets.py (configs/combine.yaml).
   taxonomy: species
   # Plants whose box is shorter than this on its longer side (mm, via mm_per_px_estimate)
   # become ignore regions: neither learned nor scored. The project targets plants past the

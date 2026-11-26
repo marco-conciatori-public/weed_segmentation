@@ -1,4 +1,4 @@
-"""Train the plant detector of the two-stage pipeline: scripts/train_maskrcnn.py with
+"""Train the plant detector of the two-stage pipeline: scripts/train/train_maskrcnn.py with
 configs/detector.yaml (configs/maskrcnn.yaml on the plant-only data). See docs/twostage.md.
 """
 

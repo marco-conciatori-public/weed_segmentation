@@ -2,7 +2,7 @@
 
 - Source: Weed-AI's copy,
   https://weed-ai.sydney.edu.au/datasets/dc1e5436-fa3e-4c0f-84e3-3ea875ea9db4
-  (`scripts/download_datasets.py`, `configs/lincolnbeet.yaml`; format in
+  (`scripts/data_prep/download_datasets.py`, `configs/lincolnbeet.yaml`; format in
   [weedai.md](weedai.md)). Original: https://github.com/LAR/lincolnbeet_dataset, which links
   a Dropbox zip of PNG images with COCO, VOC and darknet labels and the paper's split.
 - Paper: Darbyshire, Salazar-Gomez, Gao, Sklar and Parsons, "Towards practical object
@@ -37,7 +37,7 @@ From the paper, and measured from the Weed-AI download (2026-10-30):
 
 ## Conversion choices
 
-- `scripts/convert_weedai.py` (`configs/lincolnbeet.yaml`, listed in `configs/weedai.yaml`),
+- `scripts/data_prep/convert_weedai.py` (`configs/lincolnbeet.yaml`, listed in `configs/weedai.yaml`),
   reader `weedseg.data.weedai`. **Box only**: the classifier learns from these plants,
   Mask R-CNN doesn't see them.
 - **Weeds are partial labels, "not sugar beet"**: `1PLAK` with `none_of: BEAVA`, as for

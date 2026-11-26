@@ -1,5 +1,5 @@
 # Combine converted datasets into one training set, and choose its classes.
-# Used by scripts/combine_datasets.py. Relative paths are resolved against the project root.
+# Used by scripts/data_prep/combine_datasets.py. Relative paths are resolved against the project root.
 # See docs/data-format.md (Combining datasets).
 
 # Converted dataset folders (train.json, val.json, test.json), each converted with taxonomy

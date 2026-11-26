@@ -20,7 +20,7 @@ datasets that label species with boxes only (GROUNDBASED_WEED, OPPD).
 
 ## Steps
 
-`scripts/run_twostage.py` runs steps 1-7 in order (settings: `configs/run_twostage.yaml`, the
+`scripts/twostage/run_twostage.py` runs steps 1-7 in order (settings: `configs/run_twostage.yaml`, the
 list of steps), e.g. overnight on the training machine. Each step reads its own config;
 the runner only orders them, after checking that the configs use the same data (see below).
 Re-running is safe: crops already cut for the same data are skipped and trainings resume from `last.pt`
@@ -53,7 +53,7 @@ may train on another combination of `configs/combine.yaml` (since 2026-10-30, e.
 the same detector. The species data of every run must exist. A variant that fails with a Python error is
 reported and the next one starts; an error in the main steps still stops the runner. At the
 end, `compare_<date>_<time>.md` and `.csv` in `log_dir` set all classifier runs side by side
-(see [Comparing runs](#training)); `scripts/compare_runs.py` (`configs/compare_runs.yaml`)
+(see [Comparing runs](#training)); `scripts/evaluate/compare_runs.py` (`configs/compare_runs.yaml`)
 does the same for any runs, older ones included. The shipped variants:
 
 | Config | Changes | Why | Result, 2026-10-26 to 28 |
@@ -302,7 +302,7 @@ worth something if it is larger than the gap between two runs that differ by the
 alone (`classifier_seed1.yaml`, `classifier_seed2.yaml`: see the spread of the three seeds
 under Classifier variants in [Steps](#steps)).
 
-`weedseg.compare` lays this out (after classifier variants, or with `scripts/compare_runs.py`):
+`weedseg.compare` lays this out (after classifier variants, or with `scripts/evaluate/compare_runs.py`):
 one column per run (A, B, ... named above the table), and rows in that order: the settings in
 which the runs differ (from each run's `config.yaml`), the epoch evaluated, how far the last
 epoch's val accuracy is below the best's, the classifier's accuracy overall and per dataset, both stages' plants found, species right, crops removed and
@@ -432,7 +432,7 @@ An empty list says nothing, and that side stays as it was, so a crop list alone 
 to use a field's known crop. A class on either list is never divided and the lists override the
 crop tags (volunteer potatoes on the weed list), and `other_plant` is never divided.
 
-`scripts/evaluate_skew.py` (settings: `configs/evaluate_skew.yaml`) measures this from saved
+`scripts/experiments/evaluate_skew.py` (settings: `configs/evaluate_skew.yaml`) measures this from saved
 two-stage predictions, in about 40 s without a GPU, and writes `runs/skew/skew_<date>_<time>.md`
 and `.csv`, with `_missed.csv` and `_lists.csv` (every session's lists). Without a skew its
 species right equals `by_dataset.csv` exactly. Its crops removed and harmful removed count the
@@ -489,7 +489,7 @@ running counts.
 
 Every dataset's val split shares sites and days with its train split, so the usual evaluation
 can't show what a model does at a new site, nor what more diverse training data buys.
-`scripts/evaluate_unseen.py` (settings: `configs/evaluate_unseen.yaml`, code: `weedseg.unseen`)
+`scripts/evaluate/evaluate_unseen.py` (settings: `configs/evaluate_unseen.yaml`, code: `weedseg.unseen`)
 has runs of different combinations score the same plants, so that a dataset new to one run is
 known to another. As set up, those are the three five-dataset DINOv3 seeds, the two public7 seeds
 and the two public7+ImageWeeds seeds, on LincolnBeet, VCD and ImageWeeds. It uses the classifier
@@ -525,7 +525,7 @@ where it was and only the table is made again. Each file is written when that ru
 so stopping inside one loses that split. The plants are 5,248 in val (LincolnBeet 3,663, VCD 1,307,
 ImageWeeds 278) and 6,911 in train (VCD 5,654, ImageWeeds 1,257), and a laptop CPU scores about 3
 per second, so this is a job for the training machine. Lower `batch_size` and `num_workers` on a
-small machine. `scripts/evaluate_rows.py` reads the same files (see Crop rows and spacing).
+small machine. `scripts/experiments/evaluate_rows.py` reads the same files (see Crop rows and spacing).
 
 Results: pending.
 
@@ -539,7 +539,7 @@ other evidence plants only. Images cover less than a metre, so a session supplie
 can't: the direction of the rows, the distance between them, the usual gap along a row, and the
 pitch, only when the gaps really are periodic. It isn't part of the export or the platform.
 
-`scripts/evaluate_rows.py` (settings: `configs/evaluate_rows.yaml`) measures what that adds to the
+`scripts/experiments/evaluate_rows.py` (settings: `configs/evaluate_rows.yaml`) measures what that adds to the
 classifier, from saved predictions, in about 5 minutes without a GPU. It writes
 `runs/rows/rows_<date>_<time>.md` and `.csv`, with `_where.csv`, `_veto.csv`, `_alone.csv` and
 `_sessions.csv` (every session's rows). It looks at three sets of plants:
@@ -549,7 +549,7 @@ classifier, from saved predictions, in about 5 minutes without a GPU. It writes
   ones). Without a position its crops removed and harmful removed equal those of `evaluate_skew.py`
   without a skew: both count the plants found, where `by_dataset.csv` also counts those missed.
 - Labelled boxes of datasets a run never trained on, as if the detector were perfect: the test of
-  a new site. It needs the probabilities of `scripts/evaluate_unseen.py`, and a run without them
+  a new site. It needs the probabilities of `scripts/evaluate/evaluate_unseen.py`, and a run without them
   is listed at the end of the report and left out. **No results yet.**
 
 A position's worth is learned as a table of log likelihood ratios per cell (how far off the row,
@@ -637,7 +637,7 @@ beet), which only a position can catch.
 ## Test-time augmentation
 
 Marco's idea: when a plant gets a low score, show the classifier several views of it and combine
-the outputs. `scripts/evaluate_tta.py` (settings: `configs/evaluate_tta.yaml`, code: `weedseg.tta`)
+the outputs. `scripts/experiments/evaluate_tta.py` (settings: `configs/evaluate_tta.yaml`, code: `weedseg.tta`)
 tests it on the two public7 seeds. The prediction pipeline and the export don't use it.
 
 - The views are things training has seen: the 8 combinations of a flip and quarter turns, and a
@@ -657,7 +657,7 @@ tests it on the two public7 seeds. The prediction pipeline and the export don't 
 It scores two sets of plants: the labelled boxes of the crop cache (classifier alone, all seven
 datasets, so OPPD too), and the two-stage evaluation's detections (real boxes and the plant
 threshold; CropAndWeed, ACRE and PhenoBench). The second counts the plants found, as
-`scripts/evaluate_skew.py` does, so its decision shares run higher than `by_dataset.csv`.
+`scripts/experiments/evaluate_skew.py` does, so its decision shares run higher than `by_dataset.csv`.
 
 It writes `runs/tta/tta_<date>_<time>.md` and `.csv`. Each table has one row per variant: the plain
 crop, each view set averaged, then the main set by vote and behind each gate. Ranges are the spread
@@ -776,7 +776,7 @@ without views, and the script stays for a re-run should the hand-off change.
 ## Overlapping frames
 
 A second frame of a plant is a new image, which augmenting one frame isn't: another exposure and
-angle, and a plant cut by one frame's border may be whole in the next. `scripts/evaluate_overlap.py`
+angle, and a plant cut by one frame's border may be whole in the next. `scripts/experiments/evaluate_overlap.py`
 (settings: `configs/evaluate_overlap.yaml`, code: `weedseg.overlap`, `weedseg.frames`) tests whether
 combining them beats a single frame, on the two public7 seeds. The prediction pipeline and the
 export don't use it.
@@ -798,7 +798,7 @@ both frames see. Linked boxes are one plant, and every view of it gets the same 
 Plants seen once keep their probabilities exactly, so whatever moves comes from plants seen more
 than once. All frames of a plant are used, later ones too, as if the decision waits until the plant
 has left the camera. The classifier isn't run: the probabilities are the two-stage evaluation's and
-`scripts/evaluate_tta.py`'s kept views, so this needs a CPU and the images.
+`scripts/experiments/evaluate_tta.py`'s kept views, so this needs a CPU and the images.
 
 The data holds little overlap, so read the rows on plants seen twice for what a second view is
 worth, not the dataset rows for what a robot would gain. Its overlap is not this data's.
@@ -873,7 +873,7 @@ the script stays for a re-run on the robot's own sequences or should the hand-of
 
 Marco's idea (2026-11-09): give the classifier the plant's real size, from a known or estimated
 ground resolution. Crops are cut around the box and resized to 224 px (see Crops), so today the
-classifier can't see the size. `scripts/evaluate_size.py` (settings: `configs/evaluate_size.yaml`,
+classifier can't see the size. `scripts/experiments/evaluate_size.py` (settings: `configs/evaluate_size.yaml`,
 code: `weedseg.size_evaluation`) asks what the size would be worth, before any training. It works
 on the plain view that `evaluate_tta.py` keeps, so it needs no GPU, and it runs on the two public7
 seeds.
@@ -940,7 +940,7 @@ every robot team for it (2026-11-09). The detector resizes every image to 1088 p
 (at most 1920 on the long side) before it looks, so the scale it sees depends on how much ground
 the photo covers, not on the camera: mm/px at the detector = the image's mm/px / that resize. In
 training that ran from 0.41 (CropAndWeed) through 0.53 (ACRE) to 0.94 mm/px (PhenoBench).
-`scripts/evaluate_scale.py` (settings: `configs/evaluate_scale.yaml`, code:
+`scripts/experiments/evaluate_scale.py` (settings: `configs/evaluate_scale.yaml`, code:
 `weedseg.scale_evaluation`) shows val images to the two-stage detector at other scales and counts
 the plants it still finds. That tells whether an estimate of the ground resolution, used to resize
 or tile the photo, is worth building.
@@ -1038,7 +1038,7 @@ since it needs no new model and helps every camera, and re-run this test on the 
 
 ## Deployment package
 
-`scripts/export_twostage.py` (settings: `configs/export_twostage.yaml`) packages the
+`scripts/twostage/export_twostage.py` (settings: `configs/export_twostage.yaml`) packages the
 detector and classifier of `configs/twostage.yaml` for someone who runs the model outside
 this repo, e.g. on a demo website. It writes `exports/weed_twostage_<date>/`:
 
@@ -1073,7 +1073,7 @@ were the package's rounding of boxes and scores.
 
 ## Inference on any images
 
-`scripts/demo_twostage.py` (settings: `configs/demo_twostage.yaml`) runs an exported
+`scripts/twostage/demo_twostage.py` (settings: `configs/demo_twostage.yaml`) runs an exported
 package on images with no labels: one image, a folder or a list of both. It writes to
 `runs/demo/<package>/`, per image, `<name>.jpg` with the plants drawn on it (mask and
 outline coloured by species, label with the species probability; plants sent to the zero-shot

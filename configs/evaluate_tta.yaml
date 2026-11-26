@@ -1,5 +1,5 @@
 # Test-time augmentation, on all plants of a split, then worked out for any views, way of combining
-# them and gate: used by scripts/evaluate_tta.py. Relative paths are resolved against the project
+# them and gate: used by scripts/experiments/evaluate_tta.py. Relative paths are resolved against the project
 # root. See docs/twostage.md (Test-time augmentation).
 
 # The runs: a classifier config, for its run, or a run folder. Two seeds show the run-to-run noise.

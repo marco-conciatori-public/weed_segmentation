@@ -1,5 +1,5 @@
 # Mask R-CNN baseline (torchvision ResNet-50 FPN v2, Apache-2.0).
-# Used by scripts/train_maskrcnn.py and scripts/evaluate_maskrcnn.py, and as the base of
+# Used by scripts/train/train_maskrcnn.py and scripts/evaluate/evaluate_maskrcnn.py, and as the base of
 # configs/detector.yaml (the two-stage pipeline's plant detector: same settings, plant data).
 # Relative paths are resolved against the project root. See docs/maskrcnn.md.
 
@@ -107,12 +107,12 @@ evaluate:
   preview_score_threshold: 0.5
 
 review:
-  # scripts/review_errors.py: the model's worst errors on evaluate.split, as images plus a CSV
+  # scripts/evaluate/review_errors.py: the model's worst errors on evaluate.split, as images plus a CSV
   # form for a plant expert. It reads the evaluation folder (run evaluate_maskrcnn.py first)
   # and uses that evaluation's thresholds and rule file (read as it is now). Errors shown per
   # type.
   # Evaluation folder to review; null = this config's evaluate checkpoint and split. E.g.
-  # runs/twostage/<run>/eval/val_last for the two-stage pipeline (scripts/predict_twostage.py).
+  # runs/twostage/<run>/eval/val_last for the two-stage pipeline (scripts/twostage/predict_twostage.py).
   eval_dir: null
   per_type: 25
   # Smallest crop around a plant, in px of the original image (more context for small plants).

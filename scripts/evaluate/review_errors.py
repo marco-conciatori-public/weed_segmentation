@@ -1,8 +1,8 @@
 """The model's worst errors, as images plus a CSV form, to show a plant expert.
 
 Settings: configs/maskrcnn.yaml (`review`; without `review.eval_dir`, the `evaluate` settings
-locate the Mask R-CNN's evaluation). Run scripts/evaluate_maskrcnn.py or
-scripts/predict_twostage.py first: this script reads the evaluation's predictions.json, so it
+locate the Mask R-CNN's evaluation). Run scripts/evaluate/evaluate_maskrcnn.py or
+scripts/twostage/predict_twostage.py first: this script reads the evaluation's predictions.json, so it
 needs no GPU. The split, images and thresholds are those the evaluation used (its
 evaluation.json; older evaluations without one use the current `evaluate` settings), and the
 decision rules are read from the file it names, as that file is now: after a change to it,
@@ -69,8 +69,8 @@ def main() -> None:
     settings, review = config["evaluate"], config["review"]
     source = resolve(review["eval_dir"]) if review["eval_dir"] else eval_dir(config)
     if not (source / "predictions.json").exists():
-        raise SystemExit(f"No predictions in {source}; run scripts/evaluate_maskrcnn.py or "
-                         "scripts/predict_twostage.py first")
+        raise SystemExit(f"No predictions in {source}; run scripts/evaluate/evaluate_maskrcnn.py or "
+                         "scripts/twostage/predict_twostage.py first")
     with open(source / "predictions.json", encoding="utf-8") as f:
         results = json.load(f)
     split_path, seed = split_file(config, settings["split"]), config["seed"]
@@ -168,7 +168,7 @@ def short_name(name: str, taxa: dict[str, dict[str, str]]) -> str:
 
 def full_name(name: str, taxa: dict[str, dict[str, str]], plant: dict | None = None) -> str:
     """E.g. "Zea mays (maize; EPPO ZEAMX)"; for an other_plant plant, also its own species
-    (the `eppo` field that scripts/combine_datasets.py writes)."""
+    (the `eppo` field that scripts/data_prep/combine_datasets.py writes)."""
     if name == OTHER_CATEGORY:
         code = (plant or {}).get("eppo", "")
         return f"{OTHER_CATEGORY}: {full_name(code, taxa)}" if code in taxa else OTHER_CATEGORY

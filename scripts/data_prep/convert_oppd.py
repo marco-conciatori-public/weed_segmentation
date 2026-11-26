@@ -2,7 +2,7 @@
 
 OPPD is labelled with boxes only, so its images are marked box_only: they reach the species
 classifier, not Mask R-CNN. The pipeline (size filter, split by tray balanced over species,
-COCO files) is weedseg.data.convert; scripts/combine_datasets.py then chooses the classes.
+COCO files) is weedseg.data.convert; scripts/data_prep/combine_datasets.py then chooses the classes.
 """
 
 from weedseg.config import load_config
@@ -24,7 +24,7 @@ def main() -> None:
     names = oppd.image_names(raw_dir)
     if not names:
         raise SystemExit(f"No annotations under {raw_dir / 'ds0' / 'ann'}; "
-                         "run scripts/download_datasets.py")
+                         "run scripts/data_prep/download_datasets.py")
 
     def records_of(split_names: list[str]):
         return oppd.iter_records(raw_dir, split_names, settings["mm_per_px_estimate"])

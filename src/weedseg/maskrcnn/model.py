@@ -153,7 +153,7 @@ def build_model(num_classes: int, config: dict[str, Any]) -> MaskRCNN:
 
 
 def load_checkpoint_model(path, device: torch.device) -> tuple[MaskRCNN, dict[str, Any]]:
-    """Model from a checkpoint saved by scripts/train_maskrcnn.py, plus the checkpoint."""
+    """Model from a checkpoint saved by scripts/train/train_maskrcnn.py, plus the checkpoint."""
     checkpoint = torch.load(path, map_location="cpu", weights_only=False)
     config = {**checkpoint["config"]["model"], "pretrained": False}
     model = build_model(len(checkpoint["categories"]) + 1, config)

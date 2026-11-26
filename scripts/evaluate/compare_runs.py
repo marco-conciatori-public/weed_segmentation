@@ -2,7 +2,7 @@
 Settings: configs/compare_runs.yaml. See weedseg.compare for what is shown.
 
 Writes <output_dir>/compare_<date>_<time>.md (which run is which, and the table) and .csv, and
-prints the table. scripts/run_twostage.py does the same after classifier variants.
+prints the table. scripts/twostage/run_twostage.py does the same after classifier variants.
 """
 
 from datetime import datetime

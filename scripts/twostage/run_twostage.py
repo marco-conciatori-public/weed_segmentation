@@ -35,20 +35,22 @@ from datetime import datetime
 from functools import partial
 from pathlib import Path
 
-import evaluate_classifier
-import evaluate_maskrcnn
-import make_plant_dataset
 import predict_twostage
-import prepare_crops
-import train_classifier
-import train_maskrcnn
 
 from weedseg.compare import write_comparison
 from weedseg.config import load_config
 from weedseg.console import log_console
 from weedseg.maskrcnn.run import checkpoint_path, resolve_run_dir
-from weedseg.paths import resolve
+from weedseg.paths import import_script, resolve
 from weedseg.twostage import config_problems, missing_data, other_data, shared_run_dirs
+
+# The steps' scripts that live in other scripts/ subfolders.
+make_plant_dataset = import_script("scripts/data_prep/make_plant_dataset.py")
+prepare_crops = import_script("scripts/data_prep/prepare_crops.py")
+train_maskrcnn = import_script("scripts/train/train_maskrcnn.py")
+train_classifier = import_script("scripts/train/train_classifier.py")
+evaluate_maskrcnn = import_script("scripts/evaluate/evaluate_maskrcnn.py")
+evaluate_classifier = import_script("scripts/evaluate/evaluate_classifier.py")
 
 CONFIG = "configs/run_twostage.yaml"
 # Exit code of a step that raised a CUDA error as a Python exception: worth a restart.

@@ -2,7 +2,7 @@
 configs/evaluate_size.yaml. See weedseg.size_evaluation for what is measured, and docs/twostage.md
 (Plant size).
 
-Works on the plain view that scripts/evaluate_tta.py keeps, so it needs no GPU and no checkpoint.
+Works on the plain view that scripts/experiments/evaluate_tta.py keeps, so it needs no GPU and no checkpoint.
 Writes <output_dir>/size_<date>_<time>.md and .csv, and prints the tables.
 """
 

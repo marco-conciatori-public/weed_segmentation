@@ -2,7 +2,7 @@
 # weed trial in seven crops, a box for each potted weed of five species set in the plots
 # (crops and the field's own weeds not boxed).
 # Weed-AI's copy (WeedCOCO, one upload per crop; see docs/datasets/weedai.md). Used by
-# scripts/download_datasets.py (see configs/download.yaml) and scripts/convert_weedai.py (see
+# scripts/data_prep/download_datasets.py (see configs/download.yaml) and scripts/data_prep/convert_weedai.py (see
 # configs/weedai.yaml). Relative paths are resolved against the project root. Licence:
 # CC BY 4.0 (Weed-AI records). Provenance: docs/datasets/provenance.md.
 
@@ -60,14 +60,14 @@ download:
   # Keep the archives in <raw_dir>/.archives/ after unpacking them.
   keep_archives: false
 
-# Conversion to COCO (scripts/convert_weedai.py, listed in configs/weedai.yaml). See
+# Conversion to COCO (scripts/data_prep/convert_weedai.py, listed in configs/weedai.yaml). See
 # docs/datasets/imageweeds.md. Boxes only: the images are marked box_only and reach the
 # species classifier, not Mask R-CNN.
 convert:
   output_dir: data/processed/imageweeds
   label_map: configs/label_maps/imageweeds.csv
   eppo_taxa: configs/eppo_taxa.csv
-  # A label-map column; species = EPPO codes, for scripts/combine_datasets.py.
+  # A label-map column; species = EPPO codes, for scripts/data_prep/combine_datasets.py.
   taxonomy: species
   # The Weed-AI uploads (folders under raw_dir) that make up the dataset.
   parts: [beta_vulgaris, brassica, field_peas, flax, glycine_max, lentils, zea_mays]

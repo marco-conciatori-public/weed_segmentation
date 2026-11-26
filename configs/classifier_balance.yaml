@@ -6,7 +6,7 @@
 # pull; it may cost some accuracy on the common classes, so judge it on balanced accuracy,
 # ACRE's crops removed and the overall numbers together. Plants with a partial label are
 # balanced as one group per set of allowed classes. Trained after the base run by
-# scripts/run_twostage.py (classifier_variants in configs/run_twostage.yaml); see
+# scripts/twostage/run_twostage.py (classifier_variants in configs/run_twostage.yaml); see
 # docs/twostage.md.
 # Result 2026-10-27 (last epoch): val accuracy 93.2% against 93.7% and 94.0% (base,
 # seed1), balanced 80.6% against 79.8%. At defer_below 0.9 ACRE's beans removed fall to

@@ -1,4 +1,4 @@
-# Dataset downloads: which datasets scripts/download_datasets.py fetches, and how it uses the
+# Dataset downloads: which datasets scripts/data_prep/download_datasets.py fetches, and how it uses the
 # connection. Relative paths are resolved against the project root. See docs/data-format.md
 # (Downloading). Safe to stop and run again at any time: finished files are skipped,
 # unfinished ones continue where they stopped.

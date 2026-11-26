@@ -66,7 +66,7 @@ def main(config_path: str = CONFIG) -> None:
     folder = cache_dir(resolve(config["data"]["dir"]), crops)
     index = folder / f"index_{split}.csv"
     if not index.exists():
-        raise SystemExit(f"No crop cache {index}; run scripts/prepare_crops.py first")
+        raise SystemExit(f"No crop cache {index}; run scripts/data_prep/prepare_crops.py first")
     rows = read_index(index)
     dataset = CropDataset(rows, folder / split, classes, crops)
     loader = DataLoader(dataset, config["train"]["eval_batch_size"],

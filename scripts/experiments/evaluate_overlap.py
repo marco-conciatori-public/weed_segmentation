@@ -2,7 +2,7 @@
 configs/evaluate_overlap.yaml. See weedseg.overlap for what is measured, and docs/twostage.md
 (Overlapping frames).
 
-CPU only: it reads the two-stage evaluations and scripts/evaluate_tta.py's kept views, and needs the
+CPU only: it reads the two-stage evaluations and scripts/experiments/evaluate_tta.py's kept views, and needs the
 images to place the frames. Keeps the frames' registrations in <output_dir>/registrations/, so only
 the first run is slow. Writes <output_dir>/overlap_<date>_<time>.md, .csv, _links.csv,
 _intervals.csv and _label_conflicts.csv, and prints the tables.

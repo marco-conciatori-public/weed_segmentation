@@ -8,7 +8,7 @@ no class for are scored too (what does it do with them?), and partly labelled on
 probability of the classes their label rules out, not by the top class alone: on a plant of
 an unknown species the output is often flat, and a top class at 0.05 says little.
 
-scripts/evaluate_unseen.py runs it. See docs/twostage.md (Unseen sites).
+scripts/evaluate/evaluate_unseen.py runs it. See docs/twostage.md (Unseen sites).
 """
 
 import csv

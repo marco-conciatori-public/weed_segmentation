@@ -19,7 +19,7 @@ Plants come from two places, scored alike (weedseg.skew_evaluation.scores):
 Probabilities are combined first and then treated as the two-stage pipeline treats its own
 (`as_saved`), so the plain view gives the numbers of a normal evaluation.
 
-scripts/evaluate_tta.py runs it. See docs/twostage.md (Test-time augmentation).
+scripts/experiments/evaluate_tta.py runs it. See docs/twostage.md (Test-time augmentation).
 """
 
 import json
@@ -263,7 +263,7 @@ def crop_rows(run_config: dict[str, Any], split: str, kept: Path) -> list[dict[s
         kept.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(index, kept)
     elif not kept.exists():
-        raise SystemExit(f"No crop cache {index}; run scripts/prepare_crops.py first")
+        raise SystemExit(f"No crop cache {index}; run scripts/data_prep/prepare_crops.py first")
     return read_index(kept)
 
 
@@ -304,7 +304,7 @@ def evaluate_run(run: Path, settings: dict[str, Any], ground_truths: dict[Path, 
     folder = twostage_eval(resolve(settings["twostage_dir"]), run, split, checkpoint)
     if folder is None:
         raise SystemExit(f"No two-stage evaluation of {run.name}, {split} {checkpoint}; "
-                         "run scripts/predict_twostage.py")
+                         "run scripts/twostage/predict_twostage.py")
     evaluation = load_evaluation(folder, ground_truths)
     keep = pick(len(evaluation.boxes), settings["max_plants"])
     evaluation = subset_evaluation(evaluation, keep)

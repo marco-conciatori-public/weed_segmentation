@@ -5,7 +5,7 @@ Settings: configs/weedai.yaml lists the dataset configs to convert (configs/linc
 Weed-AI's datasets are labelled with boxes only, so their images are marked box_only: they
 reach the species classifier, not Mask R-CNN. The pipeline (size filter, split by group
 balanced over species, COCO files) is weedseg.data.convert, the reader weedseg.data.weedai;
-scripts/combine_datasets.py then chooses the classes. See docs/datasets/weedai.md.
+scripts/data_prep/combine_datasets.py then chooses the classes. See docs/datasets/weedai.md.
 """
 
 from pathlib import Path

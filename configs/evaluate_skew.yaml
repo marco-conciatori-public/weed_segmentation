@@ -1,5 +1,5 @@
 # Skewing the classifier with a crop list and a weed list, evaluated on saved two-stage
-# predictions: used by scripts/evaluate_skew.py. Relative paths are resolved against the project
+# predictions: used by scripts/experiments/evaluate_skew.py. Relative paths are resolved against the project
 # root. See docs/twostage.md (Species lists).
 
 # The runs: a classifier config, for its run, or a run folder. Two seeds show the run-to-run noise.

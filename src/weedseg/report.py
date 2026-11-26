@@ -1,12 +1,12 @@
 """Evaluation outputs of instance predictions (COCO results) on a species or plant split,
-shared by scripts/evaluate_maskrcnn.py and scripts/predict_twostage.py so both pipelines are
+shared by scripts/evaluate/evaluate_maskrcnn.py and scripts/twostage/predict_twostage.py so both pipelines are
 scored by the same code.
 
 `write_evaluation` writes to one folder: predictions.json, metrics.json (COCO bbox and segm),
 per_class.csv, confusion_matrix.csv/.png, taxonomic_levels.csv and, with `rules`,
 decisions.csv/.json (both only for species-level classes), by_dataset.csv (the main numbers
 per source dataset, for splits that combine several), previews/ (ground truth left,
-predictions right) and evaluation.json (what was evaluated, read by scripts/review_errors.py).
+predictions right) and evaluation.json (what was evaluated, read by scripts/evaluate/review_errors.py).
 """
 
 import csv

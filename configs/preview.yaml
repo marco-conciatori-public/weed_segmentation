@@ -1,5 +1,5 @@
 # Annotation preview: draws masks, boxes, labels and stems of a COCO file over its images.
-# Used by scripts/preview_annotations.py. Relative paths are resolved against the project root.
+# Used by scripts/data_prep/preview_annotations.py. Relative paths are resolved against the project root.
 
 # Any COCO file in our internal format (its info.image_dir says where the images are).
 coco_json: data/processed/cropandweed/species/train.json

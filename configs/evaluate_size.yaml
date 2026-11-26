@@ -1,10 +1,10 @@
 # Does a plant's real size help tell its species? A stack on the classifier's saved probabilities,
-# learned on other plants than those judged: used by scripts/evaluate_size.py. No GPU and no
+# learned on other plants than those judged: used by scripts/experiments/evaluate_size.py. No GPU and no
 # retraining. Relative paths are resolved against the project root. See docs/twostage.md (Plant
 # size) and weedseg.size_evaluation.
 
 # The runs: a classifier config, for its run, or a run folder. Two seeds show the run-to-run noise.
-# Each needs its two-stage evaluation and the plain view that scripts/evaluate_tta.py keeps.
+# Each needs its two-stage evaluation and the plain view that scripts/experiments/evaluate_tta.py keeps.
 runs:
   - configs/classifier.yaml
   - configs/classifier_dinov3_seed1.yaml

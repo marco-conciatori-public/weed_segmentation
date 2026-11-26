@@ -55,7 +55,7 @@ def parameter_groups(model: nn.Module, lr_backbone: float, lr_head: float,
 
 
 def load_classifier(path, device: torch.device) -> tuple[nn.Module, dict[str, Any]]:
-    """Classifier from a checkpoint saved by scripts/train_classifier.py, plus the checkpoint."""
+    """Classifier from a checkpoint saved by scripts/train/train_classifier.py, plus the checkpoint."""
     checkpoint = torch.load(path, map_location="cpu", weights_only=False)
     config = checkpoint["config"]
     model = build_classifier(len(checkpoint["classes"]), {**config["model"], "pretrained": False},

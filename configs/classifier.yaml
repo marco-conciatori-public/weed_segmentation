@@ -1,6 +1,6 @@
 # Species classifier on plant crops (DINOv3 via timm; its weights are under Meta's DINOv3
 # License, see model below): the second stage of the two-stage pipeline. Used by
-# scripts/prepare_crops.py, scripts/train_classifier.py and scripts/evaluate_classifier.py.
+# scripts/data_prep/prepare_crops.py, scripts/train/train_classifier.py and scripts/evaluate/evaluate_classifier.py.
 # Relative paths are resolved against the project root. See docs/twostage.md.
 
 # Outputs go to <output_dir>/<run_name>/. Placeholders: {dataset} and {taxonomy} = the last
@@ -29,7 +29,7 @@ data:
 
 crops:
   # Context around each plant: this fraction of its box's longer side on each side. The same
-  # crop is cut around each detection by scripts/predict_twostage.py.
+  # crop is cut around each detection by scripts/twostage/predict_twostage.py.
   margin: 0.25
   # Classifier input, px (a multiple of 16, DINOv3's patch size; 224 is also one of 14,
   # DINOv2's, so both share the crop cache).
@@ -127,7 +127,7 @@ train:
   warn_last_below_best: 0.005
 
 evaluate:
-  # scripts/evaluate_classifier.py: accuracy on the cached crops of a split (labelled boxes,
+  # scripts/evaluate/evaluate_classifier.py: accuracy on the cached crops of a split (labelled boxes,
   # no detector). Checkpoint of this run: last (the final epoch), best (the epoch with the
   # best val accuracy) or a path to a .pt file. Both are kept. last since 2026-10-27: the
   # learning rate has decayed to almost zero by then, while best picked chance peaks (one

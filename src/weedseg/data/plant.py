@@ -20,7 +20,7 @@ def to_plant_only(coco: dict[str, Any]) -> dict[str, Any]:
     """Copy of a species COCO dict with the categories `plant` (id 1) and `ignore` (id 2)."""
     if "datasets" in coco["info"] and "hidden_plants" not in coco["info"]:
         raise ValueError("This combined dataset was made before hidden plants were marked: "
-                         "re-run scripts/combine_datasets.py")
+                         "re-run scripts/data_prep/combine_datasets.py")
     ignore_ids = {c["id"] for c in coco["categories"] if c["name"] == IGNORE_CATEGORY}
     annotations = []
     for annotation in coco["annotations"]:

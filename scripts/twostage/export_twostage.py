@@ -4,7 +4,7 @@ configs/export_twostage.yaml.
 Writes <output_dir>/<name>/: both stages' weights (safetensors), model.json, weed_model.py
 (self-contained inference), requirements.txt and README.md, with the species list,
 training data and validation numbers of the runs (see weedseg.deploy.export). Run the
-two-stage evaluation first (scripts/predict_twostage.py, scripts/evaluate_classifier.py),
+two-stage evaluation first (scripts/twostage/predict_twostage.py, scripts/evaluate/evaluate_classifier.py),
 or the README leaves those numbers out.
 """
 

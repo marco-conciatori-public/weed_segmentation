@@ -1,6 +1,6 @@
 # Detector scale test: how many plants the plant detector still finds when a photo shows the ground
 # at another scale than its training images (phones, drones, other robots). Used by
-# scripts/evaluate_scale.py. Relative paths are resolved against the project root. See
+# scripts/experiments/evaluate_scale.py. Relative paths are resolved against the project root. See
 # docs/twostage.md (Ground resolution and the detector).
 
 # The detector: that of this two-stage config (its detector.config and detector.checkpoint).

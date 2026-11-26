@@ -423,7 +423,7 @@ def write_report(runs: list[Path], settings: dict[str, Any], stem: Path) -> str:
                                settings["checkpoint"])
         if folder is None:
             raise FileNotFoundError(f"No two-stage evaluation of {run.name}, {settings['split']} "
-                                    f"{settings['checkpoint']}; run scripts/predict_twostage.py")
+                                    f"{settings['checkpoint']}; run scripts/twostage/predict_twostage.py")
         found = evaluate_run(load_evaluation(folder, ground_truths), run.name, settings)
         for key, rows in found.items():
             results[key] += rows

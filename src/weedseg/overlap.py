@@ -18,12 +18,12 @@ A plant seen once keeps its probabilities exactly, so whatever moves comes from 
 more than once. All frames of a plant are used, later ones too: the decision waits until it has
 left the camera. The classifier isn't run: probabilities come from the two-stage evaluation
 (detections) and
-from scripts/evaluate_tta.py's kept views (labelled boxes, and the same plants' augmented views as a
+from scripts/experiments/evaluate_tta.py's kept views (labelled boxes, and the same plants' augmented views as a
 control), so this needs a CPU and the images.
 
 A link between two labelled boxes is also a check of the labels: one plant should have one label.
 
-scripts/evaluate_overlap.py runs it. See docs/twostage.md (Overlapping frames).
+scripts/experiments/evaluate_overlap.py runs it. See docs/twostage.md (Overlapping frames).
 """
 
 from collections import Counter, defaultdict
@@ -398,14 +398,14 @@ def evaluate_run(run: Path, settings: dict[str, Any], tta: dict[str, Any],
     folder = twostage_eval(resolve(settings["twostage_dir"]), run, split, checkpoint)
     if folder is None:
         raise SystemExit(f"No two-stage evaluation of {run.name}, {split} {checkpoint}; "
-                         "run scripts/predict_twostage.py")
+                         "run scripts/twostage/predict_twostage.py")
     evaluation = load_evaluation(folder, ground_truths)
     base = resolve(tta["output_dir"]) / run.name / f"{split}_{checkpoint}"
     if not (base / "crops" / "plants.csv").exists():
-        raise SystemExit(f"No kept views in {base}; run scripts/evaluate_tta.py first")
+        raise SystemExit(f"No kept views in {base}; run scripts/experiments/evaluate_tta.py first")
 
     def missing(_view: dict[str, Any]) -> None:
-        raise SystemExit(f"A view is missing in {base}; run scripts/evaluate_tta.py first")
+        raise SystemExit(f"A view is missing in {base}; run scripts/experiments/evaluate_tta.py first")
 
     def augmented(views: dict[str, np.ndarray]) -> np.ndarray:
         return as_saved(np.mean(list(views.values()), 0))

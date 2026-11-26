@@ -1,5 +1,5 @@
 """Train the species classifier on cached plant crops. Settings: configs/classifier.yaml
-(all sections but `evaluate`). Run scripts/prepare_crops.py first.
+(all sections but `evaluate`). Run scripts/data_prep/prepare_crops.py first.
 
 With `data.partial_labels`, plants whose label only rules out some classes (e.g.
 PhenoBench's weeds: not sugar beet) train as "one of the allowed classes" (PartialLabelLoss)
@@ -66,7 +66,7 @@ def main(config_path: str = CONFIG) -> None:
     for split, limit in (("train", data["max_train_crops"]), ("val", data["max_val_crops"])):
         index = folder / f"index_{split}.csv"
         if not index.exists():
-            raise SystemExit(f"No crop cache {index}; run scripts/prepare_crops.py first")
+            raise SystemExit(f"No crop cache {index}; run scripts/data_prep/prepare_crops.py first")
         rows[split] = read_index(index)
         if not data["partial_labels"]:
             rows[split] = [row for row in rows[split] if not row["allowed"]]

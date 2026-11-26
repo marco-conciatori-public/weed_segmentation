@@ -1,5 +1,5 @@
 # Classifier runs on plants of datasets they never trained on, next to runs that did: used by
-# scripts/evaluate_unseen.py. Relative paths are resolved against the project root. See
+# scripts/evaluate/evaluate_unseen.py. Relative paths are resolved against the project root. See
 # docs/twostage.md (Unseen sites).
 
 # The runs, in this order (columns A, B, ...): a classifier config, for its run, or a run

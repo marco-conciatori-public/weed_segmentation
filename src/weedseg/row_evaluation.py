@@ -7,7 +7,7 @@ Three sets of plants:
   the position says at all, per dataset and crop.
 - two-stage: the detections of a two-stage evaluation, with the classifier's probabilities.
 - unseen: labelled boxes of datasets a run never trained on, with the probabilities that
-  scripts/evaluate_unseen.py saves. The test of a new site. Only crops and weeds with a label are
+  scripts/evaluate/evaluate_unseen.py saves. The test of a new site. Only crops and weeds with a label are
   in it, so it is as if the detector were perfect.
 
 How much a position is worth is learned, as a table of log likelihood ratios per cell (how far
@@ -710,7 +710,7 @@ def write_report(settings: dict[str, Any], stem: Path) -> str:
             if folder is None:
                 raise FileNotFoundError(f"No two-stage evaluation of {run.name}, "
                                         f"{settings['split']} {settings['checkpoint']}; "
-                                        "run scripts/predict_twostage.py")
+                                        "run scripts/twostage/predict_twostage.py")
             _evaluate(twostage_plants(folder, ground_truths), group, run.name, settings, results,
                       rows, keep=references)
     lines = [*_alone_section(alone)]
@@ -744,7 +744,7 @@ def write_report(settings: dict[str, Any], stem: Path) -> str:
                 f"unseen {group}")
     if missing:
         about = (f"No saved probabilities for these runs, so the test of a new site is left out "
-                 f"for them: {', '.join(missing)}. Run scripts/evaluate_unseen.py, here or on the "
+                 f"for them: {', '.join(missing)}. Run scripts/evaluate/evaluate_unseen.py, here or on the "
                  f"training machine, and copy {unseen['probabilities']}/<run>/ here.")
         lines += ["## Not yet scored", "", about, ""]
     text = "\n".join(lines)

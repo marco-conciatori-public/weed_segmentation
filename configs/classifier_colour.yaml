@@ -1,7 +1,7 @@
 # Classifier variant: configs/classifier_dinov2.yaml with twice the colour jitter (brightness,
 # contrast and saturation +-40%, hue +-0.05), so the camera's and light's colours (e.g. OPPD's
 # greenhouse) tell the dataset less. Colour is also a real species cue (reddish stems), so
-# this may cost accuracy too. Trained after the base run by scripts/run_twostage.py
+# this may cost accuracy too. Trained after the base run by scripts/twostage/run_twostage.py
 # (classifier_variants in configs/run_twostage.yaml).
 # Result 2026-10-26/27 (last epoch): within chance (val accuracy 93.9% against 94.0% and
 # 93.7% for seed1 and the base; cross-dataset accuracy 86.4% against 87.2%), so the base

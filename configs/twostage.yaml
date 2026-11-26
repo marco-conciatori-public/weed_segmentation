@@ -1,5 +1,5 @@
 # Two-stage prediction: a one-class (plant) Mask R-CNN finds the plants, the species
-# classifier names them. Used by scripts/predict_twostage.py. Relative paths are resolved
+# classifier names them. Used by scripts/twostage/predict_twostage.py. Relative paths are resolved
 # against the project root. See docs/twostage.md.
 
 # Outputs go to <output_dir>/<run_name>/eval/<split>_<classifier checkpoint>/, e.g. val_last.
@@ -20,7 +20,7 @@ data:
   num_workers: 6
 
 detector:
-  # The detector's config (scripts/train_detector.py) and its checkpoint: best or last of
+  # The detector's config (scripts/train/train_detector.py) and its checkpoint: best or last of
   # that config's run, or a path to a .pt file (then the config is not used to find it).
   config: configs/detector.yaml
   # Run 2's detector (CropAndWeed+ACRE+PhenoBench+OPPD) since 2026-10-26: one for the later
@@ -31,7 +31,7 @@ detector:
   batch_size: 2
 
 classifier:
-  # The classifier's config (scripts/train_classifier.py) and its checkpoint, as above
+  # The classifier's config (scripts/train/train_classifier.py) and its checkpoint, as above
   # (last, like evaluate.checkpoint of configs/classifier.yaml). The crop settings (margin,
   # size, background) come from the checkpoint.
   config: configs/classifier.yaml

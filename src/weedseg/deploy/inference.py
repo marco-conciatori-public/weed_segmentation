@@ -1,4 +1,4 @@
-"""Run an exported two-stage package on any images (scripts/demo_twostage.py): the
+"""Run an exported two-stage package on any images (scripts/twostage/demo_twostage.py): the
 plants drawn on each image and saved as JSON, with no labels and no evaluation."""
 
 import importlib.util

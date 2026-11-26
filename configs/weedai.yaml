@@ -1,4 +1,4 @@
-# Datasets from Weed-AI (https://weed-ai.sydney.edu.au) that scripts/convert_weedai.py
+# Datasets from Weed-AI (https://weed-ai.sydney.edu.au) that scripts/data_prep/convert_weedai.py
 # converts, in this order. Each config has the dataset's download and convert sections; see
 # docs/datasets/weedai.md for the format and how to add another Weed-AI dataset. Relative
 # paths are resolved against the project root.

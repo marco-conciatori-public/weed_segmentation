@@ -2,7 +2,7 @@
 configs/demo_twostage.yaml.
 
 Writes per image <name>.jpg (the plants drawn on it) and <name>.json (the plants) to the
-config's output_dir. For scores on a labelled split, use scripts/predict_twostage.py.
+config's output_dir. For scores on a labelled split, use scripts/twostage/predict_twostage.py.
 """
 
 from weedseg.config import load_config
