@@ -16,8 +16,8 @@ from weedseg.paths import resolve
 CONFIG = "configs/groundbased_weed.yaml"
 
 
-def main() -> None:
-    config = load_config(CONFIG)
+def convert(config_path: str = CONFIG) -> None:
+    config = load_config(config_path)
     raw_dir = resolve(config["raw_dir"])
     settings = config["convert"]
     label_map = LabelMap(resolve(settings["label_map"]), settings["taxonomy"],
@@ -43,4 +43,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    convert()

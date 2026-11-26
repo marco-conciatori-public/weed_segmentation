@@ -1,0 +1,22 @@
+# Convert every downloaded dataset in one go: which datasets
+# scripts/data_prep/convert_datasets.py converts, in this order, and with which converter.
+# Relative paths are resolved against the project root. Each dataset's own config holds its
+# convert settings; the converters can still be run one by one.
+
+# Dataset config: converter script. Every listed dataset is converted again on each run; one
+# not downloaded yet (raw_dir missing, or only its archives) is skipped. Comment a line out
+# to leave a dataset alone.
+datasets:
+  configs/cropandweed.yaml: scripts/data_prep/convert_cropandweed.py
+  configs/acre.yaml: scripts/data_prep/convert_acre.py
+  configs/phenobench.yaml: scripts/data_prep/convert_phenobench.py
+  configs/oppd.yaml: scripts/data_prep/convert_oppd.py
+  configs/groundbased_weed.yaml: scripts/data_prep/convert_groundbased_weed.py
+  # Weed-AI datasets (configs/weedai.yaml lists the same ones for convert_weedai.py alone).
+  configs/vcd.yaml: scripts/data_prep/convert_weedai.py
+  configs/imageweeds.yaml: scripts/data_prep/convert_weedai.py
+  configs/lincolnbeet.yaml: scripts/data_prep/convert_weedai.py
+
+# `convert` settings every dataset must share, checked before anything is converted:
+# scripts/data_prep/combine_datasets.py needs one taxonomy and one size filter. [] = no check.
+same_settings: [taxonomy, min_plant_size_mm]

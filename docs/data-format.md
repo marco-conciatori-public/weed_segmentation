@@ -143,7 +143,9 @@ Standard COCO fields, plus these extras:
 ## Combining datasets and choosing the classes
 
 Each dataset is converted on its own with taxonomy `species` (one category per EPPO code),
-the same `min_plant_size_mm`, and its own split. `scripts/data_prep/combine_datasets.py`
+the same `min_plant_size_mm`, and its own split. `scripts/data_prep/convert_datasets.py`
+(`configs/convert.yaml`) re-converts every downloaded dataset in one go, after checking that
+they share those settings; each converter can still be run alone. `scripts/data_prep/combine_datasets.py`
 (`configs/combine.yaml`) then merges them and chooses the classes on the combined training
 images, so that every dataset counts (`weedseg.data.combine`):
 
