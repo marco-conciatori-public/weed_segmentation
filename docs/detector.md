@@ -21,6 +21,7 @@ Every script runs without arguments; its settings are in the config next to it.
 |---|---|---|
 | `scripts/data_prep/download_datasets.py` | `configs/download.yaml` | Downloads the datasets ([data-format.md](data-format.md#downloading)) |
 | `scripts/data_prep/convert_<dataset>.py`, `convert_weedai.py` | `configs/<dataset>.yaml` | Converts each dataset to our COCO format (boxes, EPPO codes, split by group) |
+| `scripts/data_prep/convert_datasets.py` | `configs/convert.yaml` | Converts every downloaded dataset in one go, after checking they share taxonomy and size filter |
 | `scripts/data_prep/preview_annotations.py` | `configs/preview.yaml` | Draws a COCO file's boxes on its images: check that a dataset boxes every plant |
 | `scripts/data_prep/combine_datasets.py` | `configs/combine.yaml` | Merges the converted datasets into one class, `plant` |
 | `scripts/train/train_detector.py` | `configs/detector.yaml` | Trains, evaluates on val every `eval_every` epochs, keeps the best checkpoint |

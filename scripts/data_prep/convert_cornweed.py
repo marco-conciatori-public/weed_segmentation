@@ -15,7 +15,7 @@ from weedseg.paths import resolve
 CONFIG = "configs/cornweed.yaml"
 
 
-def main(config_path: str = CONFIG) -> None:
+def convert(config_path: str = CONFIG) -> None:
     config = load_config(config_path)
     raw_dir = resolve(config["raw_dir"])
     settings = config["convert"]
@@ -46,4 +46,4 @@ def main(config_path: str = CONFIG) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    convert()
